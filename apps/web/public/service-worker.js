@@ -95,7 +95,6 @@ self.addEventListener("message", (event) => {
   );
 });
 
-
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     Promise.all([
