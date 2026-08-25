@@ -44,7 +44,9 @@ function loadState(): AppState {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed?.jobs) && parsed.jobs.length > 0 && Array.isArray(parsed?.quotes)) {
-      // Backfill staffId + new array fields on legacy entries.
+      // Backfill staffId + new array fields on legacy entries. Every required
+      // array must be materialised here: a persisted job from before a field
+      // existed (e.g. photos) otherwise crashes render-time `.length` reads.
       const jobs = parsed.jobs.map((j: Job) => {
         const seedJob = seedJobs.find((candidate) => candidate.id === j.id);
         return {
@@ -54,6 +56,7 @@ function loadState(): AppState {
         phone: j.phone ?? seedJob?.phone,
         accessCode: j.accessCode ?? seedJob?.accessCode,
         timeEntries: (j.timeEntries ?? []).map((e: TimeEntry) => ({ ...e, staffId: e.staffId ?? "tim" })),
+        photos: j.photos ?? seedJob?.photos ?? [],
         serviceItems: j.serviceItems ?? [],
         voiceNotes: j.voiceNotes ?? [],
         logEntries: j.logEntries ?? [],
@@ -62,9 +65,15 @@ function loadState(): AppState {
         milestones: j.milestones ?? [],
       };
       });
+      // Quotes get the same treatment: `lines` is required by the builder.
+      const quotes = parsed.quotes.map((q: Quote) => ({
+        ...q,
+        lines: Array.isArray(q.lines) ? q.lines : [],
+        signature: q.signature ?? null,
+      }));
       return {
         jobs,
-        quotes: parsed.quotes,
+        quotes,
         channels: Array.isArray(parsed.channels) ? parsed.channels : seedChannels,
         members: Array.isArray(parsed.members) ? parsed.members : seedMembers,
         messages: Array.isArray(parsed.messages) ? parsed.messages : seedMessages,

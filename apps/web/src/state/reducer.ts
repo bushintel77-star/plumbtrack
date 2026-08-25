@@ -23,6 +23,9 @@ export function reducer(state: AppState, action: Action): AppState {
               voiceNotes: j.voiceNotes ?? [],
               logEntries: j.logEntries ?? [],
               photos: j.photos ?? [],
+              dailyReports: j.dailyReports ?? [],
+              checklists: j.checklists ?? [],
+              milestones: j.milestones ?? [],
             };
             if (!local) {
               return { ...j, ...collections, timeEntries: remoteEntries };
@@ -52,7 +55,12 @@ export function reducer(state: AppState, action: Action): AppState {
           ...state.jobs.filter((j) => !remoteJobIds.has(j.id)),
         ],
         quotes: [
-          ...action.quotes,
+          ...action.quotes.map((q) => ({
+            ...q,
+            // Same lean-row treatment as jobs: the builder renders `lines`
+            // unconditionally, so materialise it for remote rows.
+            lines: Array.isArray(q.lines) ? q.lines : [],
+          })),
           ...state.quotes.filter((q) => !remoteQuoteIds.has(q.id)),
         ],
       };
