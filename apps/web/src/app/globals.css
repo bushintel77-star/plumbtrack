@@ -53,6 +53,14 @@
 
 :root[data-theme="light"] {
   --page-bg: #f4f6f8;
+
+  /* Light mode swaps the brand accent from orange to a modern construction
+     blue — the contractor look on white/light-grey surfaces. Blue-700 keeps
+     WCAG AA contrast for text-accent on light backgrounds. */
+  --accent: #1d4ed8;
+  --accent-dim: rgba(29, 78, 216, 0.12);
+  --accent-border: rgba(29, 78, 216, 0.32);
+  --focus-ring: 0 0 0 3px rgba(29, 78, 216, 0.28);
 }
 
 /* Semantic application tokens. Components should consume these tokens rather

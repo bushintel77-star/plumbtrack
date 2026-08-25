@@ -11,7 +11,11 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#1C2B39",
-        accent: "#E8871E",
+        // Theme-driven brand accent — orange in dark mode, construction blue
+        // in light mode (see --accent overrides in globals.css). Keeping it a
+        // CSS variable means every bg-/text-/border-accent utility flips with
+        // the theme automatically.
+        accent: "var(--accent)",
         canvas: "#F7F5F1",
       },
     },

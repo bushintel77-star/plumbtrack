@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import type { AppState, DocumentCategory, Job, OutboxOperation, PlumbDocument, PlumbDocumentVersion, Quote, QuoteLineField, Rfi, Shift, ShiftWorkType, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
-import { GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
+import { API_URL, DEFAULT_ORG_ID, GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
 import { disaggregateForStp, interpretShift, previousShiftEnd, type ShiftPayBreakdown, type StpDisaggregation } from "@/lib/award";
 import { api } from "@/lib/api";
 import { enrollDeviceSession, getAuthSession } from "@/lib/auth";
@@ -214,6 +214,18 @@ function usePlumbTrackImpl() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
     void navigator.serviceWorker.register("/service-worker.js").catch(() => undefined);
+    // Background-precache the data-download URLs (document vault + quote
+    // lists) so they open offline too, not just the shell. `.ready` resolves
+    // with the newest controlling worker (the SW skip-waits + claims), so the
+    // message lands on a worker that has the precache handler. The org header
+    // is mandatory — without it the tenant plugin rejects precache fetches 400.
+    void navigator.serviceWorker.ready.then((registration) => {
+      registration.active?.postMessage({
+        type: "PLUMBTRACK_PRECACHE",
+        urls: [`${API_URL}/api/documents`, `${API_URL}/api/quotes`],
+        headers: { "x-organization-id": DEFAULT_ORG_ID },
+      });
+    }).catch(() => undefined);
   }, []);
 
   // Merge remote data on mount — after ensuring a signed device session,

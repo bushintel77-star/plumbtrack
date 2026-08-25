@@ -71,9 +71,9 @@ export function StaffClockInSheet({
               className="w-full flex items-center gap-3 p-3.5 rounded-2xl transition-transform active:scale-[0.98]"
               style={{
                 background: isCurrent
-                  ? "linear-gradient(180deg, rgba(232,135,30,0.16) 0%, rgba(232,135,30,0.07) 100%)"
-                  : "linear-gradient(180deg, #2b2e34 0%, #232529 100%)",
-                border: `1px solid ${isCurrent ? "rgba(232,135,30,0.35)" : BORDER}`,
+                  ? "linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent) 0%, color-mix(in srgb, var(--accent) 7%, transparent) 100%)"
+                  : "linear-gradient(180deg, var(--sheet-tile) 0%, var(--sheet-tile-soft) 100%)",
+                border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--accent) 35%, transparent)" : BORDER}`,
                 boxShadow: isCurrent
                   ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.3)"
                   : "inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px rgba(0,0,0,0.3)",
@@ -91,7 +91,10 @@ export function StaffClockInSheet({
                   {isCurrent && (
                     <span
                       className="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                      style={{ backgroundColor: "rgba(232,135,30,0.2)", color: "#E8871E" }}
+                      style={{
+                        backgroundColor: "color-mix(in srgb, var(--accent) 20%, transparent)",
+                        color: "var(--accent)",
+                      }}
                     >
                       Current
                     </span>

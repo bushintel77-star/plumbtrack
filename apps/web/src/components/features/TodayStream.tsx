@@ -172,7 +172,10 @@ function DayBrief({ jobs, nowCount, nextJob }: { jobs: Job[]; nowCount: number; 
   return (
     <div
       className="rounded-2xl p-3.5 border"
-      style={{ background: "rgba(232,135,30,0.07)", borderColor: "rgba(232,135,30,0.2)" }}
+      style={{
+        background: "color-mix(in srgb, var(--accent) 7%, transparent)",
+        borderColor: "color-mix(in srgb, var(--accent) 20%, transparent)",
+      }}
     >
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent mb-1.5">Day brief</p>
       <p className="text-[13px] text-slate-200 leading-snug">
@@ -211,13 +214,13 @@ function JobEnvelope({
 }) {
   const status = derivedJobStatus(job);
   const parts = job.serviceItems?.length ?? 0;
-  const notes = (job.voiceNotes?.length ?? 0) + job.logEntries.length;
+  const notes = (job.voiceNotes?.length ?? 0) + (job.logEntries?.length ?? 0);
 
   return (
     <SwipeableCard
       rightAction={
         status === "scheduled"
-          ? { label: "Clock In", icon: Clock, color: "rgba(232, 135, 30, 0.85)", onTrigger: () => onClockIn(job.id) }
+          ? { label: "Clock In", icon: Clock, color: "color-mix(in srgb, var(--accent) 85%, transparent)", onTrigger: () => onClockIn(job.id) }
           : undefined
       }
       leftAction={{ label: "Open", icon: Clock, color: "rgba(51, 65, 85, 0.85)", onTrigger: () => onOpen(job.id) }}
@@ -255,7 +258,7 @@ function JobEnvelope({
           )}
           <span className="inline-flex items-center gap-1 text-[10.5px] text-slate-500 ml-auto font-mono">
             <IconHexNut size={12} /> {parts}
-            <IconCameraField size={12} className="ml-1.5" /> {job.photos.length}
+            <IconCameraField size={12} className="ml-1.5" /> {job.photos?.length ?? 0}
             <IconNotePen size={12} className="ml-1.5" /> {notes}
           </span>
         </div>

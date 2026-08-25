@@ -78,7 +78,7 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
             type="checkbox"
             checked={noticeAck}
             onChange={(e) => setNoticeAck(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-[#E8871E]"
+            className="mt-0.5 w-4 h-4 accent-[var(--accent)]"
             aria-label="Acknowledge workplace tracking notice"
           />
           <span className="text-[12px] leading-snug" style={{ color: "var(--sheet-muted)" }}>

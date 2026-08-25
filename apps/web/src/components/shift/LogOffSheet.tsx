@@ -159,8 +159,10 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
                   onClick={() => setWorkTypeOverride(wt)}
                   className="py-2.5 px-2 rounded-xl text-[11.5px] font-bold transition min-h-[44px]"
                   style={{
-                    border: `1px solid ${workTypeOverride === wt ? "rgba(232,135,30,0.4)" : "var(--app-border)"}`,
-                    background: workTypeOverride === wt ? "rgba(232,135,30,0.12)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${workTypeOverride === wt ? "color-mix(in srgb, var(--accent) 40%, transparent)" : "var(--app-border)"}`,
+                    background: workTypeOverride === wt
+                      ? "color-mix(in srgb, var(--accent) 12%, transparent)"
+                      : "rgba(255,255,255,0.03)",
                     color: workTypeOverride === wt ? "var(--accent)" : "var(--sheet-muted)",
                   }}
                 >
@@ -198,7 +200,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
               type="checkbox"
               checked={toil}
               onChange={(e) => setToil(e.target.checked)}
-              className="w-4 h-4 accent-[#E8871E]"
+              className="w-4 h-4 accent-[var(--accent)]"
               aria-label="Bank overtime as Time Off In Lieu"
             />
             <span className="text-[12px] leading-snug" style={{ color: "var(--sheet-muted)" }}>

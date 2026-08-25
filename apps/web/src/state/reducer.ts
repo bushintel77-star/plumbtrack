@@ -15,8 +15,17 @@ export function reducer(state: AppState, action: Action): AppState {
           ...action.jobs.map((j) => {
             const local = state.jobs.find((lj) => lj.id === j.id);
             const remoteEntries = (j.timeEntries ?? []).map((e) => ({ ...e, staffId: e.staffId ?? "tim" }));
+            // The API returns the lean row shape (no logEntries/voiceNotes/
+            // serviceItems/photos). Normalise to the app's local shape here so
+            // every consumer can rely on these arrays existing.
+            const collections = {
+              serviceItems: j.serviceItems ?? [],
+              voiceNotes: j.voiceNotes ?? [],
+              logEntries: j.logEntries ?? [],
+              photos: j.photos ?? [],
+            };
             if (!local) {
-              return { ...j, timeEntries: remoteEntries };
+              return { ...j, ...collections, timeEntries: remoteEntries };
             }
             const remoteIds = new Set(remoteEntries.map((e) => e.id));
             const pendingLocal = local.timeEntries.filter(
@@ -24,14 +33,15 @@ export function reducer(state: AppState, action: Action): AppState {
             );
             return {
               ...j,
+              ...collections,
               timeEntries: [...remoteEntries, ...pendingLocal],
               serviceItems: [
-                ...(j.serviceItems ?? []),
-                ...(local.serviceItems ?? []).filter((item) => !(j.serviceItems ?? []).some((remoteItem) => remoteItem.id === item.id)),
+                ...collections.serviceItems,
+                ...(local.serviceItems ?? []).filter((item) => !collections.serviceItems.some((remoteItem) => remoteItem.id === item.id)),
               ],
               voiceNotes: [
-                ...(j.voiceNotes ?? []),
-                ...(local.voiceNotes ?? []).filter((note) => !(j.voiceNotes ?? []).some((remoteNote) => remoteNote.id === note.id)),
+                ...collections.voiceNotes,
+                ...(local.voiceNotes ?? []).filter((note) => !collections.voiceNotes.some((remoteNote) => remoteNote.id === note.id)),
               ],
               safetyConfirmation: local.safetyConfirmation ?? j.safetyConfirmation,
               phone: local.phone ?? j.phone,
