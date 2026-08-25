@@ -468,3 +468,31 @@ html.dev nextjs-portal {
 .pull-indicator.active {
   height: 48px;
 }
+
+/* ── Mobile input sizing & touch behaviour ────────────────────────────────── */
+
+/* iOS Safari (and Android Chrome) auto-zoom the viewport when a form field
+   smaller than 16px gains focus — a constant annoyance on phones. Bumping
+   fields to 16px on coarse-pointer (touch) devices kills the zoom; desktop
+   sizing is untouched. The class-level selector ties Tailwind's text-sm
+   utilities and wins by cascade order (later in the file). */
+@media (pointer: coarse) {
+  .app-input,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Remove the ~300ms tap delay and double-tap zoom from interactive elements
+   (touch-action: manipulation still allows pan/scroll gestures). */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+summary {
+  touch-action: manipulation;
+}

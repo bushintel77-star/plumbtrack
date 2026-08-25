@@ -19,7 +19,7 @@ const SLACK_WEBHOOK_ORIGIN = "https://hooks.slack.com";
 const SLACK_WEBHOOK_PATH = /^\/services\/[A-Za-z0-9][A-Za-z0-9/_-]*$/;
 
 /** Webhook hosts accepted from the environment (defence in depth). */
-const ALLOWED_WEBHOOK_HOSTS = new Set(["hooks.slack.com", "hooks..slack.com"]);
+const ALLOWED_WEBHOOK_HOSTS = new Set(["hooks.slack.com"]);
 
 /** Parse the configured webhook into a safe literal-origin URL, or null. */
 function slackWebhookTarget(): URL | null {

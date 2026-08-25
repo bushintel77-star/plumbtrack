@@ -20,6 +20,12 @@ describe("health endpoint", () => {
     expect(response.json()).toMatchObject({ status: "ok" });
   });
 
+  it("reports Slack webhook configuration state", async () => {
+    const response = await app.inject({ method: "GET", url: "/api/health" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ slack: { webhookConfigured: false } });
+  });
+
   it("rejects job listing without a tenant header", async () => {
     const response = await app.inject({ method: "GET", url: "/api/jobs" });
     expect(response.statusCode).toBe(400);

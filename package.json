@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:clean": "node scripts/dev-clean.mjs",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "check": "turbo run lint typecheck",

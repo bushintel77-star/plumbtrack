@@ -55,6 +55,8 @@ model Organization {
   customers     Customer[]
   properties    Property[]
   appointments  Appointment[]
+  documents     JobDocument[]
+  rfis          Rfi[]
 
   @@map("organizations")
 }
@@ -277,6 +279,8 @@ model Job {
   customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   appointments Appointment[]
+  documents   JobDocument[]
+  rfis        Rfi[]
 
   @@index([orgId, status])
   @@index([customerId])
@@ -384,4 +388,62 @@ model QuoteLine {
 
   @@index([quoteId])
   @@map("quote_lines")
+}
+
+// ── Document management (vault) ─────────────────────────────────────────────
+
+/**
+ * A stored document — job-linked or organisation-wide. Binary content stays
+ * in the media pipeline / client outbox; metadata (including a version
+ * history as JSON) lives here so the vault is queryable server-side.
+ */
+model JobDocument {
+  id             String   @id @default(cuid())
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId          String?
+  job            Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  name           String
+  category       String   @default("other")
+  /** JSON array of tag strings. */
+  tags           Json     @default("[]")
+  /** Compliance docs lapse — surfaced by the dashboard before they cost a job. */
+  expiresOn      DateTime?
+  notes          String   @default("")
+  /** JSON: { fileName, size, mimeType, url, sha256?, uploadedAt, uploadedBy }. */
+  currentVersion Json
+  /** JSON array of the same version shape (newest last). */
+  versions       Json     @default("[]")
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([orgId, category])
+  @@index([orgId, expiresOn])
+  @@index([jobId])
+  @@map("job_documents")
+}
+
+/** Request-for-information against a job — field ↔ office loop. */
+model Rfi {
+  id           String   @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId        String
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  question     String
+  /** Linked JobDocument id (spec, plan, evidence bundle). */
+  attachmentId String?
+  status       String   @default("raised")
+  raisedBy     String
+  raisedAt     DateTime @default(now())
+  answer       String   @default("")
+  answeredBy   String?
+  answeredAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([jobId, status])
+  @@index([orgId, status])
+  @@map("rfis")
 }

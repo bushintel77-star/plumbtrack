@@ -17,9 +17,14 @@ export function buildJobActivity(job: Job): JobActivity[] {
         detail: entry.lat !== null && entry.lng !== null ? "GPS location captured" : "Recorded on this device",
         createdAt: entry.start,
         staffId: entry.staffId,
+        meta: entry.lat !== null && entry.lng !== null ? "GPS VERIFIED" : "LOCAL",
       });
     }
     if (entry.end) {
+      const elapsedSeconds =
+        entry.start && new Date(entry.end).getTime() >= new Date(entry.start).getTime()
+          ? Math.max(0, Math.floor((new Date(entry.end).getTime() - new Date(entry.start).getTime()) / 1000))
+          : undefined;
       events.push({
         id: `${entry.id}:out`,
         kind: "time",
@@ -27,6 +32,8 @@ export function buildJobActivity(job: Job): JobActivity[] {
         detail: "Time entry closed",
         createdAt: entry.end,
         staffId: entry.staffId,
+        elapsedSeconds,
+        meta: elapsedSeconds !== undefined ? "CLOSED" : "OPEN",
       });
     }
   }
@@ -38,6 +45,7 @@ export function buildJobActivity(job: Job): JobActivity[] {
       title: `${photo.label} photo captured`,
       detail: photo.url ? "Evidence saved to this job" : "Photo queued for upload",
       createdAt: photo.takenAt ?? "1970-01-01T00:00:00.000Z",
+      meta: photo.label.toUpperCase(),
     });
   }
 
@@ -49,6 +57,7 @@ export function buildJobActivity(job: Job): JobActivity[] {
       detail: note.transcript,
       createdAt: note.createdAt,
       staffId: note.createdBy,
+      meta: "VOICE",
     });
   }
 
@@ -59,6 +68,7 @@ export function buildJobActivity(job: Job): JobActivity[] {
       title: "Customer signed off",
       detail: "Completion approval is on file",
       createdAt: "1970-01-01T00:00:00.000Z",
+      meta: "ON FILE",
     });
   }
 
@@ -69,6 +79,7 @@ export function buildJobActivity(job: Job): JobActivity[] {
       title: "Invoice synced to Xero",
       detail: "Invoice draft created successfully",
       createdAt: job.xeroSyncedAt,
+      meta: "XERO",
     });
   }
 

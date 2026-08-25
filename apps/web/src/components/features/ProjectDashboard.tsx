@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Clock, Users, FileText, AlertCircle, CheckCircle2, TrendingUp, ClipboardList, Shield } from "lucide-react";
+import { Clock, Users, FileText, AlertCircle, CheckCircle2, TrendingUp, ClipboardList, Shield, ShieldAlert } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { derivedJobStatus, formatDuration } from "@/lib/billing";
+import { expiryState } from "@/lib/documents";
 import type { Job } from "@/types";
 
 function todayStr(): string {
@@ -12,7 +13,7 @@ function todayStr(): string {
 }
 
 export function ProjectDashboard() {
-  const { jobs, quotes, openJob, members, setActiveTab, setActiveId, setView } = usePlumbTrackCtx();
+  const { jobs, quotes, openJob, members, setActiveTab, setActiveId, setView, documents } = usePlumbTrackCtx();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const activeJobs = useMemo(() => jobs.filter((j) => j.status !== "completed"), [jobs]);
@@ -104,6 +105,43 @@ export function ProjectDashboard() {
           />
         </div>
       </GlassCard>
+
+      {/* Compliance — document expiry watch */}
+      {(() => {
+        const expired = documents.filter((d) => expiryState(d.expiresOn) === "expired");
+        const soon = documents.filter((d) => expiryState(d.expiresOn) === "soon");
+        const atRisk = expired.length + soon.length;
+        if (atRisk === 0) return null;
+        return (
+          <GlassCard
+            interactive
+            onClick={() => setActiveTab("documents")}
+            ariaLabel="Open the document vault — compliance documents need attention"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldAlert size={13} className="text-amber-400" /> Compliance
+              </p>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                expired.length > 0 ? "bg-red-500/15 text-red-400" : "bg-amber-400/15 text-amber-400"
+              }`}>
+                {expired.length > 0 ? `${expired.length} expired` : `${soon.length} expiring`}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {[...expired, ...soon].slice(0, 3).map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 text-xs text-slate-300">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    expiryState(doc.expiresOn) === "expired" ? "bg-red-400" : "bg-amber-400"
+                  }`} />
+                  <span className="truncate flex-1">{doc.name}</span>
+                  {doc.jobId && <span className="text-[10px] font-mono text-slate-500 shrink-0">{doc.jobId}</span>}
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        );
+      })()}
 
       {/* Active jobs health */}
       <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-1 pt-1">Active Jobs</p>

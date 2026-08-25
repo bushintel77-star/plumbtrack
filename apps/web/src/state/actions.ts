@@ -25,8 +25,8 @@ export type Action =
   | { type: "CREATE_JOB_FROM_QUOTE"; job: Job }
   | { type: "REPLACE_JOB"; localId: string; job: Job }
   | { type: "MARK_JOB_XERO_SYNCED"; jobId: string }
-  | { type: "POST_MESSAGE"; channelId: string; authorId: string; text: string }
-  | { type: "TOGGLE_REACTION"; messageId: string; emoji: string }
+  | { type: "POST_MESSAGE"; channelId: string; authorId: string; text: string; parentId?: string }
+  | { type: "TOGGLE_REACTION"; messageId: string; emoji: string; userId: string }
   | { type: "MARK_CHANNEL_READ"; channelId: string; ts: string }
   | { type: "REMOVE_SYNC_OP"; opId: string }
   | { type: "QUEUE_NOTIFICATION"; opId: string; text: string; channel: string; author: string; dependsOn?: string[] }
@@ -39,4 +39,11 @@ export type Action =
   | { type: "ADD_CHECKLIST"; jobId: string; checklist: import("@/types").Checklist }
   | { type: "TOGGLE_CHECKLIST_ITEM"; jobId: string; checklistId: string; itemId: string; result: import("@/types").ChecklistItem["result"] }
   | { type: "ADD_MILESTONE"; jobId: string; milestone: import("@/types").Milestone }
-  | { type: "UPDATE_MILESTONE"; jobId: string; milestoneId: string; status: import("@/types").Milestone["status"] };
+  | { type: "UPDATE_MILESTONE"; jobId: string; milestoneId: string; status: import("@/types").Milestone["status"] }
+  | { type: "ADD_DOCUMENT"; document: import("@/types").PlumbDocument }
+  | { type: "UPDATE_DOCUMENT"; documentId: string; patch: Partial<Pick<import("@/types").PlumbDocument, "name" | "category" | "tags" | "expiresOn" | "notes">> }
+  | { type: "ADD_DOCUMENT_VERSION"; documentId: string; version: import("@/types").PlumbDocumentVersion }
+  | { type: "DELETE_DOCUMENT"; documentId: string }
+  | { type: "RAISE_RFI"; rfi: import("@/types").Rfi }
+  | { type: "ANSWER_RFI"; rfiId: string; answer: string; answeredBy: string }
+  | { type: "CLOSE_RFI"; rfiId: string };

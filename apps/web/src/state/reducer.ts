@@ -404,7 +404,14 @@ export function reducer(state: AppState, action: Action): AppState {
                 ...q,
                 lines: q.lines.map((l) =>
                   l.id === action.lineId
-                    ? { ...l, [field]: field === "desc" || field === "unit" ? action.value : Number(action.value) }
+                    ? {
+                        ...l,
+                        [field]: field === "desc" || field === "unit"
+                          ? action.value
+                          : field === "qty"
+                            ? Math.max(0.01, Number(action.value) || 0.01)
+                            : Math.max(0, Number(action.value) || 0),
+                      }
                     : l,
                 ),
               }
@@ -470,6 +477,7 @@ export function reducer(state: AppState, action: Action): AppState {
             authorId: action.authorId,
             text: action.text,
             ts: new Date().toISOString(),
+            parentId: action.parentId,
             reactions: {},
           },
         ],
@@ -478,17 +486,20 @@ export function reducer(state: AppState, action: Action): AppState {
     case "TOGGLE_REACTION":
       return {
         ...state,
-        messages: state.messages.map((m) =>
-          m.id === action.messageId
-            ? {
-                ...m,
-                reactions: {
-                  ...m.reactions,
-                  [action.emoji]: (m.reactions[action.emoji] ?? 0) > 0 ? 0 : 1,
-                },
-              }
-            : m,
-        ),
+        messages: state.messages.map((m) => {
+          if (m.id !== action.messageId) return m;
+          const raw = m.reactions[action.emoji];
+          const current = Array.isArray(raw) ? raw : [];
+          const hasReacted = current.includes(action.userId);
+          const next = hasReacted ? current.filter((id) => id !== action.userId) : [...current, action.userId];
+          const reactions = { ...m.reactions };
+          if (next.length === 0) {
+            delete reactions[action.emoji];
+          } else {
+            reactions[action.emoji] = next;
+          }
+          return { ...m, reactions };
+        }),
       };
 
     case "MARK_CHANNEL_READ":
@@ -622,6 +633,65 @@ export function reducer(state: AppState, action: Action): AppState {
                 ),
               }
             : j,
+        ),
+      };
+
+    // ── Documents (vault) ─────────────────────────────────────────────────
+
+    case "ADD_DOCUMENT":
+      return { ...state, documents: [action.document, ...state.documents] };
+
+    case "UPDATE_DOCUMENT":
+      return {
+        ...state,
+        documents: state.documents.map((d) =>
+          d.id === action.documentId ? { ...d, ...action.patch } : d,
+        ),
+      };
+
+    case "ADD_DOCUMENT_VERSION":
+      return {
+        ...state,
+        documents: state.documents.map((d) =>
+          d.id === action.documentId ? { ...d, versions: [...d.versions, action.version] } : d,
+        ),
+      };
+
+    case "DELETE_DOCUMENT":
+      return {
+        ...state,
+        documents: state.documents.filter((d) => d.id !== action.documentId),
+        rfis: state.rfis.map((rfi) =>
+          rfi.attachmentId === action.documentId ? { ...rfi, attachmentId: null } : rfi,
+        ),
+      };
+
+    // ── RFIs (requests-for-information) ───────────────────────────────────
+
+    case "RAISE_RFI":
+      return { ...state, rfis: [action.rfi, ...state.rfis] };
+
+    case "ANSWER_RFI":
+      return {
+        ...state,
+        rfis: state.rfis.map((rfi) =>
+          rfi.id === action.rfiId && rfi.status === "raised"
+            ? {
+                ...rfi,
+                status: "answered",
+                answer: action.answer,
+                answeredBy: action.answeredBy,
+                answeredAt: new Date().toISOString(),
+              }
+            : rfi,
+        ),
+      };
+
+    case "CLOSE_RFI":
+      return {
+        ...state,
+        rfis: state.rfis.map((rfi) =>
+          rfi.id === action.rfiId && rfi.status !== "closed" ? { ...rfi, status: "closed" } : rfi,
         ),
       };
 

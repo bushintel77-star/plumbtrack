@@ -38,6 +38,28 @@ staged wholesale by the shift commit and is therefore recorded under
 `4d826e8` rather than `5e3ebd2`. All of it is present and tested; only the
 commit attribution is mixed.
 
+## Live integrations
+
+### Slack relay (free, no paid plan needed)
+
+Field updates (clock on/off, photos, sign-off, invoices, quotes) relay to a
+Slack channel through a server-side incoming webhook. The relay is SSRF-safe:
+it only ever calls a literal `https://hooks.slack.com/services/...` URL and is
+verified by `apps/api/test/slack.test.ts`.
+
+To go live:
+
+1. Create a free Slack workspace (`slack.com/get-started`) and an incoming
+   webhook (`api.slack.com/messaging/webhooks` → Create an Incoming Webhook).
+2. Set `SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."` in
+   `apps/api/.env` (documented in `.env.example`).
+3. Verify in one command: `cd apps/api && pnpm slack:test` — posts a formatted
+   block-kit test card and reports delivered/failed.
+4. Run the API; `GET /api/health` reports `slack.webhookConfigured`.
+
+With no webhook set, the app runs fully offline (in-app simulation only) and
+notifications are persisted for later relay.
+
 ## Working in a shared checkout
 
 Multiple agents may edit the same working tree. When a change touches files

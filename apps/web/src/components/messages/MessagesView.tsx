@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
+import { config } from "@/lib/config";
 import type { SlackMember, SlackMessage } from "@/types";
 
 // ── Slack design tokens (dark theme, authentic density) ─────────────────────
@@ -60,9 +61,54 @@ function initials(name: string): string {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function RichText({ text }: { text: string }) {
+// Tokens rendered as tappable deep-link chips: J-1043 opens the job, Q-2091 the quote.
+const DEEP_LINK_RE = /(J-\d+|Q-\d+)/g;
+
+function RichText({
+  text,
+  onOpenJob,
+  onOpenQuote,
+}: {
+  text: string;
+  onOpenJob: (id: string) => void;
+  onOpenQuote: (id: string) => void;
+}) {
   const parts = text.split(/\*\*([^*]+)\*\*/g);
-  if (parts.length === 1) return <>{text}</>;
+  const render = (part: string, key: number) => {
+    const tokens = part.split(DEEP_LINK_RE);
+    return tokens.map((token, i) => {
+      const jobMatch = /^J-(\d+)$/.exec(token);
+      const quoteMatch = /^Q-(\d+)$/.exec(token);
+      if (jobMatch) {
+        return (
+          <button
+            key={`${key}-${i}`}
+            type="button"
+            onClick={() => onOpenJob(jobMatch[1])}
+            className="inline-flex items-center font-mono font-bold underline decoration-1 underline-offset-2 hover:brightness-125 transition"
+            style={{ color: "#2EB67D" }}
+          >
+            {token}
+          </button>
+        );
+      }
+      if (quoteMatch) {
+        return (
+          <button
+            key={`${key}-${i}`}
+            type="button"
+            onClick={() => onOpenQuote(quoteMatch[1])}
+            className="inline-flex items-center font-mono font-bold underline decoration-1 underline-offset-2 hover:brightness-125 transition"
+            style={{ color: "#E01E5A" }}
+          >
+            {token}
+          </button>
+        );
+      }
+      return <span key={`${key}-${i}`}>{token}</span>;
+    });
+  };
+  if (parts.length === 1) return <>{render(text, 0)}</>;
   return (
     <>
       {parts.map((part, i) =>
@@ -71,14 +117,22 @@ function RichText({ text }: { text: string }) {
             {part}
           </strong>
         ) : (
-          <span key={i}>{part}</span>
+          <span key={i}>{render(part, i)}</span>
         ),
       )}
     </>
   );
 }
 
-function MessageBody({ text }: { text: string }) {
+function MessageBody({
+  text,
+  onOpenJob,
+  onOpenQuote,
+}: {
+  text: string;
+  onOpenJob: (id: string) => void;
+  onOpenQuote: (id: string) => void;
+}) {
   const lines = text.split(/\n/);
   let quoteBuffer: string[] = [];
   const blocks: { type: "quote" | "text"; content: string }[] = [];
@@ -108,11 +162,11 @@ function MessageBody({ text }: { text: string }) {
             className="block border-l-2 pl-2.5 my-0.5 italic opacity-80 text-[13px]"
             style={{ borderColor: "#9C9EA3" }}
           >
-            <RichText text={b.content} />
+            <RichText text={b.content} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
           </span>
         ) : (
           <span key={i}>
-            <RichText text={b.content} />
+            <RichText text={b.content} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
           </span>
         ),
       )}
@@ -197,11 +251,11 @@ function ChannelDrawer({
         {/* Workspace header */}
         <div className="px-4 pt-4 pb-3 flex items-center gap-2 border-b" style={{ borderColor: BORDER }}>
           <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-[13px] bg-[#2B4A6B]">
-            CSP
+            {config.orgName.split(/\s+/).map((word) => word[0]?.toUpperCase()).filter(Boolean).slice(0, 3).join("")}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-[15px] font-extrabold leading-tight truncate">
-              Caulfield South Plumbing
+              {config.orgName}
             </p>
             <p className="text-[11px] font-medium" style={{ color: MUTED }}>
               4 members
@@ -229,6 +283,7 @@ function ChannelDrawer({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Jump to…"
+              aria-label="Jump to a channel or conversation"
               className="bg-transparent outline-none text-[14px] flex-1 placeholder:text-[#5C6066] text-[#E8E8E8]"
             />
             {query && (
@@ -391,10 +446,24 @@ function MessageRow({
   message,
   member,
   onContextMenu,
+  onOpenJob,
+  onOpenQuote,
+  isReply = false,
+  threadCount = 0,
+  threadOpen = false,
+  threadUnread = false,
+  onToggleThread,
 }: {
   message: SlackMessage;
   member: SlackMember;
   onContextMenu: (message: SlackMessage) => void;
+  onOpenJob: (id: string) => void;
+  onOpenQuote: (id: string) => void;
+  isReply?: boolean;
+  threadCount?: number;
+  threadOpen?: boolean;
+  threadUnread?: boolean;
+  onToggleThread?: () => void;
 }) {
   const { toggleReaction } = usePlumbTrackCtx();
   const isBot = member.role === "bot";
@@ -429,11 +498,11 @@ function MessageRow({
       }}
     >
       <div className="shrink-0 mt-0.5">
-        <Avatar member={member} size={28} />
+        <Avatar member={member} size={isReply ? 22 : 28} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className="text-[15px] font-extrabold text-white leading-snug">{member.name}</span>
+          <span className={`font-extrabold text-white leading-snug ${isReply ? "text-[13px]" : "text-[15px]"}`}>{member.name}</span>
           {isBot && (
             <span
               className="text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-white"
@@ -447,30 +516,53 @@ function MessageRow({
           </span>
         </div>
         <p
-          className="text-[15px] leading-[1.45] whitespace-pre-wrap break-words"
+          className={`leading-[1.45] whitespace-pre-wrap break-words ${isReply ? "text-[14px]" : "text-[15px]"}`}
           style={{ color: TEXT }}
         >
-          <MessageBody text={message.text} />
+          <MessageBody text={message.text} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
         </p>
 
         {/* Reactions — tighter spacing */}
-        {Object.entries(message.reactions).some(([, n]) => (n ?? 0) > 0) && (
+        {Object.entries(message.reactions).some(([, ids]) => (ids?.length ?? 0) > 0) && (
           <div className="flex flex-wrap gap-1 mt-1">
             {Object.entries(message.reactions)
-              .filter(([, n]) => (n ?? 0) > 0)
-              .map(([emoji, n]) => (
+              .filter(([, ids]) => (ids?.length ?? 0) > 0)
+              .map(([emoji, ids]) => {
+                const mine = ids.includes("tim");
+                return (
                 <button
                   key={emoji}
                   type="button"
                   onClick={() => toggleReaction(message.id, emoji)}
-                  className="flex items-center gap-1 text-[12px] px-1.5 py-0 rounded-full border font-semibold transition hover:brightness-125"
-                  style={{ borderColor: "rgba(255,255,255,0.15)", color: TEXT }}
+                  className={`flex items-center gap-1 text-[12px] px-1.5 py-0 rounded-full border font-semibold transition hover:brightness-125 ${mine ? "bg-accent/20" : ""}`}
+                  style={{ borderColor: mine ? "var(--accent)" : "rgba(255,255,255,0.15)", color: TEXT }}
                 >
                   <span className="text-[13px] leading-none">{emoji}</span>
-                  <span className="text-[11px]">{n}</span>
+                  <span className="text-[11px]">{ids.length}</span>
                 </button>
-              ))}
+                );
+              })}
           </div>
+        )}
+
+        {/* Thread affordance on the parent row */}
+        {onToggleThread && threadCount > 0 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleThread();
+            }}
+            className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold transition hover:brightness-125"
+            style={{ color: "#2EB67D" }}
+            aria-expanded={threadOpen}
+          >
+            <ChevronDown size={12} className={`transition-transform ${threadOpen ? "rotate-180" : ""}`} />
+            <span>{threadOpen ? "Hide replies" : `${threadCount} ${threadCount === 1 ? "reply" : "replies"}`}</span>
+            {threadUnread && !threadOpen && (
+              <span className="w-2 h-2 rounded-full bg-[#E01E5A]" aria-label="Unread replies" />
+            )}
+          </button>
         )}
       </div>
     </div>
@@ -481,7 +573,19 @@ function MessageRow({
 // Message list
 // ═══════════════════════════════════════════════════════════════════════════
 
-function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage) => void }) {
+function MessageList({
+  onContextMenu,
+  onOpenJob,
+  onOpenQuote,
+  openThreads,
+  onToggleThread,
+}: {
+  onContextMenu: (message: SlackMessage) => void;
+  onOpenJob: (id: string) => void;
+  onOpenQuote: (id: string) => void;
+  openThreads: Set<string>;
+  onToggleThread: (messageId: string) => void;
+}) {
   const { messages, channels, members, activeChannelId } = usePlumbTrackCtx();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -493,6 +597,17 @@ function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage)
     [messages, activeChannelId],
   );
 
+  const byParent = useMemo(() => {
+    const map = new Map<string, SlackMessage[]>();
+    for (const m of channelMessages) {
+      if (!m.parentId) continue;
+      const list = map.get(m.parentId) ?? [];
+      list.push(m);
+      map.set(m.parentId, list);
+    }
+    return map;
+  }, [channelMessages]);
+
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
   const channel = channels.find((c) => c.id === activeChannelId);
 
@@ -501,15 +616,57 @@ function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage)
   }, [channelMessages.length, activeChannelId]);
 
   const lastRead = channel?.lastReadAt ? new Date(channel.lastReadAt).getTime() : 0;
-  const firstUnreadIndex = channelMessages.findIndex(
+  const topLevel = channelMessages.filter((m) => !m.parentId);
+  const firstUnreadIndex = topLevel.findIndex(
     (m) => new Date(m.ts).getTime() > lastRead && m.authorId !== "tim",
   );
 
+  const fallbackMember = { id: "unknown", name: "Unknown", role: "member" as const, color: "#4A5568", presence: "away" as const };
+  const rowProps = {
+    onContextMenu,
+    onOpenJob,
+    onOpenQuote,
+  };
+
   let lastDay = "";
+
+  const renderMessage = (m: SlackMessage, idx: number, isFirstUnread: boolean) => (
+    <div key={m.id} className="relative">
+      {isFirstUnread && (
+        <div className="flex items-center gap-3 px-4 mb-1">
+          <div className="flex-1 h-px bg-[#E01E5A]" />
+          <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#E01E5A] shrink-0">New</span>
+          <div className="flex-1 h-px bg-[#E01E5A]" />
+        </div>
+      )}
+      <MessageRow
+        {...rowProps}
+        message={m}
+        member={memberById.get(m.authorId) ?? fallbackMember}
+        threadCount={byParent.get(m.id)?.length ?? 0}
+        threadOpen={openThreads.has(m.id)}
+        threadUnread={(byParent.get(m.id) ?? []).some((r) => new Date(r.ts).getTime() > lastRead)}
+        onToggleThread={byParent.has(m.id) ? () => onToggleThread(m.id) : undefined}
+      />
+      {byParent.has(m.id) && openThreads.has(m.id) && (
+        <div className="ml-[34px] pl-3 border-l-2" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+          {(byParent.get(m.id) ?? []).map((reply) => (
+            <MessageRow
+              key={reply.id}
+              {...rowProps}
+              message={reply}
+              member={memberById.get(reply.authorId) ?? fallbackMember}
+              isReply
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0" style={{ backgroundColor: PANE }}>
-      {channelMessages.length === 0 ? (
+      {topLevel.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <p className="text-[14px] text-center" style={{ color: MUTED }}>
             No messages yet in #{channel?.name}.
@@ -518,13 +675,13 @@ function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage)
           </p>
         </div>
       ) : (
-        channelMessages.map((m, idx) => {
+        topLevel.map((m, idx) => {
           const day = fmtDayDivider(m.ts);
           const showDay = day !== lastDay;
           lastDay = day;
           const isFirstUnread = idx === firstUnreadIndex && firstUnreadIndex !== -1;
           return (
-            <div key={m.id} className="relative">
+            <div key={m.id}>
               {showDay && (
                 <div className="flex items-center gap-3 px-4 my-2">
                   <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
@@ -534,22 +691,7 @@ function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage)
                   <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
                 </div>
               )}
-              {isFirstUnread && (
-                <div className="flex items-center gap-3 px-4 mb-1">
-                  <div className="flex-1 h-px bg-[#E01E5A]" />
-                  <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#E01E5A] shrink-0">
-                    New
-                  </span>
-                  <div className="flex-1 h-px bg-[#E01E5A]" />
-                </div>
-              )}
-              <MessageRow
-                message={m}
-                member={memberById.get(m.authorId) ?? {
-                  id: "unknown", name: "Unknown", role: "member", color: "#4A5568", presence: "away",
-                }}
-                onContextMenu={onContextMenu}
-              />
+              {renderMessage(m, idx, isFirstUnread)}
             </div>
           );
         })
@@ -605,7 +747,7 @@ function Composer({
   onCancelReply,
 }: {
   onOpenQuickUpdate: () => void;
-  replyTo: { name: string; text: string } | null;
+  replyTo: { messageId: string; name: string; text: string } | null;
   onCancelReply: () => void;
 }) {
   const { activeChannel, sendMessage } = usePlumbTrackCtx();
@@ -613,7 +755,8 @@ function Composer({
 
   const submit = useCallback(() => {
     if (!text.trim()) return;
-    sendMessage(replyTo ? `> ${replyTo.text}\n\n${text}` : text);
+    // Threaded reply: quote the parent for context, then post with parentId.
+    sendMessage(replyTo ? `> ${replyTo.text}\n\n${text}` : text, replyTo?.messageId);
     setText("");
     onCancelReply();
   }, [text, sendMessage, replyTo, onCancelReply]);
@@ -628,7 +771,7 @@ function Composer({
           className="flex items-center gap-2 rounded-t-lg px-3 py-1.5"
           style={{ backgroundColor: "#222529", borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
         >
-          <span className="text-[12px] font-bold text-white truncate max-w-[80px]">Replying to {replyTo.name}</span>
+          <span className="text-[12px] font-bold text-white truncate max-w-[80px]">Replying in thread · {replyTo.name}</span>
           <span className="flex-1 text-[12px] text-slate-500 truncate">&quot;{replyTo.text}&quot;</span>
           <button type="button" onClick={onCancelReply} className="p-0.5 rounded hover:bg-white/10 text-slate-400 transition" aria-label="Cancel reply">
             <X size={13} />
@@ -695,7 +838,7 @@ function MessageContextSheet({
     <BottomSheet open={open} onClose={onClose} title={member?.name ?? "Message"} subtitle={message.text.slice(0, 60)} label="Message actions">
       <div className="grid grid-cols-2 gap-2.5">
         <SheetActionCard icon={MessageSquare} title="React" hint="Thumbs up" onClick={() => action(() => toggleReaction(message.id, "👍"))} />
-        <SheetActionCard icon={MessageSquarePlus} title="Reply" hint="Quote in composer" onClick={() => action(() => onReply(message))} />
+        <SheetActionCard icon={MessageSquarePlus} title="Reply" hint="Reply in thread" onClick={() => action(() => onReply(message))} />
         <SheetActionCard icon={Clipboard} title="Copy text" hint="Copy to clipboard" onClick={() => action(() => { void navigator.clipboard?.writeText(message.text); })} />
       </div>
     </BottomSheet>
@@ -764,23 +907,39 @@ export function MessagesView({
   drawerOpen,
   openDrawer,
   closeDrawer,
+  onOpenJob,
+  onOpenQuote,
 }: {
   drawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
+  onOpenJob?: (id: string) => void;
+  onOpenQuote?: (id: string) => void;
 }) {
   const { activeChannel, members, openChannel } = usePlumbTrackCtx();
   const [quickOpen, setQuickOpen] = useState(false);
   const [contextMsg, setContextMsg] = useState<SlackMessage | null>(null);
-  const [replyTo, setReplyTo] = useState<{ name: string; text: string } | null>(null);
+  const [replyTo, setReplyTo] = useState<{ messageId: string; name: string; text: string } | null>(null);
+  const [openThreads, setOpenThreads] = useState<Set<string>>(() => new Set());
 
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
+  const openJobId = onOpenJob ?? (() => {});
+  const openQuoteId = onOpenQuote ?? (() => {});
 
   const handleContextMenu = useCallback((m: SlackMessage) => { setContextMsg(m); setReplyTo(null); }, []);
   const handleReply = useCallback((m: SlackMessage) => {
     setContextMsg(null);
-    setReplyTo({ name: memberById.get(m.authorId)?.name ?? "Unknown", text: m.text });
+    setReplyTo({ messageId: m.id, name: memberById.get(m.authorId)?.name ?? "Unknown", text: m.text });
   }, [memberById]);
+
+  const toggleThread = useCallback((messageId: string) => {
+    setOpenThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -801,7 +960,13 @@ export function MessagesView({
       <ChannelInfoBar />
 
       {/* Messages */}
-      <MessageList onContextMenu={handleContextMenu} />
+      <MessageList
+        onContextMenu={handleContextMenu}
+        onOpenJob={openJobId}
+        onOpenQuote={openQuoteId}
+        openThreads={openThreads}
+        onToggleThread={toggleThread}
+      />
 
       {/* Composer */}
       <Composer

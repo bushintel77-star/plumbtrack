@@ -12,6 +12,7 @@ import { recordAuditEvent } from "../lib/audit";
 import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { createCheckoutSession } from "../lib/payments";
 
 /** Roles allowed to record field work (time entries and site photos). */
 const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
@@ -265,5 +266,37 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     if (result.count === 0) return reply.code(404).send({ message: "Photo not found" });
     recordAuditEvent(request, { action: "photo.deleted", entityType: "photo", entityId: photoId, metadata: { jobId: id } });
     return reply.code(204).send();
+  });
+
+  // Payment link — Stripe Checkout (test mode by default; live with a secret
+  // key configured). Free to use: Stripe charges nothing until a client pays.
+  // Service items live local-first on the device, so the client sends the
+  // invoice amount; the server validates and caps it defensively.
+  app.post("/:id/payment-link", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const job = await prisma.job.findFirst({ where: { id, orgId } });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    const body = (request.body ?? {}) as { amount?: unknown };
+    const rawAmount = Number(body.amount);
+    if (!Number.isFinite(rawAmount) || rawAmount < 0 || rawAmount > 1_000_000) {
+      return reply.code(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: "Amount must be a number between 0 and 1,000,000",
+      });
+    }
+    const amountCents = Math.round(rawAmount * 100);
+    const result = await createCheckoutSession({
+      jobId: job.id,
+      client: job.client,
+      amountCents,
+      description: job.scope || `Invoice — ${job.id}`,
+    });
+    recordAuditEvent(request, { action: "payment_link.created", entityType: "job", entityId: job.id, metadata: { mode: result.mode } });
+    return reply.send({ url: result.url, mode: result.mode, configured: result.configured, amount: amountCents / 100, currency: "AUD" });
   });
 }

@@ -86,6 +86,7 @@ export function TodayStream() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search jobs by client, address, or scope…"
+            aria-label="Search jobs by client, address, or scope"
             className="app-input w-full rounded-xl px-3.5 py-2.5 text-sm placeholder-slate-600 focus:outline-none focus:border-accent/50 transition"
           />
           <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -159,7 +160,12 @@ export function TodayStream() {
 }
 
 function DayBrief({ jobs, nowCount, nextJob }: { jobs: Job[]; nowCount: number; nextJob?: Job }) {
-  const seconds = useTimer(true, Date.now());
+  // Anchor the shift elapsed clock to the shift's actual log-on timestamp so
+  // the counter is truthful after a revisit, not just since this component
+  // mounted. Falls back to boot time if the shift record is missing.
+  const { activeShift } = usePlumbTrackCtx();
+  const anchor = activeShift?.loggedOnAt ? new Date(activeShift.loggedOnAt).getTime() : Date.now();
+  const seconds = useTimer(true, anchor);
   const partsMissing = jobs.some(
     (j) => derivedJobStatus(j) !== "completed" && (j.serviceItems?.length ?? 0) === 0,
   );

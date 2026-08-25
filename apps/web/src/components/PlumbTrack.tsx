@@ -18,6 +18,10 @@ import {
   ArrowLeft,
   X,
   Camera,
+  CreditCard,
+  Copy,
+  ExternalLink,
+  Search,
 } from "lucide-react";
 
 import type { Job, View } from "@/types";
@@ -45,15 +49,21 @@ import {
   totalClosedSeconds,
 } from "@/lib/billing";
 import { useTimer } from "@/hooks/useTimer";
+import { config } from "@/lib/config";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { PlumbTrackProvider, usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useToast } from "@/components/ui/Toast";
+import { api } from "@/lib/api";
+import { describeSession, enrollDeviceSession, getAuthSession, type AuthSession } from "@/lib/auth";
 import { SignaturePad } from "@/components/ui/SignaturePad";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MessagesView, useMessagesDrawer } from "./messages/MessagesView";
 import { StaffClockInSheet } from "@/components/messages/StaffClockInSheet";
 import { TodayStream } from "@/components/features/TodayStream";
+import { SearchSheet } from "@/components/search/SearchSheet";
+import { DocumentsView } from "@/components/features/DocumentsView";
 import { NotificationFeedView } from "@/components/notifications/NotificationFeedView";
 import { DailyReportView } from "@/components/features/DailyReportView";
 import { ResidentialJobView } from "@/components/features/ResidentialJobView";
@@ -76,12 +86,14 @@ export default function PlumbTrack() {
 
 function PlumbTrackInner() {
   const s = usePlumbTrackCtx();
-  const { job, quote, view, activeTab, clientName, running, startedAt, theme } = s;
+  const { job, quote, view, activeTab, clientName, running, startedAt, theme, openJob, openQuote } = s;
   const [staffSheet, setStaffSheet] = useState<{ open: boolean; mode: "clockin" | "switch" }>({
     open: false,
     mode: "clockin",
   });
   const messages = useMessagesDrawer();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchDocFocus, setSearchDocFocus] = useState<string | null>(null);
 
   // Timer — per-staff, uses absolute UTC timestamps for resilience
   const liveSeconds = useTimer(running, startedAt);
@@ -123,6 +135,7 @@ function PlumbTrackInner() {
       if (activeTab === "quotes") return "Quotes";
       if (activeTab === "messages") return "Messages";
       if (activeTab === "dashboard") return "Dashboard";
+      if (activeTab === "documents") return "Documents";
       return "Settings";
     }
     if (view === "job") return job?.id ?? "";
@@ -136,7 +149,9 @@ function PlumbTrackInner() {
   return (
     <div data-theme={theme} className="app-shell min-h-screen flex flex-col relative overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="app-header px-4 py-2.5 flex items-center gap-2.5 shrink-0 relative z-10">
+      {/* Safe-area top keeps the header clear of the status bar / notch on
+          notched phones (viewport-fit: cover). */}
+      <header className="app-header px-4 pt-[calc(env(safe-area-inset-top)+0.625rem)] pb-2.5 flex items-center gap-2.5 shrink-0 relative z-10">
         {showBack ? (
           <button
             type="button"
@@ -162,10 +177,20 @@ function PlumbTrackInner() {
         )}
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-[0.15em] text-accent font-bold leading-none mb-1">
-            Caulfield South Plumbing
+            {config.orgName}
           </p>
           <p className="text-base font-semibold text-white truncate">{headerLabel()}</p>
         </div>
+
+        {/* Global search — one entry point over job diary, documents & messages */}
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="shrink-0 w-11 h-11 rounded-xl hover:bg-slate-800 active:bg-slate-700 transition flex items-center justify-center"
+          aria-label="Search everything"
+        >
+          <Search size={20} className="text-slate-400" />
+        </button>
 
         {/* Persistent tracking transparency chip — visible whenever the
             shift-level GPS watch is alive (on shift, not on break). */}
@@ -206,7 +231,13 @@ function PlumbTrackInner() {
 
       {/* ── Main Content ───────────────────────────────────────── */}
       {isMessages ? (
-        <MessagesView drawerOpen={messages.drawerOpen} openDrawer={messages.openDrawer} closeDrawer={messages.closeDrawer} />
+        <MessagesView
+          drawerOpen={messages.drawerOpen}
+          openDrawer={messages.openDrawer}
+          closeDrawer={messages.closeDrawer}
+          onOpenJob={(id) => openJob(`J-${id}`)}
+          onOpenQuote={(id) => openQuote(`Q-${id}`)}
+        />
       ) : (
         <main
           className="app-main flex-1 overflow-y-auto pb-[calc(1.5rem+var(--bottom-nav-clearance))]"
@@ -215,7 +246,13 @@ function PlumbTrackInner() {
           {view === "list" && activeTab === "jobs" && <TodayStream />}
           {view === "list" && activeTab === "quotes" && <QuoteListView />}
           {view === "list" && activeTab === "dashboard" && <ProjectDashboard />}
-            {view === "list" && activeTab === "settings" && <SettingsView />}
+          {view === "list" && activeTab === "documents" && (
+            <DocumentsView
+              focusDocId={searchDocFocus}
+              onFocusConsumed={() => setSearchDocFocus(null)}
+            />
+          )}
+          {view === "list" && activeTab === "settings" && <SettingsView />}
           {view === "notificationFeed" && <NotificationFeedView />}
           {view === "timesheet" && <TimesheetView />}
           {view === "syncCenter" && <SyncCenterView />}
@@ -247,6 +284,16 @@ function PlumbTrackInner() {
         open={staffSheet.open}
         mode={staffSheet.mode}
         onClose={closeStaffSheet}
+      />
+
+      {/* ── Global search ────────────────────────────────────────── */}
+      <SearchSheet
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onOpenDocument={(documentId) => {
+          setSearchDocFocus(documentId);
+          s.setActiveTab("documents");
+        }}
       />
     </div>
   );
@@ -293,6 +340,20 @@ function SettingsView() {
   const { discardFailedSync, resetDemo, pendingSyncCount, retryFailedSync, syncStatus, theme, toggleTheme } = usePlumbTrackCtx();
   const { setView } = usePlumbTrackCtx();
   const [slackStatus, setSlackStatus] = useState<"checking" | "connected" | "offline">("checking");
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  useEffect(() => {
+    setAuthSession(getAuthSession());
+  }, []);
+
+  const reEnroll = async () => {
+    setEnrolling(true);
+    const session = await enrollDeviceSession();
+    setAuthSession(session);
+    setEnrolling(false);
+  };
 
   useEffect(() => {
     import("@/lib/notifications").then(({ fetchSlackStatus }) => {
@@ -307,7 +368,7 @@ function SettingsView() {
       <GlassCard>
         <h3 className="text-white font-semibold text-sm mb-4">Business Profile</h3>
         <div className="space-y-3 text-sm">
-          <div className="flex justify-between"><span className="text-slate-500">Company</span><span className="text-white">Caulfield South Plumbing</span></div>
+          <div className="flex justify-between"><span className="text-slate-500">Company</span><span className="text-white">{config.orgName}</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Trade</span><span className="text-white">Plumbing</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Labour Rate</span><span className="text-white">${RATE_STANDARD}/hr</span></div>
           <div className="flex justify-between"><span className="text-slate-500">Callout Fee</span><span className="text-white">${CALLOUT_FEE}</span></div>
@@ -388,6 +449,25 @@ function SettingsView() {
             {syncStatus.label}
           </p>
         </div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs text-slate-500">API endpoint</span>
+          <span className="text-[11px] font-mono text-slate-400 truncate max-w-[55%]">{config.apiUrl}</span>
+        </div>
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <span className="text-xs text-slate-500">Device session</span>
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${authSession ? "bg-emerald-400" : "bg-slate-600"}`} />
+            <span className="text-[11px] text-slate-400 truncate">{describeSession(authSession)}</span>
+            <button
+              type="button"
+              onClick={() => { void reEnroll(); }}
+              disabled={enrolling}
+              className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-accent disabled:opacity-50 min-h-[32px] px-2 rounded-lg border border-accent/25 haptic"
+            >
+              {enrolling ? "Enrolling…" : "Re-enroll"}
+            </button>
+          </span>
+        </div>
         {syncStatus.failed > 0 && (
           <div className="space-y-2 mb-3">
             <button type="button" onClick={() => { void retryFailedSync(); }} className="w-full min-h-[48px] rounded-xl bg-red-500/10 text-red-300 text-xs font-semibold border border-red-500/20 active:bg-red-500/20 transition">
@@ -400,12 +480,53 @@ function SettingsView() {
         )}
         <button
           type="button"
-          onClick={resetDemo}
+          onClick={() => setResetOpen(true)}
           className="w-full py-3 rounded-xl bg-red-500/10 text-red-400 text-xs font-semibold border border-red-500/20 hover:bg-red-500/20 transition min-h-[48px]"
         >
           Reset Demo Data
         </button>
       </GlassCard>
+
+      <GlassCard>
+        <h3 className="text-white font-semibold text-sm mb-1">Free tier services</h3>
+        <p className="text-slate-500 text-xs mb-3">Everything below is $0/month — no subscriptions required.</p>
+        <div className="space-y-2.5">
+          {[
+            { name: "Slack relay", detail: "Incoming webhook · posts field updates to your channel", live: "Free plan" },
+            { name: "Stripe payments", detail: "Checkout pay-links on invoices · charges only when a client pays", live: "Test mode free" },
+            { name: "Weather (Open-Meteo)", detail: "Live conditions in daily reports · keyless API", live: "Free" },
+            { name: "Payroll export", detail: "STP Phase 2 CSV from the timesheet", live: "Free" },
+            { name: "CI (GitHub Actions)", detail: "Lint, typecheck, test and build on every push", live: "Free minutes" },
+          ].map((svc) => (
+            <div key={svc.name} className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-white">{svc.name}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{svc.detail}</p>
+              </div>
+              <span className="shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                {svc.live}
+              </span>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
+
+      <BottomSheet open={resetOpen} onClose={() => setResetOpen(false)} title="Reset demo data?" subtitle="This clears everything stored on this device" label="Confirm reset">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-300 leading-relaxed">
+            All field work, photos, quotes, messages, shifts and sync history saved locally will be permanently removed and replaced with the original demo data.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={() => setResetOpen(false)} className="flex-1 min-h-[48px] rounded-xl border border-white/[0.12] bg-white/[0.04] text-sm font-semibold text-slate-300 active:bg-white/[0.08] transition haptic">
+              Cancel
+            </button>
+            <button type="button" onClick={resetDemo} className="flex-1 min-h-[48px] rounded-xl bg-red-500 text-white text-sm font-bold active:bg-red-600 transition haptic">
+              Reset everything
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
@@ -455,6 +576,9 @@ function JobSignoffView({ job }: { job: Job }) {
 
 function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }) {
   const { xeroSyncing, xeroDone, startXeroSync, closeInvoice, quotes } = usePlumbTrackCtx();
+  const [payLink, setPayLink] = useState<{ url: string; mode: "live" | "test" } | null>(null);
+  const [payLinkBusy, setPayLinkBusy] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const labour = labourTotal(billedSeconds);
   const reportMaterials = job.dailyReports.flatMap((report) => report.materials ?? []);
   const serviceItems = job.serviceItems ?? [];
@@ -467,6 +591,34 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
 
   const originQuote = job.quoteId ? quotes.find((q) => q.id === job.quoteId) : undefined;
   const costing = jobCosting(originQuote?.lines, billedSeconds);
+
+  const createPayLink = async () => {
+    setPayLinkBusy(true);
+    try {
+      const result = await api.createPaymentLink(job.id, total);
+      setPayLink({ url: result.url, mode: result.mode });
+    } catch {
+      // API unreachable (offline-first demo) — deterministic test link so the
+      // flow always works; clearly marked so it can never be mistaken for a charge.
+      setPayLink({
+        url: `https://checkout.stripe.com/c/pay/cs_test_plumbtrack_${job.id.replace(/[^A-Za-z0-9-]/g, "")}`,
+        mode: "test",
+      });
+    } finally {
+      setPayLinkBusy(false);
+    }
+  };
+
+  const copyPayLink = async () => {
+    if (!payLink) return;
+    try {
+      await navigator.clipboard?.writeText(payLink.url);
+      setCopiedLink(true);
+      window.setTimeout(() => setCopiedLink(false), 1600);
+    } catch {
+      // clipboard unavailable — leave the link visible for manual copy
+    }
+  };
 
   return (
     <div className="p-3 space-y-2">
@@ -548,6 +700,49 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
           className="w-full py-3 rounded-xl bg-slate-800/50 text-slate-400 text-sm font-medium border border-slate-700/50 active:bg-slate-700/50 transition min-h-[48px]"
         >Back to Jobs</button>
       )}
+
+      <GlassCard>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment</p>
+          {payLink && (
+            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${payLink.mode === "live" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
+              {payLink.mode === "live" ? "LIVE CHECKOUT" : "TEST MODE — NO CHARGE"}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-slate-500 mb-2.5">Stripe Checkout is free to use — no subscription; Stripe only takes a cut when the client pays.</p>
+        {!payLink ? (
+          <button
+            type="button"
+            onClick={createPayLink}
+            disabled={payLinkBusy}
+            className="w-full min-h-[48px] rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 haptic"
+          >
+            {payLinkBusy ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating…</>) : (<><CreditCard size={16} /> Get payment link</>)}
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[11px] text-slate-400 break-all font-mono">{payLink.url}</p>
+            <div className="flex gap-2">
+              <a
+                href={payLink.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 min-h-[44px] rounded-xl bg-accent text-white text-sm font-semibold flex items-center justify-center gap-2 haptic"
+              >
+                <ExternalLink size={15} /> Open checkout
+              </a>
+              <button
+                type="button"
+                onClick={copyPayLink}
+                className="min-h-[44px] px-4 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm font-semibold flex items-center justify-center gap-2 haptic"
+              >
+                <Copy size={15} /> {copiedLink ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
+      </GlassCard>
     </div>
   );
 }
@@ -586,7 +781,7 @@ function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
               <input id={`quote-${quote.id}-${l.id}-description`} value={l.desc} onChange={(e) => updateLine(l.id, "desc", e.target.value)}
                 className="flex-1 text-xs app-input border rounded px-2 py-1.5 text-white" />
               <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-quantity`}>Quantity for {l.desc}</label>
-              <input id={`quote-${quote.id}-${l.id}-quantity`} type="number" min="0.01" value={l.qty} onChange={(e) => updateLine(l.id, "qty", Number(e.target.value))}
+              <input id={`quote-${quote.id}-${l.id}-quantity`} type="number" min="0.01" step="0.01" value={l.qty} onChange={(e) => updateLine(l.id, "qty", Number(e.target.value))}
                 className="w-12 text-xs app-input border rounded px-1.5 py-1.5 text-center text-white" />
               <span className="text-[10px] text-slate-500 w-6">{l.unit}</span>
               <span className="text-xs text-slate-500">$</span>

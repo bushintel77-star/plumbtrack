@@ -32,6 +32,16 @@ export function BottomSheet({
     onCloseRef.current = onClose;
   }, [onClose]);
 
+  // When the sheet closes (Escape, backdrop, or an external onClose — e.g. a
+  // result row navigating away), release focus from inside the panel before
+  // aria-hidden hides it from assistive technology. Without this, browsers
+  // warn about a focused element inside an aria-hidden subtree.
+  useEffect(() => {
+    if (open) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (active && sheetRef.current?.contains(active)) active.blur();
+  }, [open]);
+
   const close = useCallback(() => {
     onCloseRef.current();
     window.requestAnimationFrame(() => {

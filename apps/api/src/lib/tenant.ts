@@ -21,6 +21,27 @@ declare module "fastify" {
 export const tenantPlugin = fp(
   async (app: FastifyInstance) => {
     app.addHook("onRequest", async (request, reply) => {
+      const url = request.url.split("?")[0];
+
+      // Device enrollment is intentionally public: the route enforces the
+      // deployment bootstrap secret (production) or the legacy dev header.
+      // Production enrollment presents its raw secret as a bearer token, so
+      // the signed-session checks below must not run against it.
+      if (url === "/api/auth/device") {
+        if (!isLegacyTenantFallbackAllowed()) return; // route enforces bootstrap
+        const legacyValue = request.headers[ORG_HEADER];
+        if (typeof legacyValue === "string" && legacyValue.trim().length > 0) {
+          request.organizationId = legacyValue.trim();
+          request.auth = {
+            userId: "legacy-development-user",
+            organizationId: request.organizationId,
+            role: "owner",
+            expiresAt: Number.MAX_SAFE_INTEGER,
+          };
+        }
+        return;
+      }
+
       const bearer = getBearerToken(request);
       if (bearer) {
         const claims = verifyAuthToken(bearer);

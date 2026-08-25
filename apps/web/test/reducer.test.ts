@@ -12,6 +12,8 @@ function baseState(jobs: Job[]): AppState {
     shifts: [],
     syncQueue: [],
     serverEntryIds: {},
+    documents: [],
+    rfis: [],
   };
 }
 
@@ -295,5 +297,111 @@ describe("LOG_OFF", () => {
     const state = baseState([]);
     const next = reducer(state, { type: "LOG_OFF", staffId: "tim", endedAt: "2026-01-05T16:00:00.000Z" });
     expect(next).toBe(state);
+  });
+});
+
+// ── Documents (vault) ────────────────────────────────────────────────────────
+
+describe("documents", () => {
+  function doc(id: string) {
+    return {
+      id,
+      name: `Document ${id}`,
+      category: "compliance" as const,
+      tags: [],
+      jobId: null,
+      expiresOn: null,
+      notes: "",
+      versions: [],
+      createdAt: "2026-01-05T08:00:00.000Z",
+      createdBy: "tim",
+    };
+  }
+
+  it("ADD_DOCUMENT prepends the document to the vault", () => {
+    const next = reducer(baseState([]), { type: "ADD_DOCUMENT", document: doc("d1") });
+    expect(next.documents.map((d) => d.id)).toEqual(["d1"]);
+  });
+
+  it("UPDATE_DOCUMENT patches metadata without touching versions", () => {
+    const state = { ...baseState([]), documents: [doc("d1")] };
+    const next = reducer(state, { type: "UPDATE_DOCUMENT", documentId: "d1", patch: { expiresOn: "2026-12-31" } });
+    expect(next.documents[0].expiresOn).toBe("2026-12-31");
+    expect(next.documents[0].name).toBe("Document d1");
+  });
+
+  it("ADD_DOCUMENT_VERSION appends a new revision", () => {
+    const state = { ...baseState([]), documents: [doc("d1")] };
+    const next = reducer(state, {
+      type: "ADD_DOCUMENT_VERSION",
+      documentId: "d1",
+      version: {
+        id: "v2",
+        fileName: "cert-v2.pdf",
+        size: 100,
+        mimeType: "application/pdf",
+        url: "data:application/pdf;base64,abc",
+        uploadedAt: "2026-01-06T08:00:00.000Z",
+        uploadedBy: "sarah",
+      },
+    });
+    expect(next.documents[0].versions).toHaveLength(1);
+    expect(next.documents[0].versions[0].id).toBe("v2");
+  });
+
+  it("DELETE_DOCUMENT removes the document and unlinks RFI attachments", () => {
+    const state = {
+      ...baseState([]),
+      documents: [doc("d1")],
+      rfis: [{ id: "r1", jobId: "J-1", question: "?", attachmentId: "d1", status: "raised" as const, raisedBy: "tim", raisedAt: "2026-01-05T08:00:00.000Z", answer: "", answeredBy: null, answeredAt: null }],
+    };
+    const next = reducer(state, { type: "DELETE_DOCUMENT", documentId: "d1" });
+    expect(next.documents).toHaveLength(0);
+    expect(next.rfis[0].attachmentId).toBeNull();
+  });
+});
+
+// ── RFIs ─────────────────────────────────────────────────────────────────────
+
+describe("rfis", () => {
+  function raised() {
+    return {
+      id: "r1",
+      jobId: "J-1",
+      question: "Is the meter accessible?",
+      attachmentId: null,
+      status: "raised" as const,
+      raisedBy: "sarah",
+      raisedAt: "2026-01-05T08:00:00.000Z",
+      answer: "",
+      answeredBy: null,
+      answeredAt: null,
+    };
+  }
+
+  it("RAISE_RFI prepends the request", () => {
+    const next = reducer(baseState([]), { type: "RAISE_RFI", rfi: raised() });
+    expect(next.rfis.map((r) => r.id)).toEqual(["r1"]);
+  });
+
+  it("ANSWER_RFI moves a raised RFI to answered with the response", () => {
+    const state = { ...baseState([]), rfis: [raised()] };
+    const next = reducer(state, { type: "ANSWER_RFI", rfiId: "r1", answer: "Yes — behind the laundry door.", answeredBy: "tim" });
+    expect(next.rfis[0].status).toBe("answered");
+    expect(next.rfis[0].answer).toBe("Yes — behind the laundry door.");
+    expect(next.rfis[0].answeredBy).toBe("tim");
+    expect(next.rfis[0].answeredAt).not.toBeNull();
+  });
+
+  it("ANSWER_RFI is ignored once already answered", () => {
+    const state = { ...baseState([]), rfis: [{ ...raised(), status: "answered" as const }] };
+    const next = reducer(state, { type: "ANSWER_RFI", rfiId: "r1", answer: "Second answer", answeredBy: "mike" });
+    expect(next.rfis[0].answer).toBe("");
+  });
+
+  it("CLOSE_RFI seals a resolved request", () => {
+    const state = { ...baseState([]), rfis: [{ ...raised(), status: "answered" as const }] };
+    const next = reducer(state, { type: "CLOSE_RFI", rfiId: "r1" });
+    expect(next.rfis[0].status).toBe("closed");
   });
 });

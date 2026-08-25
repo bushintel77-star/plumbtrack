@@ -87,7 +87,10 @@ export function isTerminalSyncError(error: unknown): boolean {
   const status = typeof error === "object" && error !== null && "status" in error
     ? Number((error as { status?: unknown }).status)
     : NaN;
-  return Number.isInteger(status) && status >= 400 && status < 500;
+  if (!Number.isInteger(status)) return false;
+  // 429 (rate limited) is retryable with backoff — everything else 4xx is terminal.
+  if (status === 429) return false;
+  return status >= 400 && status < 500;
 }
 
 export function errorMessage(error: unknown): string {

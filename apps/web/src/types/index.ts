@@ -2,7 +2,7 @@
 
 export type JobStatus = "scheduled" | "in_progress" | "completed";
 export type QuoteStatus = "draft" | "sent" | "accepted";
-export type Tab = "jobs" | "quotes" | "messages" | "settings" | "dashboard";
+export type Tab = "jobs" | "quotes" | "messages" | "settings" | "dashboard" | "documents";
 export type View =
   | "list"
   | "job"
@@ -228,6 +228,74 @@ export interface Quote {
   lines: QuoteLine[];
 }
 
+// ── Document management ────────────────────────────────────────────────────
+
+/** What a document is for — drives icons, filters and compliance alerts. */
+export type DocumentCategory =
+  | "spec"
+  | "compliance"
+  | "warranty"
+  | "receipt"
+  | "permit"
+  | "insurance"
+  | "supplier"
+  | "other";
+
+/** One uploaded revision of a document. Latest is the last entry. */
+export interface PlumbDocumentVersion {
+  id: string;
+  fileName: string;
+  /** Bytes. */
+  size: number;
+  mimeType: string;
+  /** data: URL (local-first storage, same as field photos). */
+  url: string;
+  /** ISO-8601 UTC timestamp. */
+  uploadedAt: string;
+  uploadedBy: string;
+  sha256?: string;
+}
+
+/**
+ * A stored document — job-linked (specs, certs, receipts) or organisation-
+ * wide (insurance, SWMS, ABN). Expiry-aware so lapses surface before they
+ * cost a job.
+ */
+export interface PlumbDocument {
+  id: string;
+  name: string;
+  category: DocumentCategory;
+  tags: string[];
+  /** Job id when the doc belongs to a job, null for company docs. */
+  jobId: string | null;
+  /** YYYY-MM-DD; null for evergreen documents. */
+  expiresOn: string | null;
+  notes: string;
+  versions: PlumbDocumentVersion[];
+  /** ISO-8601 UTC timestamp. */
+  createdAt: string;
+  createdBy: string;
+}
+
+export type RfiStatus = "raised" | "answered" | "closed";
+
+/** Request-for-information against a job — field ↔ office loop. */
+export interface Rfi {
+  id: string;
+  jobId: string;
+  question: string;
+  /** Linked PlumbDocument id (spec, plan, photo bundle) when attached. */
+  attachmentId: string | null;
+  status: RfiStatus;
+  raisedBy: string;
+  /** ISO-8601 UTC timestamp. */
+  raisedAt: string;
+  answer: string;
+  answeredBy: string | null;
+  /** ISO-8601 UTC timestamp. */
+  answeredAt: string | null;
+}
+
 // ── Slack messaging ─────────────────────────────────────────────────────────
 
 export type SlackChannelType = "channel" | "dm";
@@ -259,8 +327,10 @@ export interface SlackMessage {
   text: string;
   /** ISO-8601 UTC timestamp. */
   ts: string;
-  /** Optional emoji reactions keyed by emoji, e.g. { "👍": 2 }. */
-  reactions: Record<string, number>;
+  /** When set, this message is a threaded reply to the parent message id. */
+  parentId?: string;
+  /** Optional emoji reactions keyed by emoji → member ids who reacted, e.g. { "👍": ["sarah", "mike"] }. */
+  reactions: Record<string, string[]>;
 }
 
 // ── Offline sync queue (field mutations → API/integrations) ───────────────
@@ -359,6 +429,10 @@ export interface JobActivity {
   detail: string;
   createdAt: string;
   staffId?: string;
+  /** Worked seconds for closed time entries (billing-grade precision). */
+  elapsedSeconds?: number;
+  /** Short uppercase tag shown as a status chip, e.g. "GPS VERIFIED". */
+  meta?: string;
 }
 
 // ── Notification feed (API-backed) ─────────────────────────────────────────
@@ -387,4 +461,8 @@ export interface AppState {
   syncQueue: SyncOp[];
   /** Local time-entry id → server id, once a clock-in op has been acknowledged. */
   serverEntryIds: Record<string, string>;
+  /** Document vault — job-linked and organisation-wide, expiry-aware. */
+  documents: PlumbDocument[];
+  /** Requests-for-information raised against jobs. */
+  rfis: Rfi[];
 }

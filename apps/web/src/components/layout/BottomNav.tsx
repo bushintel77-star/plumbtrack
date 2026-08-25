@@ -1,4 +1,4 @@
-import { Wrench, ClipboardList, Settings, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Wrench, ClipboardList, Settings, MessageSquare, LayoutDashboard, FolderOpen } from "lucide-react";
 import type { Tab } from "@/types";
 
 interface BottomNavProps {
@@ -12,6 +12,7 @@ const tabs: { key: Tab; icon: typeof Wrench; label: string }[] = [
   { key: "quotes", icon: ClipboardList, label: "Quotes" },
   { key: "messages", icon: MessageSquare, label: "Messages" },
   { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { key: "documents", icon: FolderOpen, label: "Docs" },
   { key: "settings", icon: Settings, label: "Settings" },
 ];
 

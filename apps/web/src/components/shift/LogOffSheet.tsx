@@ -55,7 +55,8 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   const confirm = () => {
-    const kmDriven = km.trim() ? Math.max(0, Number(km)) : undefined;
+    const parsedKm = Number(km);
+    const kmDriven = km.trim() ? Math.min(2000, Math.max(0, Number.isFinite(parsedKm) ? parsedKm : 0)) : undefined;
     const result = logOff({
       ...(effectiveWorkType ? { workType: effectiveWorkType } : {}),
       ...(kmDriven !== undefined ? { kmDriven } : {}),
@@ -180,7 +181,12 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
               min="0"
               inputMode="decimal"
               value={km}
-              onChange={(e) => setKm(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value.replace(/[^0-9.]/g, "");
+                const n = Number(next);
+                setKm(Number.isFinite(n) && n > 2000 ? "2000" : next);
+              }}
+              max="2000"
               placeholder="Kilometres driven this shift (optional)"
               className="w-full app-input border rounded-lg px-3 py-2.5 text-sm"
               style={{ color: "var(--app-text)" }}

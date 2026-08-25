@@ -33,3 +33,4 @@ gui-test-screenshots/
 Thumbs.db
 .idea/
 .vscode/
+dev-server.err

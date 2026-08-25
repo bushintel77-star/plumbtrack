@@ -1,4 +1,4 @@
-import type { Job, Quote, SlackChannel, SlackMember, SlackMessage } from "@/types";
+import type { Job, PlumbDocument, Quote, Rfi, SlackChannel, SlackMember, SlackMessage } from "@/types";
 
 /** Demo jobs — used as initial state when localStorage is empty. */
 export const seedJobs: Job[] = [
@@ -76,6 +76,170 @@ export const seedChannels: SlackChannel[] = [
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+
+/** YYYY-MM-DD `days` from today — keeps seeded expiry alerts always live. */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * DAY).toISOString().slice(0, 10);
+}
+
+// ── Documents (vault) ───────────────────────────────────────────────────────
+
+/** Demo vault — organisation-wide compliance docs + per-job paperwork. */
+export const seedDocuments: PlumbDocument[] = [
+  {
+    id: "doc-insurance",
+    name: "Public Liability Insurance — 2026",
+    category: "insurance",
+    tags: ["insurance", "annual"],
+    jobId: null,
+    expiresOn: daysFromNow(23),
+    notes: "$10m public liability. Renewal reminder set.",
+    versions: [
+      {
+        id: "v-insurance-1",
+        fileName: "PL-insurance-2026.pdf",
+        size: 482_193,
+        mimeType: "application/pdf",
+        url: "",
+        uploadedAt: new Date(Date.now() - 300 * DAY).toISOString(),
+        uploadedBy: "sarah",
+      },
+    ],
+    createdAt: new Date(Date.now() - 300 * DAY).toISOString(),
+    createdBy: "sarah",
+  },
+  {
+    id: "doc-swms-drainage",
+    name: "SWMS — Drainage & Excavation",
+    category: "compliance",
+    tags: ["swms", "site-safety"],
+    jobId: null,
+    expiresOn: null,
+    notes: "Current site-safety work method statement for drain work.",
+    versions: [
+      {
+        id: "v-swms-2",
+        fileName: "SWMS-drainage-v2.pdf",
+        size: 301_450,
+        mimeType: "application/pdf",
+        url: "",
+        uploadedAt: new Date(Date.now() - 90 * DAY).toISOString(),
+        uploadedBy: "tim",
+      },
+    ],
+    createdAt: new Date(Date.now() - 200 * DAY).toISOString(),
+    createdBy: "tim",
+  },
+  {
+    id: "doc-gas-cert-1043",
+    name: "Gas compliance certificate — unit 6",
+    category: "compliance",
+    tags: ["gas", "compliance"],
+    jobId: "J-1043",
+    expiresOn: daysFromNow(14),
+    notes: "Post-repair gas test — required before insurer sign-off.",
+    versions: [
+      {
+        id: "v-gas-1",
+        fileName: "gas-compliance-J1043.pdf",
+        size: 128_771,
+        mimeType: "application/pdf",
+        url: "",
+        uploadedAt: new Date(Date.now() - 2 * DAY).toISOString(),
+        uploadedBy: "tim",
+      },
+    ],
+    createdAt: new Date(Date.now() - 2 * DAY).toISOString(),
+    createdBy: "tim",
+  },
+  {
+    id: "doc-insurer-ref",
+    name: "Insurer claim reference — CL-88213",
+    category: "receipt",
+    tags: ["insurer", "claim"],
+    jobId: "J-1043",
+    expiresOn: null,
+    notes: "Claim reference for the riser leak. Before/after photos to be attached.",
+    versions: [
+      {
+        id: "v-insurer-1",
+        fileName: "CL-88213-claim-ref.pdf",
+        size: 92_018,
+        mimeType: "application/pdf",
+        url: "",
+        uploadedAt: new Date(Date.now() - 1 * DAY).toISOString(),
+        uploadedBy: "sarah",
+      },
+    ],
+    createdAt: new Date(Date.now() - 1 * DAY).toISOString(),
+    createdBy: "sarah",
+  },
+  {
+    id: "doc-tap-spec",
+    name: "Mixer tap spec — Caroma Liano",
+    category: "spec",
+    tags: ["fixture", "spec"],
+    jobId: "J-1042",
+    expiresOn: null,
+    notes: "Cartridge size and torque settings for the kitchen mixer.",
+    versions: [
+      {
+        id: "v-spec-1",
+        fileName: "caroma-liano-spec.pdf",
+        size: 1_204_336,
+        mimeType: "application/pdf",
+        url: "",
+        uploadedAt: new Date(Date.now() - 5 * DAY).toISOString(),
+        uploadedBy: "sarah",
+      },
+    ],
+    createdAt: new Date(Date.now() - 5 * DAY).toISOString(),
+    createdBy: "sarah",
+  },
+];
+
+// ── RFIs (requests-for-information) ─────────────────────────────────────────
+
+/** Demo RFIs — one per state so the lifecycle is visible on first load. */
+export const seedRfis: Rfi[] = [
+  {
+    id: "rfi-1",
+    jobId: "J-1043",
+    question: "Does the insurer cover the riser cabinet access fee, or do we invoice the body corp separately?",
+    attachmentId: "doc-insurer-ref",
+    status: "answered",
+    raisedBy: "sarah",
+    raisedAt: new Date(Date.now() - 2 * DAY).toISOString(),
+    answer: "Covered under CL-88213 — access fee goes on the insurer invoice.",
+    answeredBy: "tim",
+    answeredAt: new Date(Date.now() - 1 * DAY).toISOString(),
+  },
+  {
+    id: "rfi-2",
+    jobId: "J-1043",
+    question: "Need the before/after photo set for the insurer file by Friday — who is capturing?",
+    attachmentId: null,
+    status: "raised",
+    raisedBy: "sarah",
+    raisedAt: new Date(Date.now() - 4 * HOUR).toISOString(),
+    answer: "",
+    answeredBy: null,
+    answeredAt: null,
+  },
+  {
+    id: "rfi-3",
+    jobId: "J-1042",
+    question: "Is the cartridge a 35mm ceramic disc or the older 40mm? Need to order before visit.",
+    attachmentId: null,
+    status: "closed",
+    raisedBy: "mike",
+    raisedAt: new Date(Date.now() - 3 * DAY).toISOString(),
+    answer: "35mm — confirmed at the tap.",
+    answeredBy: "tim",
+    answeredAt: new Date(Date.now() - 2.5 * DAY).toISOString(),
+  },
+];
 
 /** Build a timestamp relative to now so the feed always looks fresh. */
 function ago(msAgo: number): string {
@@ -91,7 +255,7 @@ export const seedMessages: SlackMessage[] = [
     authorId: "sarah",
     text: "Morning team ☀️ Two jobs on the board today: J-1042 (Marlene Cho, kitchen tap) and J-1043 (body corp riser leak, insurer ref on file).",
     ts: ago(2 * HOUR),
-    reactions: { "👍": 3 },
+    reactions: { "👍": ["sarah", "mike", "plumbtrack"] },
   },
   {
     id: "m-2",
@@ -124,7 +288,16 @@ export const seedMessages: SlackMessage[] = [
     authorId: "tim",
     text: "On site at the riser now. Access to unit 6 riser cabinet confirmed.",
     ts: ago(45 * MIN),
-    reactions: { "👀": 1 },
+    reactions: { "👀": ["mike"] },
+  },
+  {
+    id: "m-5r",
+    channelId: "field-updates",
+    authorId: "sarah",
+    parentId: "m-5",
+    text: "Nice — grab before/after photos for the insurer file.",
+    ts: ago(44 * MIN),
+    reactions: { "👍": ["tim"] },
   },
   {
     id: "m-6",

@@ -1,17 +1,18 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
-import type { AppState, Job, OutboxOperation, Quote, QuoteLineField, Shift, ShiftWorkType, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
+import type { AppState, DocumentCategory, Job, OutboxOperation, PlumbDocument, PlumbDocumentVersion, Quote, QuoteLineField, Rfi, Shift, ShiftWorkType, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
 import { GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
 import { disaggregateForStp, interpretShift, previousShiftEnd, type ShiftPayBreakdown, type StpDisaggregation } from "@/lib/award";
 import { api } from "@/lib/api";
+import { enrollDeviceSession, getAuthSession } from "@/lib/auth";
 import { HttpError } from "@/lib/errors";
 import { dispatchNotification } from "@/lib/notifications";
 import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, mediaToBlob, mediaToDataUrl, migrateLegacyOperations, putOutboxMedia, removeOutboxMedia, retryFailedOutboxOperations, retryOutboxOperation } from "@/lib/outbox";
 import { createSyncManager, DeferredSyncError, TerminalSyncError } from "@/lib/syncManager";
 import { useOutboxStatus } from "@/hooks/useOutboxStatus";
 import { useShiftTracking } from "@/hooks/useShiftTracking";
-import { seedChannels, seedJobs, seedMembers, seedMessages, seedQuotes } from "@/lib/seed";
+import { seedChannels, seedDocuments, seedJobs, seedMembers, seedMessages, seedQuotes, seedRfis } from "@/lib/seed";
 import { reducer } from "./reducer";
 import type { Action } from "./actions";
 
@@ -27,6 +28,8 @@ function emptyState(): AppState {
     shifts: [],
     syncQueue: [],
     serverEntryIds: {},
+    documents: seedDocuments,
+    rfis: seedRfis,
   };
 }
 
@@ -68,6 +71,8 @@ function loadState(): AppState {
         shifts: Array.isArray(parsed.shifts) ? parsed.shifts : [],
         syncQueue: Array.isArray(parsed.syncQueue) ? parsed.syncQueue : [],
         serverEntryIds: parsed.serverEntryIds && typeof parsed.serverEntryIds === "object" ? parsed.serverEntryIds : {},
+        documents: Array.isArray(parsed.documents) ? parsed.documents : seedDocuments,
+        rfis: Array.isArray(parsed.rfis) ? parsed.rfis : seedRfis,
       };
     }
     return emptyState();
@@ -211,10 +216,13 @@ function usePlumbTrackImpl() {
     void navigator.serviceWorker.register("/service-worker.js").catch(() => undefined);
   }, []);
 
-  // Merge remote data on mount
+  // Merge remote data on mount — after ensuring a signed device session,
+  // because production API calls are rejected without a bearer token.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!getAuthSession()) await enrollDeviceSession();
+      if (cancelled) return;
       try {
         const [rj, rq] = await Promise.all([api.listJobs(), api.listQuotes()]);
         if (!cancelled) dispatch({ type: "MERGE_REMOTE", jobs: rj, quotes: rq });
@@ -312,7 +320,12 @@ function usePlumbTrackImpl() {
         // Local/demo servers may not have object storage configured yet. Keep
         // their existing URL payload path working, but never fall back for an
         // authorization or provider error in a configured deployment.
-        if (!(error instanceof HttpError) || error.status !== 503) throw error;
+        const status = error instanceof HttpError
+          ? error.status
+          : error instanceof Error && "status" in error
+            ? Number((error as { status?: unknown }).status)
+            : null;
+        if (status !== 503) throw error;
         await api.createPhoto(jobId, { label, url: await mediaToDataUrl(media), opId: operation.id });
         await removeOutboxMedia(mediaId);
         return;
@@ -336,20 +349,20 @@ function usePlumbTrackImpl() {
 
   // ── Slack helpers ─────────────────────────────────────────────────────────
 
-  const postMessage = useCallback((channelId: string, authorId: string, text: string, dependsOn?: string[]) => {
+  const postMessage = useCallback((channelId: string, authorId: string, text: string, dependsOn?: string[], parentId?: string) => {
     const opId = crypto.randomUUID();
-    dispatch({ type: "POST_MESSAGE", channelId, authorId, text });
+    dispatch({ type: "POST_MESSAGE", channelId, authorId, text, parentId });
     // Slack is a downstream integration. Queue the handoff alongside the
     // local message so weak signal cannot silently lose an HQ update.
     dispatch({ type: "QUEUE_NOTIFICATION", opId, channel: channelId, author: authorId, text, dependsOn });
   }, []);
 
   const sendMessage = useCallback(
-    (text: string) => {
+    (text: string, parentId?: string) => {
       if (!activeChannel) return;
       const trimmed = text.trim();
       if (!trimmed) return;
-      postMessage(activeChannel.id, currentStaffId, trimmed);
+      postMessage(activeChannel.id, currentStaffId, trimmed, undefined, parentId);
       // Mark my own channel read (my message is the newest).
       dispatch({ type: "MARK_CHANNEL_READ", channelId: activeChannel.id, ts: new Date().toISOString() });
     },
@@ -366,9 +379,12 @@ function usePlumbTrackImpl() {
     [],
   );
 
-  const toggleReaction = useCallback((messageId: string, emoji: string) => {
-    dispatch({ type: "TOGGLE_REACTION", messageId, emoji });
-  }, []);
+  const toggleReaction = useCallback(
+    (messageId: string, emoji: string) => {
+      dispatch({ type: "TOGGLE_REACTION", messageId, emoji, userId: currentStaffId });
+    },
+    [currentStaffId],
+  );
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -680,6 +696,128 @@ function usePlumbTrackImpl() {
     window.location.reload();
   }, []);
 
+  // ── Documents (vault) ────────────────────────────────────────────────────
+
+  const addDocument = useCallback(
+    (input: {
+      name: string;
+      category: DocumentCategory;
+      tags: string[];
+      jobId: string | null;
+      expiresOn: string | null;
+      notes: string;
+      fileName: string;
+      size: number;
+      mimeType: string;
+      url: string;
+    }) => {
+      const document: PlumbDocument = {
+        id: crypto.randomUUID(),
+        name: input.name.trim() || input.fileName || "Untitled document",
+        category: input.category,
+        tags: input.tags,
+        jobId: input.jobId,
+        expiresOn: input.expiresOn,
+        notes: input.notes,
+        versions: [
+          {
+            id: crypto.randomUUID(),
+            fileName: input.fileName,
+            size: input.size,
+            mimeType: input.mimeType,
+            url: input.url,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: currentStaffId,
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        createdBy: currentStaffId,
+      };
+      dispatch({ type: "ADD_DOCUMENT", document });
+      const jobRef = input.jobId ? ` on ${input.jobId}` : "";
+      postMessage(
+        input.jobId ? "field-updates" : "general",
+        "plumbtrack",
+        `📄 **${document.name}** added${jobRef} (${input.category}).`,
+      );
+      return document;
+    },
+    [currentStaffId, postMessage, dispatch],
+  );
+
+  const updateDocument = useCallback(
+    (documentId: string, patch: Partial<Pick<PlumbDocument, "name" | "category" | "tags" | "expiresOn" | "notes">>) => {
+      dispatch({ type: "UPDATE_DOCUMENT", documentId, patch });
+    },
+    [],
+  );
+
+  const addDocumentVersion = useCallback(
+    (documentId: string, version: Omit<PlumbDocumentVersion, "id" | "uploadedAt" | "uploadedBy">) => {
+      const doc = state.documents.find((d) => d.id === documentId);
+      const full: PlumbDocumentVersion = {
+        ...version,
+        id: crypto.randomUUID(),
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: currentStaffId,
+      };
+      dispatch({ type: "ADD_DOCUMENT_VERSION", documentId, version: full });
+      postMessage("field-updates", "plumbtrack", `📄 **${doc?.name ?? "Document"}** updated — new version (v${(doc?.versions.length ?? 0) + 1}).`);
+      return full;
+    },
+    [state.documents, currentStaffId, postMessage, dispatch],
+  );
+
+  const deleteDocument = useCallback(
+    (documentId: string) => {
+      const doc = state.documents.find((d) => d.id === documentId);
+      dispatch({ type: "DELETE_DOCUMENT", documentId });
+      if (doc) postMessage("general", "plumbtrack", `🗑️ **${doc.name}** removed from the vault.`);
+    },
+    [state.documents, postMessage, dispatch],
+  );
+
+  // ── RFIs (requests-for-information) ─────────────────────────────────────
+
+  const raiseRfi = useCallback(
+    (jobId: string, question: string, attachmentId: string | null) => {
+      const rfi: Rfi = {
+        id: crypto.randomUUID(),
+        jobId,
+        question: question.trim(),
+        attachmentId,
+        status: "raised",
+        raisedBy: currentStaffId,
+        raisedAt: new Date().toISOString(),
+        answer: "",
+        answeredBy: null,
+        answeredAt: null,
+      };
+      dispatch({ type: "RAISE_RFI", rfi });
+      postMessage("jobs", "plumbtrack", `❓ RFI raised on ${jobId}: “${rfi.question}”`);
+      return rfi;
+    },
+    [currentStaffId, postMessage, dispatch],
+  );
+
+  const answerRfi = useCallback(
+    (rfiId: string, answer: string) => {
+      const rfi = state.rfis.find((r) => r.id === rfiId);
+      dispatch({ type: "ANSWER_RFI", rfiId, answer: answer.trim(), answeredBy: currentStaffId });
+      postMessage("jobs", "plumbtrack", `💬 RFI answered on ${rfi?.jobId ?? "job"}: “${answer.trim()}”`);
+    },
+    [state.rfis, currentStaffId, postMessage, dispatch],
+  );
+
+  const closeRfi = useCallback(
+    (rfiId: string) => {
+      const rfi = state.rfis.find((r) => r.id === rfiId);
+      dispatch({ type: "CLOSE_RFI", rfiId });
+      postMessage("jobs", "plumbtrack", `✅ RFI closed on ${rfi?.jobId ?? "job"}.`);
+    },
+    [state.rfis, postMessage, dispatch],
+  );
+
   // ── Navigation ───────────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
@@ -761,6 +899,11 @@ function usePlumbTrackImpl() {
 
     // Slack
     sendMessage, openChannel, toggleReaction, postMessage,
+
+    // Documents
+    documents: state.documents, rfis: state.rfis,
+    addDocument, updateDocument, addDocumentVersion, deleteDocument,
+    raiseRfi, answerRfi, closeRfi,
 
     // Sync
     pendingSyncCount, retryFailedSync, retrySyncOperation, discardFailedSync,

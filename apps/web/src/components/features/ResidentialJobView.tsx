@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
   ChevronRight,
   Check,
+  ClipboardList,
   Clock,
   MapPin,
   Mic,
@@ -21,6 +22,8 @@ import { IconCameraField } from "@/components/icons/FieldIcons";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { JobActivityTimeline } from "@/components/features/JobActivityTimeline";
+import { JobDocumentsCard } from "@/components/documents/DocumentComponents";
+import { requiresDailyReport } from "@/components/features/DailyReportView";
 import type { Job, ResidentialJobType, ServiceItem, VoiceNote } from "@/types";
 
 interface JobKit {
@@ -160,9 +163,9 @@ function ItemRow({ item, onQty, onRemove }: { item: ServiceItem; onQty: (qty: nu
   return (
     <div className="flex items-center gap-2 min-h-[44px] border-b border-white/[0.06] last:border-0">
       <div className="flex-1 min-w-0"><p className="text-sm text-slate-200 truncate">{item.description}</p><p className="text-[10px] text-slate-500">${item.rate.toFixed(2)} / {item.unit}</p></div>
-      <button type="button" onClick={() => onQty(item.qty - 1)} className="w-7 h-7 rounded-md bg-white/[0.06] text-slate-300" aria-label={`Decrease ${item.description}`}>−</button>
+      <button type="button" onClick={() => onQty(item.qty - 1)} className="w-9 h-9 rounded-lg bg-white/[0.06] text-slate-300 active:bg-white/[0.12] transition" aria-label={`Decrease ${item.description}`}>−</button>
       <span className="w-5 text-center text-xs font-mono text-white">{item.qty}</span>
-      <button type="button" onClick={() => onQty(item.qty + 1)} className="w-7 h-7 rounded-md bg-white/[0.06] text-slate-300" aria-label={`Increase ${item.description}`}>+</button>
+      <button type="button" onClick={() => onQty(item.qty + 1)} className="w-9 h-9 rounded-lg bg-white/[0.06] text-slate-300 active:bg-white/[0.12] transition" aria-label={`Increase ${item.description}`}>+</button>
       <button type="button" onClick={onRemove} className="w-7 h-7 rounded-md text-slate-500 hover:text-red-300" aria-label={`Remove ${item.description}`}><X size={14} /></button>
     </div>
   );
@@ -238,6 +241,11 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
           <a href={destinationUrl(job.address)} target="_blank" rel="noreferrer" className="min-h-[48px] rounded-xl flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold transition haptic"><Navigation size={16} /> Navigate</a>
         </div>
         {job.status !== "completed" && <OnTheWayButton jobId={job.id} />}
+        {requiresDailyReport(job) && (
+          <button type="button" onClick={() => setView("dailyReport")} className="mt-2 w-full min-h-[48px] rounded-xl border border-white/[0.1] bg-white/[0.04] flex items-center justify-center gap-2 text-sm font-semibold text-slate-300 transition haptic">
+            <ClipboardList size={16} className="text-accent" /> End of Day Report
+          </button>
+        )}
         {job.accessCode && <div className="mt-2 flex items-center gap-2 text-xs text-slate-500"><span className="text-accent font-semibold">Access</span><span>{job.accessCode}</span></div>}
       </GlassCard>
 
@@ -273,6 +281,8 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
         <div className="flex justify-between pt-2 mt-1 border-t border-white/[0.06] text-sm font-bold text-white"><span>Items total</span><span>${itemTotal.toFixed(2)}</span></div>
       </GlassCard>
       </div>
+
+      <JobDocumentsCard job={job} />
 
       <BottomSheet open={kitOpen} onClose={() => setKitOpen(false)} title="Add service item" subtitle="Preset rates and repair kits for fast driveway pricing" label="Service item picker">
         <div className="space-y-2">{KITS.map((kit) => <button key={kit.id} type="button" onClick={() => addKit(kit)} className="w-full min-h-[72px] rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 text-left flex items-center gap-3 haptic"><span className="w-10 h-10 shrink-0 rounded-xl bg-accent/15 text-accent flex items-center justify-center"><ShoppingCart size={18} /></span><span className="flex-1 min-w-0"><span className="block text-sm font-bold text-white">{kit.title}</span><span className="block text-xs text-slate-500 mt-0.5">{kit.hint}</span></span><span className="text-sm font-bold text-accent">${kit.rate}</span><ChevronRight size={16} className="text-slate-600" /></button>)}</div>

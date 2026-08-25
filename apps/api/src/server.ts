@@ -10,6 +10,7 @@ import { organizationRoutes } from "./routes/organizations";
 import { jobRoutes } from "./routes/jobs";
 import { quoteRoutes } from "./routes/quotes";
 import { notificationRoutes } from "./routes/notifications";
+import { documentRoutes } from "./routes/documents";
 import { mediaRoutes } from "./routes/media";
 import { appointmentRoutes, customerRoutes } from "./routes/residential";
 import { integrationRoutes } from "./routes/integrations";
@@ -31,7 +32,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     .map((value) => value.trim())
     .filter(Boolean);
   await app.register(cors, corsOrigins?.length ? { origin: corsOrigins } : { origin: true });
-  await app.register(rateLimit, { max: 500, timeWindow: "1 minute" });
+  // Per-IP request cap, env-tunable for production traffic profiles.
+  const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 500);
+  const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
+  if (!Number.isFinite(rateLimitMax) || rateLimitMax <= 0 || !Number.isFinite(rateLimitWindowMs) || rateLimitWindowMs <= 0) {
+    throw new Error("Invalid rate-limit configuration: RATE_LIMIT_MAX and RATE_LIMIT_WINDOW_MS must be positive numbers");
+  }
+  await app.register(rateLimit, { max: rateLimitMax, timeWindow: rateLimitWindowMs });
   await app.register(tenantPlugin);
 
   app.get("/", async () => ({ service: "plumbtrack-api", status: "ok" }));
@@ -42,6 +49,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(jobRoutes, { prefix: "/api/jobs" });
   await app.register(quoteRoutes, { prefix: "/api/quotes" });
   await app.register(notificationRoutes, { prefix: "/api/notifications" });
+  await app.register(documentRoutes, { prefix: "/api" });
   await app.register(mediaRoutes, { prefix: "/api/media" });
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(appointmentRoutes, { prefix: "/api/appointments" });

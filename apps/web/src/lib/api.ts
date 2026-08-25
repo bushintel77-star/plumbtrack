@@ -1,29 +1,74 @@
-import { API_URL, DEFAULT_ORG_ID } from "./constants";
+import { API_TIMEOUT_MS, API_URL, DEFAULT_ORG_ID } from "./constants";
+import { clearAuthSession, getAuthSession } from "./auth";
 import type { Job, JobPhoto, JobStatus, Quote, QuoteStatus, TimeEntry } from "@/types";
 import { HttpError } from "./errors";
 
 const ORG_HEADER = "x-organization-id";
+const REQUEST_ID_HEADER = "x-request-id";
 export const AUTH_TOKEN_STORAGE_KEY = "plumbtrack-auth-token";
+
+/** Transient failure (network drop, timeout, 5xx, 429). Safe to retry. */
+export class NetworkError extends Error {
+  readonly retryable = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+function newRequestId(): string {
+  return crypto.randomUUID().slice(0, 8);
+}
 
 function getStoredAuthHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
-  const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)?.trim();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  // Prefer the enrolled device session; fall back to a manually-placed token
+  // so existing deployments keep working.
+  const sessionToken = getAuthSession()?.token?.trim();
+  if (sessionToken) return { Authorization: `Bearer ${sessionToken}` };
+  const legacy = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)?.trim();
+  return legacy ? { Authorization: `Bearer ${legacy}` } : {};
 }
 
+/**
+ * Request with timeout + tracing. Network/throttling/server errors throw
+ * `NetworkError` (retryable); 4xx client errors throw `HttpError` (mostly
+ * terminal). The sync outbox uses this split to decide retry vs discard.
+ */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      [ORG_HEADER]: DEFAULT_ORG_ID,
-      ...getStoredAuthHeader(),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        [ORG_HEADER]: DEFAULT_ORG_ID,
+        [REQUEST_ID_HEADER]: newRequestId(),
+        ...getStoredAuthHeader(),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new NetworkError(`API request to ${path} timed out after ${API_TIMEOUT_MS}ms`);
+    }
+    throw new NetworkError(`API request to ${path} failed: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const body = await response.text();
+    if (response.status === 429 || response.status >= 500) {
+      throw new NetworkError(`API request failed (${response.status}): ${body}`);
+    }
+    // An expired/revoked session must not silently poison every later call —
+    // drop it so the next boot re-enrolls a fresh one.
+    if (response.status === 401) clearAuthSession();
     throw new HttpError(response.status, `API request failed (${response.status}): ${body}`);
   }
 
@@ -32,6 +77,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+/**
+ * True when an error from the API client is safe to retry — network drops,
+ * timeouts, rate limits and server errors. 4xx (except 429) are terminal.
+ */
+export function isRetryableApiError(error: unknown): boolean {
+  return error instanceof NetworkError;
 }
 
 export interface CreateJobInput {
@@ -198,12 +251,30 @@ export const api = {
     }),
 
   uploadPhotoBinary: async (intent: PhotoUploadIntent, body: Blob | ArrayBuffer): Promise<void> => {
-    const response = await fetch(intent.uploadUrl, {
-      method: "PUT",
-      headers: intent.headers,
-      body,
-    });
-    if (!response.ok) throw new HttpError(response.status, `Media upload failed (${response.status})`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(intent.uploadUrl, {
+        method: "PUT",
+        headers: intent.headers,
+        body,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new NetworkError("Media upload timed out");
+      }
+      throw new NetworkError(`Media upload failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) {
+      if (response.status >= 500 || response.status === 429) {
+        throw new NetworkError(`Media upload failed (${response.status})`);
+      }
+      throw new HttpError(response.status, `Media upload failed (${response.status})`);
+    }
   },
 
   completePhotoUpload: (assetId: string) =>
@@ -211,4 +282,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ assetId }),
     }),
+
+  createPaymentLink: (jobId: string, amount: number) =>
+    request<{ url: string; mode: "live" | "test"; configured: boolean; amount: number; currency: string }>(
+      `/api/jobs/${jobId}/payment-link`,
+      { method: "POST", body: JSON.stringify({ amount }) },
+    ),
 };
