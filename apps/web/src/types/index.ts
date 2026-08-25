@@ -32,6 +32,42 @@ export interface TimeEntry {
   lng: number | null;
 }
 
+// ── Shifts (log-on / log-off) ──────────────────────────────────────────────
+
+/** Why the shift started — drives award interpretation at log-off. */
+export type ShiftWorkType = "standard" | "callback" | "inclement";
+
+/** Unpaid meal break — excluded from payable time and pauses tracking. */
+export interface ShiftBreak {
+  id: string;
+  /** ISO-8601 UTC timestamp. */
+  start: string;
+  /** ISO-8601 UTC timestamp, or null while the break is running. */
+  end: string | null;
+}
+
+/**
+ * A workday bounded by log-on and log-off. Tracking is derived from this
+ * state machine (active only while the shift is open and no unpaid break is
+ * running) so location surveillance is structurally impossible off-duty.
+ */
+export interface Shift {
+  id: string;
+  staffId: string;
+  workType: ShiftWorkType;
+  /** ISO-8601 UTC log-on timestamp. */
+  loggedOnAt: string;
+  /** ISO-8601 UTC log-off timestamp, or null while the shift is running. */
+  loggedOffAt: string | null;
+  breaks: ShiftBreak[];
+  /** Kilometres driven on personal vehicle during the shift (allowance). */
+  kmDriven?: number;
+  /** Elects to bank overtime as Time Off In Lieu (1:1) instead of pay. */
+  toilElection: boolean;
+  /** When the technician acknowledged the workplace-tracking notice. */
+  trackingNoticeAckAt: string | null;
+}
+
 export interface JobPhoto {
   id: string;
   label: string;
@@ -264,7 +300,25 @@ export type SyncOp =
       kind: "sync-quote";
       opId: string;
       quoteId: string;
-      payload: { status: QuoteStatus; signature?: string };
+      payload: {
+        status?: QuoteStatus;
+        signature?: string;
+        client?: string;
+        address?: string;
+        description?: string;
+      };
+      dependsOn?: string[];
+    }
+  | {
+      kind: "create-quote";
+      opId: string;
+      localQuoteId: string;
+      payload: {
+        client: string;
+        address: string;
+        description: string;
+        lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+      };
     }
   | {
       kind: "notification";
@@ -327,6 +381,8 @@ export interface AppState {
   channels: SlackChannel[];
   members: SlackMember[];
   messages: SlackMessage[];
+  /** Completed and running shifts, newest last. */
+  shifts: Shift[];
   /** Pending writes to replay against the API and downstream integrations. */
   syncQueue: SyncOp[];
   /** Local time-entry id → server id, once a clock-in op has been acknowledged. */

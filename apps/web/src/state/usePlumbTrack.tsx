@@ -1,14 +1,16 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
-import type { AppState, Job, OutboxOperation, Quote, QuoteLineField, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
+import type { AppState, Job, OutboxOperation, Quote, QuoteLineField, Shift, ShiftWorkType, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
 import { GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
+import { disaggregateForStp, interpretShift, previousShiftEnd, type ShiftPayBreakdown, type StpDisaggregation } from "@/lib/award";
 import { api } from "@/lib/api";
 import { HttpError } from "@/lib/errors";
 import { dispatchNotification } from "@/lib/notifications";
 import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, mediaToBlob, mediaToDataUrl, migrateLegacyOperations, putOutboxMedia, removeOutboxMedia, retryFailedOutboxOperations, retryOutboxOperation } from "@/lib/outbox";
 import { createSyncManager, DeferredSyncError, TerminalSyncError } from "@/lib/syncManager";
 import { useOutboxStatus } from "@/hooks/useOutboxStatus";
+import { useShiftTracking } from "@/hooks/useShiftTracking";
 import { seedChannels, seedJobs, seedMembers, seedMessages, seedQuotes } from "@/lib/seed";
 import { reducer } from "./reducer";
 import type { Action } from "./actions";
@@ -22,6 +24,7 @@ function emptyState(): AppState {
     channels: seedChannels,
     members: seedMembers,
     messages: seedMessages,
+    shifts: [],
     syncQueue: [],
     serverEntryIds: {},
   };
@@ -62,6 +65,7 @@ function loadState(): AppState {
         channels: Array.isArray(parsed.channels) ? parsed.channels : seedChannels,
         members: Array.isArray(parsed.members) ? parsed.members : seedMembers,
         messages: Array.isArray(parsed.messages) ? parsed.messages : seedMessages,
+        shifts: Array.isArray(parsed.shifts) ? parsed.shifts : [],
         syncQueue: Array.isArray(parsed.syncQueue) ? parsed.syncQueue : [],
         serverEntryIds: parsed.serverEntryIds && typeof parsed.serverEntryIds === "object" ? parsed.serverEntryIds : {},
       };
@@ -149,6 +153,20 @@ function usePlumbTrackImpl() {
     const open = [...job.timeEntries].reverse().find((e) => e.staffId === currentStaffId && e.end === null);
     return open ? new Date(open.start).getTime() : null;
   }, [job, running, currentStaffId]);
+
+  // ── Shift state (log-on / log-off) ────────────────────────────────────────
+  // Tracking is derived, never stored: the GPS watch can only exist while the
+  // shift is open and no unpaid meal break is running.
+  const activeShift = useMemo(
+    () => state.shifts.find((s) => s.staffId === currentStaffId && s.loggedOffAt === null) ?? null,
+    [state.shifts, currentStaffId],
+  );
+  const openBreak = useMemo(
+    () => activeShift?.breaks.find((b) => b.end === null) ?? null,
+    [activeShift],
+  );
+  const trackingActive = !!activeShift && !openBreak;
+  const shiftTracking = useShiftTracking(trackingActive);
 
   // Unread counts per channel (messages newer than lastReadAt, not authored by me).
   const unreadByChannel = useMemo(() => {
@@ -252,7 +270,17 @@ function usePlumbTrackImpl() {
       return;
     }
     if (operation.kind === "sync-quote") {
-      await api.updateQuote(String(payload.quoteId), payload as { status: "draft" | "sent" | "accepted"; signature?: string });
+      await api.updateQuote(String(payload.quoteId), payload as { status?: "draft" | "sent" | "accepted"; signature?: string; client?: string; address?: string; description?: string });
+      return;
+    }
+    if (operation.kind === "create-quote") {
+      const created = await api.createQuote({
+        client: String(payload.client),
+        address: String(payload.address),
+        description: String(payload.description),
+        lines: Array.isArray(payload.lines) ? payload.lines as Array<{ desc: string; qty: number; unit: string; rate: number }> : [],
+      });
+      dispatch({ type: "MERGE_REMOTE", jobs: [], quotes: [created] });
       return;
     }
     if (operation.kind === "notification") {
@@ -357,6 +385,29 @@ function usePlumbTrackImpl() {
     setView("quote");
   }, []);
 
+  const createQuote = useCallback(() => {
+    const localId = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
+    dispatch({
+      type: "CREATE_QUOTE",
+      quote: {
+        id: localId,
+        client: "New client",
+        address: "Address to confirm",
+        description: "New plumbing quote",
+        status: "draft",
+        signature: null,
+        lines: [{ id: crypto.randomUUID(), desc: "New item", qty: 1, unit: "ea", rate: 0 }],
+      },
+    });
+    setActiveId(localId);
+    setActiveTab("quotes");
+    setView("quote");
+  }, []);
+
+  const updateQuoteMeta = useCallback((quoteId: string, field: "client" | "address" | "description", value: string) => {
+    dispatch({ type: "UPDATE_QUOTE_META", quoteId, field, value });
+  }, []);
+
   const startClockOn = useCallback(
     (jobId: string, staffId: string) => {
       setGpsLocking(true);
@@ -411,6 +462,79 @@ function usePlumbTrackImpl() {
     // Slack integration: announce clock-off in #field-updates.
     postMessage("field-updates", "plumbtrack", `🕐 ${currentStaffName} clocked off at ${job.id}.`);
   }, [activeId, job, running, currentStaffId, currentStaffName, postMessage]);
+
+  // ── Shift actions (log-on / log-off) ──────────────────────────────────────
+
+  const logOn = useCallback(
+    (workType: ShiftWorkType) => {
+      const startedAt = new Date().toISOString();
+      dispatch({ type: "LOG_ON", staffId: currentStaffId, workType, startedAt, noticeAckAt: startedAt });
+      const label =
+        workType === "callback" ? " (call-back)" : workType === "inclement" ? " (inclement weather)" : "";
+      postMessage("field-updates", "plumbtrack", `🔐 ${currentStaffName} logged on${label} — shift tracking active until log-off.`);
+    },
+    [currentStaffId, currentStaffName, postMessage],
+  );
+
+  const startMealBreak = useCallback(() => {
+    dispatch({ type: "START_BREAK", staffId: currentStaffId });
+    postMessage("field-updates", "plumbtrack", `🍽️ ${currentStaffName} started an unpaid meal break — tracking paused.`);
+  }, [currentStaffId, currentStaffName, postMessage]);
+
+  const endMealBreak = useCallback(() => {
+    dispatch({ type: "END_BREAK", staffId: currentStaffId });
+    postMessage("field-updates", "plumbtrack", `🍽️ ${currentStaffName} back from break — tracking resumed.`);
+  }, [currentStaffId, currentStaffName, postMessage]);
+
+  const interpretActiveShift = useCallback(
+    (asOf: string, workTypeOverride?: ShiftWorkType): ShiftPayBreakdown | null => {
+      if (!activeShift) return null;
+      return interpretShift({
+        start: activeShift.loggedOnAt,
+        end: asOf,
+        breaks: activeShift.breaks.map((b) => ({ start: b.start, end: b.end ?? asOf })),
+        workType: workTypeOverride ?? activeShift.workType,
+        previousShiftEnd: previousShiftEnd(state.shifts, currentStaffId, activeShift.loggedOnAt),
+      });
+    },
+    [activeShift, state.shifts, currentStaffId],
+  );
+
+  const logOff = useCallback(
+    (
+      opts: { workType?: ShiftWorkType; kmDriven?: number; toilElection?: boolean } = {},
+    ): { shift: Shift; breakdown: ShiftPayBreakdown; stp: StpDisaggregation } | null => {
+      if (!activeShift) return null;
+      const endedAt = new Date().toISOString();
+      const effectiveWorkType = opts.workType ?? activeShift.workType;
+      const breakdown = interpretShift({
+        start: activeShift.loggedOnAt,
+        end: endedAt,
+        breaks: activeShift.breaks.map((b) => ({ start: b.start, end: b.end ?? endedAt })),
+        workType: effectiveWorkType,
+        previousShiftEnd: previousShiftEnd(state.shifts, currentStaffId, activeShift.loggedOnAt),
+      });
+      const stp = disaggregateForStp(breakdown, {
+        kmDriven: opts.kmDriven,
+        toilElection: opts.toilElection,
+      });
+      dispatch({
+        type: "LOG_OFF",
+        staffId: currentStaffId,
+        endedAt,
+        workType: effectiveWorkType,
+        ...(opts.kmDriven !== undefined ? { kmDriven: opts.kmDriven } : {}),
+        ...(opts.toilElection !== undefined ? { toilElection: opts.toilElection } : {}),
+      });
+      postMessage(
+        "field-updates",
+        "plumbtrack",
+        `🔓 ${currentStaffName} logged off — ${breakdown.totalHours.toFixed(2)} hrs, gross $${breakdown.grossPay.toFixed(2)}. Tracking stopped.`,
+      );
+      return { shift: { ...activeShift, loggedOffAt: endedAt, workType: effectiveWorkType }, breakdown, stp };
+    },
+    [activeShift, state.shifts, currentStaffId, currentStaffName, postMessage],
+  );
 
   const addPhoto = useCallback(
     (label: string, url = "") => {
@@ -610,8 +734,12 @@ function usePlumbTrackImpl() {
     staffMembers, currentStaff, currentStaffId, setCurrentStaffId, currentStaffName,
     running, startedAt,
 
+    // Shift (log-on / log-off)
+    shifts: state.shifts, activeShift, openBreak, trackingActive, shiftTracking,
+    logOn, startMealBreak, endMealBreak, logOff, interpretActiveShift,
+
     // Actions
-    openJob, openQuote,
+    openJob, openQuote, createQuote, updateQuoteMeta,
     startClockOn, clockOff, addPhoto, saveSignature,
     addLine, updateLine, removeLine,
     sendQuote, approveQuote,

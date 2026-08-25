@@ -9,6 +9,7 @@ function baseState(jobs: Job[]): AppState {
     channels: [],
     members: [],
     messages: [],
+    shifts: [],
     syncQueue: [],
     serverEntryIds: {},
   };
@@ -179,5 +180,120 @@ describe("MERGE_REMOTE", () => {
     const next = reducer(state, { type: "MERGE_REMOTE", jobs: [remoteJob], quotes: [] });
     const merged = next.jobs[0].timeEntries;
     expect(merged.map((e) => e.id).sort()).toEqual(["local-pending", "server-1"]);
+  });
+});
+
+// ── Shifts (log-on / log-off) ────────────────────────────────────────────────
+
+describe("LOG_ON", () => {
+  it("opens a shift for the staff member with the acknowledged tracking notice", () => {
+    const state = baseState([]);
+    const next = reducer(state, {
+      type: "LOG_ON",
+      staffId: "tim",
+      workType: "callback",
+      startedAt: "2026-01-05T07:00:00.000Z",
+      noticeAckAt: "2026-01-05T07:00:00.000Z",
+    });
+    expect(next.shifts).toHaveLength(1);
+    expect(next.shifts[0]).toMatchObject({
+      staffId: "tim",
+      workType: "callback",
+      loggedOnAt: "2026-01-05T07:00:00.000Z",
+      loggedOffAt: null,
+      trackingNoticeAckAt: "2026-01-05T07:00:00.000Z",
+    });
+  });
+
+  it("ignores a second log-on while a shift is already open", () => {
+    const state = baseState([]);
+    const on = reducer(state, {
+      type: "LOG_ON", staffId: "tim", workType: "standard",
+      startedAt: "2026-01-05T07:00:00.000Z", noticeAckAt: "2026-01-05T07:00:00.000Z",
+    });
+    const again = reducer(on, {
+      type: "LOG_ON", staffId: "tim", workType: "callback",
+      startedAt: "2026-01-05T08:00:00.000Z", noticeAckAt: "2026-01-05T08:00:00.000Z",
+    });
+    expect(again.shifts).toHaveLength(1);
+    expect(again.shifts[0].workType).toBe("standard");
+  });
+});
+
+describe("START_BREAK / END_BREAK", () => {
+  function onShift() {
+    return reducer(baseState([]), {
+      type: "LOG_ON", staffId: "tim", workType: "standard",
+      startedAt: "2026-01-05T07:00:00.000Z", noticeAckAt: "2026-01-05T07:00:00.000Z",
+    });
+  }
+
+  it("opens and closes an unpaid break on the running shift", () => {
+    const withBreak = reducer(onShift(), { type: "START_BREAK", staffId: "tim" });
+    expect(withBreak.shifts[0].breaks).toHaveLength(1);
+    expect(withBreak.shifts[0].breaks[0].end).toBeNull();
+
+    const closed = reducer(withBreak, { type: "END_BREAK", staffId: "tim" });
+    expect(closed.shifts[0].breaks[0].end).not.toBeNull();
+  });
+
+  it("does not stack a second break while one is running", () => {
+    const withBreak = reducer(onShift(), { type: "START_BREAK", staffId: "tim" });
+    const stillOne = reducer(withBreak, { type: "START_BREAK", staffId: "tim" });
+    expect(stillOne.shifts[0].breaks).toHaveLength(1);
+  });
+});
+
+describe("LOG_OFF", () => {
+  function onShiftWithOpenEntries() {
+    const openA: TimeEntry = { id: "a1", staffId: "tim", start: "2026-01-05T08:00:00.000Z", end: null, lat: null, lng: null };
+    const openB: TimeEntry = { id: "b1", staffId: "tim", start: "2026-01-05T09:00:00.000Z", end: null, lat: null, lng: null };
+    const sarahOpen: TimeEntry = { id: "s1", staffId: "sarah", start: "2026-01-05T09:05:00.000Z", end: null, lat: null, lng: null };
+    const jobA = { ...jobWith([openA]), id: "J-1" };
+    const jobB = { ...jobWith([openB, sarahOpen]), id: "J-2" };
+    let state = baseState([jobA, jobB]);
+    state = reducer(state, {
+      type: "LOG_ON", staffId: "tim", workType: "standard",
+      startedAt: "2026-01-05T07:00:00.000Z", noticeAckAt: "2026-01-05T07:00:00.000Z",
+    });
+    return state;
+  }
+
+  it("seals the shift and closes every open time entry for the staff member across all jobs", () => {
+    const next = reducer(onShiftWithOpenEntries(), {
+      type: "LOG_OFF", staffId: "tim", endedAt: "2026-01-05T16:00:00.000Z",
+      kmDriven: 42, toilElection: true, workType: "inclement",
+    });
+    expect(next.shifts[0].loggedOffAt).toBe("2026-01-05T16:00:00.000Z");
+    expect(next.shifts[0].kmDriven).toBe(42);
+    expect(next.shifts[0].toilElection).toBe(true);
+    expect(next.shifts[0].workType).toBe("inclement");
+    // Tim's entries on both jobs are closed…
+    expect(next.jobs[0].timeEntries.find((e) => e.id === "a1")!.end).toBe("2026-01-05T16:00:00.000Z");
+    expect(next.jobs[1].timeEntries.find((e) => e.id === "b1")!.end).toBe("2026-01-05T16:00:00.000Z");
+    // …while Sarah's stays running.
+    expect(next.jobs[1].timeEntries.find((e) => e.id === "s1")!.end).toBeNull();
+  });
+
+  it("queues a clock-out sync op per closed entry", () => {
+    const next = reducer(onShiftWithOpenEntries(), {
+      type: "LOG_OFF", staffId: "tim", endedAt: "2026-01-05T16:00:00.000Z",
+    });
+    const ops = next.syncQueue.filter((op) => op.kind === "clock-out");
+    expect(ops).toHaveLength(2);
+    expect(ops.every((op) => op.kind === "clock-out" && op.payload.end === "2026-01-05T16:00:00.000Z")).toBe(true);
+  });
+
+  it("closes an open meal break at the log-off timestamp", () => {
+    let state = onShiftWithOpenEntries();
+    state = reducer(state, { type: "START_BREAK", staffId: "tim" });
+    const next = reducer(state, { type: "LOG_OFF", staffId: "tim", endedAt: "2026-01-05T16:00:00.000Z" });
+    expect(next.shifts[0].breaks[0].end).toBe("2026-01-05T16:00:00.000Z");
+  });
+
+  it("is a no-op when no shift is open", () => {
+    const state = baseState([]);
+    const next = reducer(state, { type: "LOG_OFF", staffId: "tim", endedAt: "2026-01-05T16:00:00.000Z" });
+    expect(next).toBe(state);
   });
 });

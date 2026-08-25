@@ -122,6 +122,112 @@ export function reducer(state: AppState, action: Action): AppState {
     case "REMOVE_SYNC_OP":
       return { ...state, syncQueue: state.syncQueue.filter((op) => op.opId !== action.opId) };
 
+    // ── Shifts (log-on / log-off) ───────────────────────────────────────────
+
+    case "LOG_ON": {
+      // One open shift per staff member — a second log-on is ignored.
+      const alreadyOn = state.shifts.some(
+        (s) => s.staffId === action.staffId && s.loggedOffAt === null,
+      );
+      if (alreadyOn) return state;
+      return {
+        ...state,
+        shifts: [
+          ...state.shifts,
+          {
+            id: crypto.randomUUID(),
+            staffId: action.staffId,
+            workType: action.workType,
+            loggedOnAt: action.startedAt,
+            loggedOffAt: null,
+            breaks: [],
+            toilElection: false,
+            trackingNoticeAckAt: action.noticeAckAt,
+          },
+        ],
+      };
+    }
+
+    case "START_BREAK": {
+      return {
+        ...state,
+        shifts: state.shifts.map((s) =>
+          s.staffId === action.staffId && s.loggedOffAt === null && !s.breaks.some((b) => b.end === null)
+            ? { ...s, breaks: [...s.breaks, { id: crypto.randomUUID(), start: new Date().toISOString(), end: null }] }
+            : s,
+        ),
+      };
+    }
+
+    case "END_BREAK": {
+      return {
+        ...state,
+        shifts: state.shifts.map((s) =>
+          s.staffId === action.staffId && s.loggedOffAt === null
+            ? {
+                ...s,
+                breaks: s.breaks.map((b) =>
+                  b.end === null ? { ...b, end: new Date().toISOString() } : b,
+                ),
+              }
+            : s,
+        ),
+      };
+    }
+
+    case "LOG_OFF": {
+      // Log-off finalises the whole workday: any open meal break is closed,
+      // every open time entry for the staff member is closed across all jobs
+      // (each queued for offline replay), and the shift is sealed with the
+      // work-type / allowance / TOIL decisions captured at log-off.
+      let foundOpen = false;
+      const shifts = state.shifts.map((s) => {
+        if (s.staffId !== action.staffId || s.loggedOffAt !== null) return s;
+        foundOpen = true;
+        return {
+          ...s,
+          loggedOffAt: action.endedAt,
+          breaks: s.breaks.map((b) => (b.end === null ? { ...b, end: action.endedAt } : b)),
+          ...(action.workType !== undefined ? { workType: action.workType } : {}),
+          ...(action.kmDriven !== undefined ? { kmDriven: action.kmDriven } : {}),
+          ...(action.toilElection !== undefined ? { toilElection: action.toilElection } : {}),
+        };
+      });
+      if (!foundOpen) return state;
+
+      const closedAt = action.endedAt;
+      const closedIds: string[] = [];
+      const jobs = state.jobs.map((j) => {
+        let changed = false;
+        const timeEntries = j.timeEntries.map((e) => {
+          if (e.staffId === action.staffId && e.end === null) {
+            changed = true;
+            closedIds.push(e.id);
+            return { ...e, end: closedAt };
+          }
+          return e;
+        });
+        return changed ? { ...j, timeEntries } : j;
+      });
+
+      const clockOutOps = closedIds.map((entryId) => {
+        const jobId = jobs.find((j) => j.timeEntries.some((e) => e.id === entryId))?.id ?? "";
+        const openDependency = state.syncQueue.find(
+          (op) => op.kind === "clock-in" && op.localEntryId === entryId,
+        );
+        return {
+          kind: "clock-out" as const,
+          opId: crypto.randomUUID(),
+          jobId,
+          localEntryId: entryId,
+          payload: { end: closedAt },
+          ...(openDependency ? { dependsOn: [openDependency.opId] } : {}),
+        };
+      });
+
+      return { ...state, shifts, jobs, syncQueue: [...state.syncQueue, ...clockOutOps] };
+    }
+
     case "QUEUE_NOTIFICATION":
       return {
         ...state,
@@ -227,6 +333,37 @@ export function reducer(state: AppState, action: Action): AppState {
           j.id === action.jobId ? { ...j, status: action.status } : j,
         ),
       };
+
+    case "CREATE_QUOTE": {
+      const createOp = {
+        kind: "create-quote" as const,
+        opId: crypto.randomUUID(),
+        localQuoteId: action.quote.id,
+        payload: {
+          client: action.quote.client,
+          address: action.quote.address,
+          description: action.quote.description,
+          lines: action.quote.lines.map(({ desc, qty, unit, rate }) => ({ desc, qty, unit, rate })),
+        },
+      };
+      return { ...state, quotes: [action.quote, ...state.quotes], syncQueue: [...state.syncQueue, createOp] };
+    }
+
+    case "UPDATE_QUOTE_META": {
+      const quote = state.quotes.find((item) => item.id === action.quoteId);
+      if (!quote) return state;
+      const op = {
+        kind: "sync-quote" as const,
+        opId: crypto.randomUUID(),
+        quoteId: action.quoteId,
+        payload: { [action.field]: action.value },
+      };
+      return {
+        ...state,
+        quotes: state.quotes.map((item) => item.id === action.quoteId ? { ...item, [action.field]: action.value } : item),
+        syncQueue: [...state.syncQueue, op],
+      };
+    }
 
     case "UPDATE_QUOTE_STATUS": {
       const op = {

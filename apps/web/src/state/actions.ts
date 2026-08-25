@@ -1,9 +1,13 @@
-import type { Job, JobPhoto, JobStatus, Quote, QuoteLine, QuoteLineField, QuoteStatus } from "@/types";
+import type { Job, JobPhoto, JobStatus, Quote, QuoteLine, QuoteLineField, QuoteStatus, ShiftWorkType } from "@/types";
 
 export type Action =
   | { type: "MERGE_REMOTE"; jobs: Job[]; quotes: Quote[] }
   | { type: "CLOCK_ON"; jobId: string; staffId: string; lat: number | null; lng: number | null }
   | { type: "CLOCK_OFF"; jobId: string; staffId: string }
+  | { type: "LOG_ON"; staffId: string; workType: ShiftWorkType; startedAt: string; noticeAckAt: string }
+  | { type: "START_BREAK"; staffId: string }
+  | { type: "END_BREAK"; staffId: string }
+  | { type: "LOG_OFF"; staffId: string; endedAt: string; workType?: ShiftWorkType; kmDriven?: number; toilElection?: boolean }
   | { type: "ADD_PHOTO"; jobId: string; photo: JobPhoto }
   | { type: "ADD_SERVICE_ITEM"; jobId: string; item: import("@/types").ServiceItem }
   | { type: "UPDATE_SERVICE_ITEM_QTY"; jobId: string; itemId: string; qty: number }

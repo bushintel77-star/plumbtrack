@@ -17,16 +17,24 @@ import {
   Trash2,
   Wrench,
   Wifi,
+  ArrowLeft,
+  Clipboard,
   X,
 } from "lucide-react";
 
 import type { Job, View } from "@/types";
 import {
   CALLOUT_FEE,
+  CENTS_PER_KM,
   GPS_LOCK_DURATION_MS,
   RATE_STANDARD,
   XERO_SYNC_DURATION_MS,
 } from "@/lib/constants";
+import {
+  disaggregateForStp,
+  interpretStoredShift,
+  previousShiftEnd,
+} from "@/lib/award";
 import {
   derivedJobStatus,
   formatDuration,
@@ -50,6 +58,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { MessagesView, useMessagesDrawer } from "./messages/MessagesView";
 import { JobActionsSheet as JobActionsSheetComp } from "./messages/JobActionsSheet";
 import { StaffClockInSheet } from "@/components/messages/StaffClockInSheet";
+import { ShiftCard } from "@/components/shift/ShiftCard";
 import { NotificationFeedView } from "@/components/notifications/NotificationFeedView";
 import { DailyReportView, requiresDailyReport } from "@/components/features/DailyReportView";
 import { ResidentialJobView } from "@/components/features/ResidentialJobView";
@@ -131,7 +140,7 @@ function PlumbTrackInner() {
   }
 
   return (
-    <div data-theme={theme} className="app-shell max-w-md mx-auto min-h-screen flex flex-col relative overflow-hidden">
+    <div data-theme={theme} className="app-shell min-h-screen flex flex-col relative overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────── */}
       <header className="app-header px-4 py-2.5 flex items-center gap-2.5 shrink-0 relative z-10">
         {showBack ? (
@@ -141,7 +150,7 @@ function PlumbTrackInner() {
             className="p-2 -ml-1 rounded-xl hover:bg-slate-800 active:bg-slate-700 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Back"
           >
-            <X size={20} className="text-slate-400" />
+            <ArrowLeft size={20} className="text-slate-400" />
           </button>
         ) : isMessages ? (
           <button
@@ -163,6 +172,29 @@ function PlumbTrackInner() {
           </p>
           <p className="text-base font-semibold text-white truncate">{headerLabel()}</p>
         </div>
+
+        {/* Persistent tracking transparency chip — visible whenever the
+            shift-level GPS watch is alive (on shift, not on break). */}
+        {(s.activeShift || s.openBreak) && (
+          <span
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider"
+            style={{
+              background: s.trackingActive ? "rgba(74,222,128,0.1)" : "rgba(251,191,36,0.1)",
+              border: `1px solid ${s.trackingActive ? "rgba(74,222,128,0.25)" : "rgba(251,191,36,0.25)"}`,
+              color: s.trackingActive ? "#4ADE80" : "#FBBF24",
+            }}
+            aria-label={
+              s.trackingActive
+                ? "Location tracking active"
+                : "On unpaid meal break — location tracking paused"
+            }
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${s.trackingActive ? "bg-green-400 animate-pulse" : "bg-amber-400"}`}
+            />
+            {s.trackingActive ? "Tracking" : "Paused"}
+          </span>
+        )}
       </header>
 
       {/* ── GPS Lock Overlay ───────────────────────────────────── */}
@@ -183,7 +215,7 @@ function PlumbTrackInner() {
         <MessagesView drawerOpen={messages.drawerOpen} openDrawer={messages.openDrawer} closeDrawer={messages.closeDrawer} />
       ) : (
         <main
-          className="flex-1 overflow-y-auto pb-[calc(1.5rem+var(--bottom-nav-clearance))]"
+          className="app-main flex-1 overflow-y-auto pb-[calc(1.5rem+var(--bottom-nav-clearance))]"
           style={{ scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}
         >
           {view === "list" && activeTab === "jobs" && <JobListView />}
@@ -293,6 +325,9 @@ function JobListView() {
 
   return (
     <div className="p-3 space-y-2">
+      {/* Shift banner — day-level log-on/log-off bounding tracking + pay */}
+      <ShiftCard />
+
       {/* Search */}
       <input
         type="text"
@@ -338,7 +373,7 @@ function JobListView() {
               key={j.id}
               rightAction={{
                 label: "Clock In",
-                icon: "⏱️",
+                icon: Clock,
                 color: "rgba(232, 135, 30, 0.85)",
                 onTrigger: () => {
                   // Use the first staff member (current operator defaults to tim)
@@ -349,13 +384,15 @@ function JobListView() {
               }}
               leftAction={{
                 label: "Open",
-                icon: "📋",
+                icon: Clipboard,
                 color: "rgba(51, 65, 85, 0.85)",
                 onTrigger: () => openJob(j.id),
               }}
               className="animate-enter"
+              onActivate={() => openJob(j.id)}
+              ariaLabel={`Open job ${j.id} for ${j.client}`}
             >
-              <div              className="surface-card surface-card--interactive w-full text-left p-3.5 min-h-[80px]" onClick={() => openJob(j.id)}>
+              <div className="surface-card surface-card--interactive w-full text-left p-3.5 min-h-[80px]">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[11px] font-mono tracking-wide text-slate-500 bg-white/[0.04] border border-white/[0.06] rounded-md px-1.5 py-0.5">
                     {j.id}
@@ -377,10 +414,13 @@ function JobListView() {
 }
 
 function QuoteListView() {
-  const { quotes, openQuote } = usePlumbTrackCtx();
+  const { quotes, openQuote, createQuote } = usePlumbTrackCtx();
 
   return (
     <div className="p-3 space-y-2">
+      <button type="button" onClick={createQuote} className="w-full min-h-[48px] rounded-xl bg-accent text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/20 haptic">
+        <Plus size={16} /> New quote
+      </button>
       {quotes.map((q) => {
         const sub = quoteSubtotal(q.lines);
         return (
@@ -893,34 +933,47 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
-  const { addLine, updateLine, removeLine, sendQuote } = usePlumbTrackCtx();
+  const { addLine, updateLine, removeLine, updateQuoteMeta, sendQuote } = usePlumbTrackCtx();
   const sub = quoteSubtotal(quote.lines);
 
   return (
     <div className="p-3 space-y-2">
       <GlassCard>
-        <p className="font-semibold text-white text-[15px]">{quote.client}</p>
-        <p className="text-xs text-slate-400 flex items-center gap-1 mt-1"><MapPin size={11} /> {quote.address}</p>
-        <p className="text-sm text-slate-500 mt-2">{quote.description}</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Quote details</p>
+        <div className="space-y-2">
+          {(["client", "address", "description"] as const).map((field) => (
+            <label key={field} className="block">
+              <span className="sr-only">Quote {field}</span>
+              {field === "description" ? (
+                <textarea value={quote[field]} onChange={(event) => updateQuoteMeta(quote.id, field, event.target.value)} rows={2} className="w-full app-input border rounded-lg px-3 py-2 text-sm text-white resize-y" aria-label={`Quote ${field}`} />
+              ) : (
+                <input value={quote[field]} onChange={(event) => updateQuoteMeta(quote.id, field, event.target.value)} className="w-full app-input border rounded-lg px-3 py-2 text-sm text-white" aria-label={`Quote ${field}`} />
+              )}
+            </label>
+          ))}
+        </div>
       </GlassCard>
       <GlassCard>
         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Line Items</p>
         <div className="space-y-2">
           {quote.lines.map((l) => (
             <div key={l.id} className="flex items-center gap-1.5">
-              <input value={l.desc} onChange={(e) => updateLine(l.id, "desc", e.target.value)}
+              <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-description`}>Description for line item {l.id}</label>
+              <input id={`quote-${quote.id}-${l.id}-description`} value={l.desc} onChange={(e) => updateLine(l.id, "desc", e.target.value)}
                 className="flex-1 text-xs app-input border rounded px-2 py-1.5 text-white" />
-              <input type="number" value={l.qty} onChange={(e) => updateLine(l.id, "qty", Number(e.target.value))}
+              <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-quantity`}>Quantity for {l.desc}</label>
+              <input id={`quote-${quote.id}-${l.id}-quantity`} type="number" min="0.01" value={l.qty} onChange={(e) => updateLine(l.id, "qty", Number(e.target.value))}
                 className="w-12 text-xs app-input border rounded px-1.5 py-1.5 text-center text-white" />
               <span className="text-[10px] text-slate-500 w-6">{l.unit}</span>
               <span className="text-xs text-slate-500">$</span>
-              <input type="number" value={l.rate} onChange={(e) => updateLine(l.id, "rate", Number(e.target.value))}
+              <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-rate`}>Rate for {l.desc}</label>
+              <input id={`quote-${quote.id}-${l.id}-rate`} type="number" min="0" value={l.rate} onChange={(e) => updateLine(l.id, "rate", Number(e.target.value))}
                 className="w-14 text-xs app-input border rounded px-1.5 py-1.5 text-center text-white" />
-              <button onClick={() => removeLine(l.id)} className="text-slate-600 hover:text-red-400"><Trash2 size={13} /></button>
+              <button type="button" onClick={() => removeLine(l.id)} aria-label={`Remove line item ${l.desc}`} className="w-9 h-9 flex items-center justify-center rounded-md text-slate-600 hover:text-red-400"><Trash2 size={13} /></button>
             </div>
           ))}
         </div>
-        <button onClick={addLine} className="mt-3 text-xs flex items-center gap-1 text-accent font-medium">
+        <button type="button" onClick={addLine} className="mt-3 min-h-[44px] text-xs flex items-center gap-1 text-accent font-medium">
           <Plus size={13} /> Add line item
         </button>
         <div className="border-t border-white/[0.06] mt-3 pt-3 text-sm space-y-1">
@@ -929,7 +982,7 @@ function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
           <div className="flex justify-between font-semibold text-white"><span>Total</span><span>${incGst(sub).toFixed(2)}</span></div>
         </div>
       </GlassCard>
-      <button onClick={sendQuote} disabled={quote.lines.length === 0}
+      <button type="button" onClick={sendQuote} disabled={quote.lines.length === 0 || !quote.client.trim() || !quote.address.trim() || !quote.description.trim()}
         className="w-full py-3.5 rounded-xl bg-accent text-white font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition shadow-lg shadow-accent/25"
       ><Send size={15} /> Send quote for client approval</button>
     </div>
@@ -987,22 +1040,23 @@ function GpsLockOverlay() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function TimesheetView() {
-  const { jobs, members } = usePlumbTrackCtx();
+  const { jobs, members, shifts } = usePlumbTrackCtx();
   const [period, setPeriod] = useState<"week" | "month">("week");
 
-  const now = new Date();
-  const cutoff = new Date(
-    period === "week" ? now.getTime() - 7 * 24 * 60 * 60 * 1000 : now.getTime() - 30 * 24 * 60 * 60 * 1000,
-  );
-
   const staffHours = useMemo(() => {
-    const map: Record<string, { name: string; totalSec: number; entries: { jobId: string; start: string; end: string | null; duration: number }[] }> = {};
+    const now = Date.now();
+    const cutoff = now - (period === "week" ? 7 : 30) * 24 * 60 * 60 * 1000;
+    const map: Record<string, {
+      name: string;
+      totalSec: number;
+      entries: { jobId: string; start: string; end: string | null; duration: number }[];
+    }> = {};
     for (const m of members.filter((x) => x.role !== "bot")) {
       map[m.id] = { name: m.name, totalSec: 0, entries: [] };
     }
     for (const j of jobs) {
       for (const e of j.timeEntries) {
-        if (!e.start || new Date(e.start) < cutoff) continue;
+        if (!e.start || new Date(e.start).getTime() < cutoff) continue;
         const sid = e.staffId ?? "tim";
         if (!map[sid]) continue;
         const duration = e.end
@@ -1013,7 +1067,58 @@ function TimesheetView() {
       }
     }
     return Object.values(map).filter((s) => s.totalSec > 0).sort((a, b) => b.totalSec - a.totalSec);
-  }, [jobs, members, cutoff]);
+  }, [jobs, members, period]);
+
+  // Award-interpreted shifts per staff member, chained chronologically so
+  // clause 16.5 (10-hour rest) sees the previous shift's log-off.
+  const staffShifts = useMemo(() => {
+    const now = Date.now();
+    const cutoff = now - (period === "week" ? 7 : 30) * 24 * 60 * 60 * 1000;
+    return members
+      .filter((m) => m.role !== "bot")
+      .map((m) => {
+        const mine = shifts
+          .filter((s) => s.staffId === m.id)
+          .filter((s) => new Date(s.loggedOnAt).getTime() >= cutoff)
+          .sort((a, b) => new Date(a.loggedOnAt).getTime() - new Date(b.loggedOnAt).getTime());
+        const interpreted = mine.map((shift) => {
+          const breakdown = interpretStoredShift(shift, previousShiftEnd(shifts, m.id, shift.loggedOnAt));
+          const stp = disaggregateForStp(breakdown, {
+            kmDriven: shift.kmDriven,
+            toilElection: shift.toilElection,
+          });
+          return { shift, breakdown, stp };
+        });
+        // lucide's Map icon shadows the global Map in this module — use a Record.
+        const codeHours: Record<string, number> = {};
+        let grossPay = 0;
+        let totalHours = 0;
+        const stpTotals = { ote: 0, overtime: 0, ph: 0, allowance: 0, toilHours: 0 };
+        for (const { breakdown, stp } of interpreted) {
+          grossPay += breakdown.grossPay;
+          totalHours += breakdown.totalHours;
+          for (const c of breakdown.components) {
+            codeHours[c.code] = (codeHours[c.code] ?? 0) + c.hours;
+          }
+          stpTotals.ote += stp.ordinaryTimeEarnings;
+          stpTotals.overtime += stp.overtime;
+          stpTotals.ph += stp.publicHolidayPenalty;
+          stpTotals.allowance += stp.centsPerKmAllowance;
+          stpTotals.toilHours += stp.toilAccruedHours;
+        }
+        return {
+          name: m.name,
+          interpreted,
+          codeHours: Object.entries(codeHours).sort(
+            (a, b) => PAY_CODE_ORDER.indexOf(a[0]) - PAY_CODE_ORDER.indexOf(b[0]),
+          ),
+          grossPay,
+          totalHours,
+          stpTotals,
+        };
+      })
+      .filter((s) => s.interpreted.length > 0);
+  }, [members, shifts, period]);
 
   return (
     <div className="p-3 space-y-2">
@@ -1026,47 +1131,128 @@ function TimesheetView() {
           >{p === "week" ? "This Week" : "This Month"}</button>
         ))}
       </div>
-      {staffHours.length === 0 ? (
-        <GlassCard><p className="text-slate-500 text-sm text-center py-4">No hours recorded this {period}.</p></GlassCard>
-      ) : (
-        staffHours.map((s) => (
-          <GlassCard key={s.name}>
-            <div className="flex justify-between items-center mb-3">
+
+      {staffShifts.map((s) => (
+        <GlassCard key={s.name}>
+          <div className="flex justify-between items-center mb-3">
+            <div>
               <p className="font-semibold text-white text-sm">{s.name}</p>
-              <span className="text-xs font-mono text-accent bg-accent/10 rounded-lg px-2 py-0.5">{formatDuration(Math.floor(s.totalSec))}</span>
+              <p className="text-[10px] text-slate-600 mt-0.5">MA000036 · shifts: {s.interpreted.length}</p>
             </div>
-            <div className="space-y-1.5">
-              {s.entries.slice(0, 10).map((e, i) => (
-                <div key={i} className="flex justify-between text-xs text-slate-500">
-                  <span className="truncate max-w-[55%]">{e.jobId}</span>
-                  <span className="font-mono">{formatDuration(Math.floor(e.duration))}</span>
-                  <span className={e.end ? "text-slate-600" : "text-accent"}>{e.end ? "closed" : "running"}</span>
-                </div>
-              ))}
-              {s.entries.length > 10 && <p className="text-[10px] text-slate-600 mt-1">+{s.entries.length - 10} more entries</p>}
+            <div className="text-right">
+              <span className="block text-xs font-mono text-accent bg-accent/10 rounded-lg px-2 py-0.5">
+                {s.totalHours.toFixed(2)} hrs
+              </span>
+              <span className="block text-[10px] text-slate-500 mt-1 font-mono">
+                gross ${s.grossPay.toFixed(2)}
+              </span>
             </div>
-          </GlassCard>
-        ))
+          </div>
+
+          <div className="space-y-1.5 mb-3">
+            {s.codeHours.map(([code, hours]) => (
+              <div key={code} className="flex justify-between text-xs text-slate-400">
+                <span>{PAY_CODE_LABELS[code] ?? code}</span>
+                <span className="font-mono">{hours.toFixed(2)} hrs</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2.5 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">STP Phase 2</p>
+            <div className="flex justify-between text-[11.5px] text-slate-500"><span>Ordinary time earnings</span><span className="font-mono">${s.stpTotals.ote.toFixed(2)}</span></div>
+            <div className="flex justify-between text-[11.5px] text-slate-500"><span>Overtime (separate)</span><span className="font-mono">${s.stpTotals.overtime.toFixed(2)}</span></div>
+            {s.stpTotals.ph > 0 && (
+              <div className="flex justify-between text-[11.5px] text-slate-500"><span>Public holiday penalty</span><span className="font-mono">${s.stpTotals.ph.toFixed(2)}</span></div>
+            )}
+            {s.stpTotals.allowance > 0 && (
+              <div className="flex justify-between text-[11.5px] text-slate-500"><span>Allowance — cents per km</span><span className="font-mono">${s.stpTotals.allowance.toFixed(2)}</span></div>
+            )}
+            {s.stpTotals.toilHours > 0 && (
+              <div className="flex justify-between text-[11.5px] text-accent"><span>TOIL accrued</span><span className="font-mono">{s.stpTotals.toilHours.toFixed(2)} hrs</span></div>
+            )}
+          </div>
+        </GlassCard>
+      ))}
+
+      {staffHours.length === 0 && staffShifts.length === 0 && (
+        <GlassCard><p className="text-slate-500 text-sm text-center py-4">No hours recorded this {period}.</p></GlassCard>
       )}
+
       {staffHours.length > 0 && (
+        <>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-1 pt-1">Job time entries</p>
+          {staffHours.map((s) => (
+            <GlassCard key={s.name}>
+              <div className="flex justify-between items-center mb-3">
+                <p className="font-semibold text-white text-sm">{s.name}</p>
+                <span className="text-xs font-mono text-accent bg-accent/10 rounded-lg px-2 py-0.5">{formatDuration(Math.floor(s.totalSec))}</span>
+              </div>
+              <div className="space-y-1.5">
+                {s.entries.slice(0, 10).map((e, i) => (
+                  <div key={i} className="flex justify-between text-xs text-slate-500">
+                    <span className="truncate max-w-[55%]">{e.jobId}</span>
+                    <span className="font-mono">{formatDuration(Math.floor(e.duration))}</span>
+                    <span className={e.end ? "text-slate-600" : "text-accent"}>{e.end ? "closed" : "running"}</span>
+                  </div>
+                ))}
+                {s.entries.length > 10 && <p className="text-[10px] text-slate-600 mt-1">+{s.entries.length - 10} more entries</p>}
+              </div>
+            </GlassCard>
+          ))}
+        </>
+      )}
+
+      {(staffHours.length > 0 || staffShifts.length > 0) && (
         <button type="button"
-          onClick={() => exportTimesheetCsv(staffHours, period)}
+          onClick={() => exportTimesheetCsv(staffShifts, staffHours, period)}
           className="w-full py-3 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-white/[0.08] transition border border-white/[0.08]"
-        ><Send size={13} /> Export CSV</button>
+        ><Send size={13} /> Export Payroll CSV (STP Phase 2)</button>
       )}
     </div>
   );
 }
 
+const PAY_CODE_ORDER = ["ORDINARY", "OT_150", "OT_200", "PH_250"];
+const PAY_CODE_LABELS: Record<string, string> = {
+  ORDINARY: "Ordinary hours (100%)",
+  OT_150: "Overtime — first 2 hrs (150%)",
+  OT_200: "Overtime (200%)",
+  PH_250: "Public holiday (250%)",
+};
+
 function exportTimesheetCsv(
-  rows: { name: string; totalSec: number; entries: { jobId: string; start: string; end: string | null; duration: number }[] }[],
+  shiftRows: {
+    name: string;
+    interpreted: { shift: import("@/types").Shift; breakdown: import("@/lib/award").ShiftPayBreakdown; stp: import("@/lib/award").StpDisaggregation }[];
+    stpTotals: { ote: number; overtime: number; ph: number; allowance: number; toilHours: number };
+  }[],
+  entryRows: { name: string; totalSec: number; entries: { jobId: string; start: string; end: string | null; duration: number }[] }[],
   period: "week" | "month",
 ) {
-  const lines = ["Staff,Job,Start,End,Duration (h),Status"];
-  for (const s of rows) {
+  const lines = ["Staff,RecordType,Detail,Start,End,Hours,Amount (AUD)"];
+  for (const s of shiftRows) {
+    for (const { shift, breakdown, stp } of s.interpreted) {
+      for (const c of breakdown.components) {
+        lines.push(
+          `"${s.name}","${PAY_CODE_LABELS[c.code] ?? c.code}","${shift.workType} shift ×${c.multiplier}","${shift.loggedOnAt}","${shift.loggedOffAt ?? ""}",${c.hours.toFixed(2)},${c.amount.toFixed(2)}`,
+        );
+      }
+      lines.push(`"${s.name}","Allowance — cents per km","${stp.kmClaimed} km @ ${CENTS_PER_KM}c","${shift.loggedOnAt}","${shift.loggedOffAt ?? ""}",,${stp.centsPerKmAllowance.toFixed(2)}`);
+      if (stp.toilAccruedHours > 0) {
+        lines.push(`"${s.name}","TOIL accrued (1:1)","overtime banked","${shift.loggedOnAt}","${shift.loggedOffAt ?? ""}",${stp.toilAccruedHours.toFixed(2)},0.00`);
+      }
+    }
+    lines.push(`"${s.name}","STP — Ordinary time earnings","","","",,${s.stpTotals.ote.toFixed(2)}`);
+    lines.push(`"${s.name}","STP — Overtime","","","",,${s.stpTotals.overtime.toFixed(2)}`);
+    lines.push(`"${s.name}","STP — Public holiday penalty","","","",,${s.stpTotals.ph.toFixed(2)}`);
+    lines.push(`"${s.name}","STP — Allowance (cents per km)","","","",,${s.stpTotals.allowance.toFixed(2)}`);
+    lines.push(`"${s.name}","STP — TOIL accrued (hours)","","","",${s.stpTotals.toilHours.toFixed(2)},`);
+  }
+  for (const s of entryRows) {
     for (const e of s.entries) {
       lines.push(
-        `"${s.name}","${e.jobId}","${new Date(e.start).toISOString()}","${e.end ? new Date(e.end).toISOString() : ""}",${(e.duration / 3600).toFixed(2)},"${e.end ? "closed" : "running"}"`,
+        `"${s.name}","Job time entry","${e.jobId}","${new Date(e.start).toISOString()}","${e.end ? new Date(e.end).toISOString() : ""}",${(e.duration / 3600).toFixed(2)},`,
       );
     }
   }
