@@ -1,0 +1,15 @@
+# Keep the Docker build context minimal — turbo prune needs clean workspace input.
+.git
+.github
+.railway
+.turbo
+.mimosa
+.freebuff
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+.env
+.env.*
+*.log
