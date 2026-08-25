@@ -15,7 +15,9 @@ export type View =
   | "syncCenter"
   | "integrationHealth"
   | "timesheet"
-  | "dailyReport";
+  | "dailyReport"
+  | "checklist"
+  | "dashboard";
 
 export interface TimeEntry {
   id: string;
