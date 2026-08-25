@@ -1,9 +1,11 @@
-# syntax=docker/dockerfile:1
-
 # PlumbTrack web — built from the FULL monorepo root so turbo prune can see the
 # whole workspace (apps/*, packages/*, lockfile, pnpm-workspace.yaml, turbo.json).
 # Railway uses this via builder=DOCKERFILE, dockerfilePath=/Dockerfile,
 # rootDirectory=/ — do not scope this service to a subdirectory.
+#
+# NOTE: no `# syntax=docker/dockerfile:1` directive — this file uses only
+# stable multi-stage features, and the frontend-image fetch that the directive
+# triggers fails the build pre-execution on Railway's Metal builders.
 
 FROM node:22-slim AS base
 RUN corepack enable
