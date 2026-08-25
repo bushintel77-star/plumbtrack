@@ -1,10 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { createNotificationSchema } from "../schemas/notification";
+import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import type { NotificationCreatedEvent } from "../domain/events";
+
+/** Field and office roles that may publish team notifications. */
+const NOTIFICATION_AUTHORS = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
 
 export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   app.get("/status", async (request, reply) => {
@@ -29,6 +33,8 @@ export async function notificationRoutes(app: FastifyInstance): Promise<void> {
   app.post("/", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, NOTIFICATION_AUTHORS);
+    if (roleFailure) return roleFailure;
     const parsed = parseBody(createNotificationSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
 

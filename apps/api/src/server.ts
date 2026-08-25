@@ -23,7 +23,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const app = Fastify({ logger: options.logger ?? true });
 
   await app.register(helmet);
-  await app.register(cors, { origin: true });
+  // CORS_ORIGINS (comma-separated) restricts browser callers to a configured
+  // allowlist. When unset the origin is reflected — acceptable here because
+  // sessions are explicit bearer tokens, never ambient cookies, so a rogue
+  // origin cannot cause the browser to attach credentials automatically.
+  const corsOrigins = process.env.CORS_ORIGINS?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  await app.register(cors, corsOrigins?.length ? { origin: corsOrigins } : { origin: true });
   await app.register(rateLimit, { max: 500, timeWindow: "1 minute" });
   await app.register(tenantPlugin);
 

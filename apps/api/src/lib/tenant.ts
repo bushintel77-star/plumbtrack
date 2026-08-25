@@ -12,9 +12,11 @@ declare module "fastify" {
 }
 
 /**
- * Resolves the organization from a signed bearer session. The legacy header is
- * accepted only outside production to keep the local demo and existing test
- * fixtures usable while the real identity provider is wired in.
+ * Resolves the organization from a signed bearer session. The legacy header
+ * is accepted only in explicit development/test environments (or when
+ * PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER=true) to keep the local demo and
+ * existing test fixtures usable; everywhere else the API fails closed and
+ * requires a bearer session whose claims carry the tenant.
  */
 export const tenantPlugin = fp(
   async (app: FastifyInstance) => {

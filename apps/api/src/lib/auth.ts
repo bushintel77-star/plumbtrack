@@ -31,7 +31,15 @@ function secret(): string | null {
 }
 
 function productionAuthRequired(): boolean {
-  return process.env.NODE_ENV === "production" || process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER === "false";
+  const override = process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+  if (override === "true") return false;
+  if (override === "false") return true;
+  const env = process.env.NODE_ENV;
+  // Fail closed: the legacy header grants owner-level tenant selection, so it
+  // may only activate in explicit development/test environments. An unset
+  // NODE_ENV (e.g. a container started without its ENV block) must not
+  // silently re-enable it.
+  return env !== "development" && env !== "test";
 }
 
 function encode(value: string): string {

@@ -13,6 +13,9 @@ import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 
+/** Roles allowed to record field work (time entries and site photos). */
+const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
+
 export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (request, reply) => {
     const orgId = getOrgId(request);
@@ -151,6 +154,8 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.post("/:id/time-entries", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
     const job = await prisma.job.findFirst({ where: { id, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
@@ -222,6 +227,8 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.post("/:id/photos", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
     const job = await prisma.job.findFirst({ where: { id, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
