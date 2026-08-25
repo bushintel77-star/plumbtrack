@@ -1,0 +1,387 @@
+// Prisma schema for PlumbTrack — PostgreSQL persistence layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DomainEventOutboxStatus {
+  pending
+  processing
+  completed
+  dead_letter @map("dead-letter")
+}
+
+model DomainEventOutbox {
+  eventId    String                 @id
+  organizationId String
+  type       String
+  payload    Json
+  status     DomainEventOutboxStatus @default(pending)
+  attempts   Int                    @default(0)
+  leaseId    String?
+  lockedAt   DateTime?
+  lockedUntil DateTime?
+  lastError  String?
+  createdAt  DateTime               @default(now())
+  completedAt DateTime?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, lockedUntil])
+  @@index([organizationId, createdAt])
+  @@map("domain_event_outbox")
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  trade     String   @default("plumbing")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  domainEvents  DomainEventOutbox[]
+  jobs          Job[]
+  quotes        Quote[]
+  notifications Notification[]
+  memberships   OrganizationMembership[]
+  auditEvents   AuditEvent[]
+  deliveries    IntegrationDelivery[]
+  mediaAssets   MediaAsset[]
+  customers     Customer[]
+  properties    Property[]
+  appointments  Appointment[]
+
+  @@map("organizations")
+}
+
+enum OrganizationRole {
+  technician
+  dispatcher
+  manager
+  accountant
+  admin
+  owner
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships OrganizationMembership[]
+
+  @@map("users")
+}
+
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole @default(technician)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+enum IntegrationDeliveryStatus {
+  pending
+  processing
+  delivered
+  failed
+  dead_letter
+}
+
+model IntegrationDelivery {
+  id             String                    @id @default(cuid())
+  orgId          String
+  org            Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  notificationId String?
+  notification   Notification?             @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  provider       String
+  payloadJson    String
+  status         IntegrationDeliveryStatus @default(pending)
+  attemptCount   Int                       @default(0)
+  nextAttemptAt  DateTime                  @default(now())
+  leaseId        String?
+  lockedAt       DateTime?
+  lockedUntil    DateTime?
+  lastError      String?
+  providerMessageId String?
+  deliveredAt    DateTime?
+  createdAt      DateTime                  @default(now())
+  attempts       IntegrationDeliveryAttempt[]
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedUntil])
+  @@index([orgId, createdAt])
+  @@map("integration_deliveries")
+}
+
+model IntegrationDeliveryAttempt {
+  id                String              @id @default(cuid())
+  deliveryId        String
+  delivery          IntegrationDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  attemptNumber     Int
+  status            String
+  httpStatus        Int?
+  providerMessageId String?
+  error             String?
+  startedAt         DateTime            @default(now())
+  finishedAt        DateTime?
+
+  @@unique([deliveryId, attemptNumber])
+  @@index([deliveryId, startedAt])
+  @@map("integration_delivery_attempts")
+}
+
+model AuditEvent {
+  id           String   @id @default(cuid())
+  orgId        String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String?
+  metadataJson String?
+  createdAt    DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([orgId, entityType, entityId])
+  @@map("audit_events")
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  channel        String
+  author         String
+  text           String
+  /** Client outbox key; nullable for legacy notifications. */
+  opId           String?   @unique
+  slackDelivered Boolean   @default(false)
+  slackError     String?
+  createdAt      DateTime  @default(now())
+  deliveries     IntegrationDelivery[]
+
+  @@index([orgId, createdAt])
+  @@map("notifications")
+}
+
+enum JobStatus {
+  scheduled
+  in_progress
+  completed
+}
+
+enum AppointmentStatus {
+  assigned
+  en_route
+  arrived
+  working
+  awaiting_customer
+  awaiting_parts
+  complete
+  cancelled
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs      Job[]
+  properties Property[]
+
+  @@index([orgId, name])
+  @@map("customers")
+}
+
+model Property {
+  id         String   @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  address    String
+  accessCode String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([orgId, address])
+  @@index([customerId])
+  @@map("properties")
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  orgId           String
+  org             Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId           String
+  job             Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  assignedStaffId String?
+  scheduledStart  DateTime
+  scheduledEnd    DateTime?
+  status          AppointmentStatus @default(assigned)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([orgId, scheduledStart])
+  @@index([jobId, status])
+  @@map("appointments")
+}
+
+model Job {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trade     String   @default("plumbing")
+  client      String
+  address     String
+  customerId String?
+  propertyId String?
+  scope       String
+  phone       String?
+  accessCode  String?
+  status      JobStatus @default(scheduled)
+  signature String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timeEntries TimeEntry[]
+  photos      JobPhoto[]
+  mediaAssets MediaAsset[]
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  @@index([orgId, status])
+  @@index([customerId])
+  @@index([propertyId])
+  @@map("jobs")
+}
+
+model TimeEntry {
+  id        String    @id @default(cuid())
+  jobId     String
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  staffId   String?
+  opId      String?   @unique
+  lat       Float?
+  lng       Float?
+  start     DateTime
+  end       DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([jobId])
+  @@map("time_entries")
+}
+
+enum MediaAssetStatus {
+  pending
+  uploaded
+  failed
+}
+
+model MediaAsset {
+  id          String           @id @default(cuid())
+  orgId       String
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId       String
+  job         Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  objectKey   String           @unique
+  opId        String?          @unique
+  label       String
+  contentType String
+  byteSize    Int
+  sha256      String?
+  status      MediaAssetStatus @default(pending)
+  expiresAt   DateTime
+  publicUrl   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  photo JobPhoto?
+
+  @@index([orgId, status, createdAt])
+  @@index([jobId, createdAt])
+  @@map("media_assets")
+}
+
+model JobPhoto {
+  id      String   @id @default(cuid())
+  jobId   String
+  job     Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  assetId String?  @unique
+  asset   MediaAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  label   String
+  url     String
+  /** Client outbox key; nullable for photos created by legacy clients. */
+  opId    String?  @unique
+  takenAt DateTime @default(now())
+
+  @@index([jobId])
+  @@map("job_photos")
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+}
+
+model Quote {
+  id          String     @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trade       String     @default("plumbing")
+  client      String
+  address     String
+  description String
+  status      QuoteStatus @default(draft)
+  signature   String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  lines QuoteLine[]
+
+  @@index([orgId, status])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  desc      String
+  qty       Float    @default(1)
+  unit      String   @default("ea")
+  rate      Float    @default(0)
+  sortOrder Int      @default(0)
+
+  @@index([quoteId])
+  @@map("quote_lines")
+}

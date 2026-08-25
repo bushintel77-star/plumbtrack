@@ -1,0 +1,428 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PlumbTrack — Tier-1 Design System
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+
+:root {
+  --page-bg: #0c0c0e;
+
+  /* Fixed bottom navigation — single source of truth for surfaces that must
+     clear it. env(safe-area-inset-bottom) keeps content above the home
+     indicator on notched devices. */
+  --bottom-nav-height: 56px;
+  --bottom-nav-clearance: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+
+  /* Spacing scale (4px base) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
+  /* Border radius scale */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Typography scale */
+  --text-2xs: 10px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
+  /* Accent */
+  --accent: #E8871E;
+  --accent-dim: rgba(232, 135, 30, 0.15);
+  --accent-border: rgba(232, 135, 30, 0.30);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(232, 135, 30, 0.35);
+}
+
+:root[data-theme="light"] {
+  --page-bg: #f4f6f8;
+}
+
+/* Semantic application tokens. Components should consume these tokens rather
+   than binding layout surfaces directly to a provider-specific colour. */
+.app-shell {
+  --app-bg: #0c0c0e;
+  --app-header: #161619;
+  --app-surface: rgba(30, 41, 59, 0.75);
+  --app-surface-solid: #1e293b;
+  --app-inset: rgba(0, 0, 0, 0.22);
+  --app-control: rgba(12, 12, 14, 0.92);
+  --app-border: rgba(51, 65, 85, 0.5);
+  --app-nav: rgba(22, 22, 25, 0.92);
+  --app-text: #f8fafc;
+  --app-muted: #94a3b8;
+  --app-subtle: #64748b;
+  --app-on-accent: #ffffff;
+  --app-shadow: rgba(0, 0, 0, 0.4);
+  --signature-bg: #101827;
+  --signature-ink: #fcd34d;
+  --sheet-bg: #26282d;
+  --sheet-tile: #2b2e34;
+  --sheet-tile-soft: #232529;
+  --sheet-muted: #72767d;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-shell[data-theme="light"] {
+  --app-bg: #f4f6f8;
+  --app-header: #ffffff;
+  --app-surface: rgba(255, 255, 255, 0.96);
+  --app-surface-solid: #ffffff;
+  --app-inset: #eef2f5;
+  --app-control: #f8fafc;
+  --app-border: #d8e0e7;
+  --app-nav: rgba(255, 255, 255, 0.94);
+  --app-text: #17212b;
+  --app-muted: #526170;
+  --app-subtle: #697887;
+  --app-on-accent: #ffffff;
+  --app-shadow: rgba(23, 33, 43, 0.12);
+  --signature-bg: #eef2f5;
+  --signature-ink: #b45309;
+  --sheet-bg: #ffffff;
+  --sheet-tile: #f8fafc;
+  --sheet-tile-soft: #eef2f5;
+  --sheet-muted: #697887;
+}
+
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background-color: var(--page-bg);
+}
+
+.app-header {
+  background-color: var(--app-header);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-input {
+  background-color: var(--app-control);
+  border-color: var(--app-border);
+  color: var(--app-text);
+}
+
+.app-input::placeholder {
+  color: var(--app-subtle);
+}
+
+.app-footer {
+  background-color: color-mix(in srgb, var(--app-bg) 94%, transparent);
+  border-color: var(--app-border);
+}
+
+.app-nav {
+  background-color: var(--app-nav);
+  border-color: var(--app-border);
+}
+
+.app-overlay {
+  background-color: color-mix(in srgb, var(--app-bg) 95%, transparent);
+}
+
+.signature-pad {
+  background: var(--signature-bg);
+}
+
+.theme-toggle {
+  color: var(--accent);
+  background-color: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+}
+
+body {
+  background-color: var(--page-bg);
+  font-family: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Global focus ring ────────────────────────────────────────────────────── */
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+
+/* ── Keyframe animations ──────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-8px) scale(0.96); }
+}
+
+/* ── Utility animation classes ────────────────────────────────────────────── */
+
+.animate-enter {
+  animation: slide-up 200ms ease-out both;
+}
+
+.animate-enter:nth-child(1) { animation-delay: 0ms; }
+.animate-enter:nth-child(2) { animation-delay: 40ms; }
+.animate-enter:nth-child(3) { animation-delay: 80ms; }
+.animate-enter:nth-child(4) { animation-delay: 120ms; }
+.animate-enter:nth-child(5) { animation-delay: 160ms; }
+.animate-enter:nth-child(6) { animation-delay: 200ms; }
+.animate-enter:nth-child(7) { animation-delay: 240ms; }
+.animate-enter:nth-child(8) { animation-delay: 280ms; }
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 180ms ease-out both;
+}
+
+/* ── Haptic active press (all interactive surfaces) ──────────────────────── */
+
+.haptic {
+  transition: transform 100ms cubic-bezier(0.2, 0, 0, 1);
+}
+.haptic:active {
+  transform: scale(0.97);
+}
+
+/* ── Skeleton shimmer ─────────────────────────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.04) 80%);
+  background-size: 400px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 10px;
+}
+.skeleton-line:last-child {
+  width: 60%;
+}
+
+.skeleton-card {
+  height: 88px;
+  border-radius: var(--radius-lg);
+}
+
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Surface primitives ──────────────────────────────────────────────────── */
+
+.surface-card {
+  background: var(--app-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 1px 2px var(--app-shadow),
+    0 4px 12px -2px var(--app-shadow);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.surface-card--interactive:hover {
+  transform: translateY(-1px);
+  border-color: rgba(51, 65, 85, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 6px 16px -4px rgba(0, 0, 0, 0.45);
+}
+
+.surface-card--interactive:active {
+  transform: scale(0.985);
+  border-color: rgba(232, 135, 30, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 1px 1px rgba(0, 0, 0, 0.3),
+    0 2px 6px -2px rgba(0, 0, 0, 0.35);
+}
+
+/* Light mode keeps the same hierarchy with ink-led surfaces and softer depth. */
+.app-shell[data-theme="light"] .surface-card .text-white,
+.app-shell[data-theme="light"] .app-header .text-white {
+  color: var(--app-text) !important;
+}
+
+.app-shell[data-theme="light"] .surface-card .text-slate-200,
+.app-shell[data-theme="light"] .surface-card .text-slate-300 {
+  color: var(--app-muted) !important;
+}
+
+.app-shell[data-theme="light"] .surface-card .text-slate-400 {
+  color: var(--app-subtle) !important;
+}
+
+.app-shell[data-theme="light"] [role="dialog"] .text-white:not(.bg-accent),
+.app-shell[data-theme="light"] .app-input.text-white {
+  color: var(--app-text) !important;
+}
+
+/* Inset panel inside cards */
+.surface-inset {
+  background: var(--app-inset);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Toast container ──────────────────────────────────────────────────────── */
+
+.toast-container {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: calc(100% - 32px);
+  width: 360px;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(22, 25, 29, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.3),
+    0 16px 40px -8px rgba(0,0,0,0.5);
+  animation: toast-in 200ms ease-out both;
+}
+
+.toast.exiting {
+  animation: toast-out 150ms ease-in both;
+}
+
+.toast--success {
+  border-color: rgba(232, 135, 30, 0.3);
+}
+
+.toast--error {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.toast--info {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ── Dev tools overlay guard (development only) ──────────────────────────── */
+
+/* Next.js 15.1 renders its dev-tools badge in a <nextjs-portal> anchored to
+   the bottom-left of the viewport. On phone widths it sits on top of the
+   fixed bottom nav and intercepts its taps. Neutralising pointer events on
+   the portal keeps the nav tappable; error text still renders and full logs
+   remain in the dev-server terminal. */
+html.dev nextjs-portal {
+  pointer-events: none;
+}
+
+/* ── Pull-to-refresh indicator ────────────────────────────────────────────── */
+
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0;
+  overflow: hidden;
+  transition: height 150ms ease;
+}
+
+.pull-indicator.active {
+  height: 48px;
+}

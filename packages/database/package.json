@@ -1,0 +1,36 @@
+{
+  "name": "@plumbtrack/database",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm db:generate && tsc -p tsconfig.build.json",
+    "dev": "tsc --watch",
+    "lint": "eslint src prisma --ext .ts",
+    "typecheck": "pnpm db:generate && tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "@plumbtrack/eslint-config": "workspace:*",
+    "@plumbtrack/tsconfig": "workspace:*",
+    "@types/node": "^22.10.2",
+    "eslint": "^8.57.1",
+    "prisma": "^6.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+.turbo/
+coverage/
+
+# Prisma
+packages/database/generated/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Tool directories
+.mimosa/
+.freebuff/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
