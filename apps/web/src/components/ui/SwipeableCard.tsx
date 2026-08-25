@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 interface SwipeAction {
   label: string;
-  icon: string;
+  icon: LucideIcon;
   color: string;
   onTrigger: () => void;
 }
@@ -14,6 +15,8 @@ interface SwipeableCardProps {
   leftAction?: SwipeAction;
   rightAction?: SwipeAction;
   className?: string;
+  onActivate?: () => void;
+  ariaLabel?: string;
 }
 
 /** Horizontal gesture card — drag left or right to reveal an action.
@@ -23,11 +26,14 @@ export function SwipeableCard({
   leftAction,
   rightAction,
   className = "",
+  onActivate,
+  ariaLabel,
 }: SwipeableCardProps) {
   const [offset, setOffset] = useState(0);
   const [animating, setAnimating] = useState(false);
   const startX = useRef(0);
   const currentOffset = useRef(0);
+  const suppressClick = useRef(false);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     setAnimating(false);
@@ -39,6 +45,7 @@ export function SwipeableCard({
     (e: React.PointerEvent) => {
       if (startX.current === 0) return;
       const dx = e.clientX - startX.current;
+      if (Math.abs(dx) > 10) suppressClick.current = true;
       const maxDrag = 120;
       currentOffset.current = Math.max(-maxDrag, Math.min(maxDrag, dx));
       setOffset(currentOffset.current);
@@ -62,6 +69,8 @@ export function SwipeableCard({
 
     startX.current = 0;
     setTimeout(() => setAnimating(false), 300);
+    setTimeout(() => { suppressClick.current = false; }, 350);
+
   }, [leftAction, rightAction]);
 
   const showRight = offset > 10 && rightAction;
@@ -82,7 +91,7 @@ export function SwipeableCard({
           aria-hidden={!showRight}
         >
           <span className="text-white text-sm font-bold flex items-center gap-1.5 select-none">
-            {rightAction.icon} {rightAction.label}
+            <rightAction.icon size={16} aria-hidden="true" /> {rightAction.label}
           </span>
         </div>
       )}
@@ -100,7 +109,7 @@ export function SwipeableCard({
           aria-hidden={!showLeft}
         >
           <span className="text-white text-sm font-bold flex items-center gap-1.5 select-none">
-            {leftAction.icon} {leftAction.label}
+            <leftAction.icon size={16} aria-hidden="true" /> {leftAction.label}
           </span>
         </div>
       )}
@@ -117,11 +126,24 @@ export function SwipeableCard({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        role="button"
-        tabIndex={0}
+        onClick={() => {
+          if (suppressClick.current) return;
+          onActivate?.();
+        }}
+        role={onActivate ? "button" : undefined}
+        tabIndex={onActivate ? 0 : undefined}
+        aria-label={ariaLabel}
         onKeyDown={(e) => {
-          if (e.key === "ArrowRight" && rightAction) rightAction.onTrigger();
-          if (e.key === "ArrowLeft" && leftAction) leftAction.onTrigger();
+          if (e.key === "ArrowRight" && rightAction) {
+            e.preventDefault();
+            rightAction.onTrigger();
+          } else if (e.key === "ArrowLeft" && leftAction) {
+            e.preventDefault();
+            leftAction.onTrigger();
+          } else if ((e.key === "Enter" || e.key === " ") && onActivate) {
+            e.preventDefault();
+            onActivate();
+          }
         }}
       >
         {children}

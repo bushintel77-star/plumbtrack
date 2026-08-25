@@ -8,4 +8,3 @@ export const createNotificationSchema = z.object({
   opId: z.string().trim().min(1).optional(),
 });
 
-export type CreateNotificationInput = z.infer<typeof createNotificationSchema>;

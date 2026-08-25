@@ -11,13 +11,6 @@ function getStoredAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/** Store an identity-provider token without coupling the API client to one provider. */
-export function setAuthToken(token: string | null): void {
-  if (typeof window === "undefined") return;
-  if (token?.trim()) window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token.trim());
-  else window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -128,6 +121,14 @@ export interface Appointment {
   status: string;
 }
 
+export interface CreateQuoteInput {
+  client: string;
+  address: string;
+  description: string;
+  trade?: string;
+  lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+}
+
 export interface UpdateQuoteInput {
   client?: string;
   address?: string;
@@ -141,6 +142,12 @@ export const api = {
   listJobs: () => request<Job[]>("/api/jobs"),
 
   listQuotes: () => request<Quote[]>("/api/quotes"),
+
+  createQuote: (input: CreateQuoteInput) =>
+    request<Quote>("/api/quotes", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   listCustomers: () => request<Customer[]>("/api/customers"),
   createCustomer: (input: Omit<Customer, "id">) => request<Customer>("/api/customers", { method: "POST", body: JSON.stringify(input) }),

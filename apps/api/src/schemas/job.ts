@@ -50,8 +50,3 @@ export const createPhotoSchema = z.object({
   opId: z.string().trim().min(1).optional(),
 });
 
-export type CreateJobInput = z.infer<typeof createJobSchema>;
-export type UpdateJobInput = z.infer<typeof updateJobSchema>;
-export type CreateTimeEntryInput = z.infer<typeof createTimeEntrySchema>;
-export type UpdateTimeEntryInput = z.infer<typeof updateTimeEntrySchema>;
-export type CreatePhotoInput = z.infer<typeof createPhotoSchema>;

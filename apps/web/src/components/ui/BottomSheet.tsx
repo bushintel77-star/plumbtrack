@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 
 const MUTED = "var(--sheet-muted)";
 const BORDER = "var(--app-border)";
+const FOCUSABLE =
+  "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex=\"-1\"])";
 
-/** Slide-up bottom sheet with spring animation, Escape dismissal, backdrop blur. */
+/** Slide-up bottom sheet with spring animation, Escape dismissal, focus trap, and backdrop blur. */
 export function BottomSheet({
   open,
   onClose,
@@ -22,43 +25,86 @@ export function BottomSheet({
   children: ReactNode;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
 
-  const close = () => {
-    (document.activeElement as HTMLElement | null)?.blur?.();
-    onClose();
-  };
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
-  // Escape key
+  const close = useCallback(() => {
+    onCloseRef.current();
+    window.requestAnimationFrame(() => {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const focusTimer = window.setTimeout(() => {
+      const firstFocusable = sheetRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+      (firstFocusable ?? sheetRef.current)?.focus();
+    }, 0);
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        return;
+      }
+      if (event.key !== "Tab" || !sheetRef.current) return;
+
+      const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        sheetRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener("keydown", handler);
-    setTimeout(() => sheetRef.current?.focus(), 80);
-    return () => document.removeEventListener("keydown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [close, open]);
 
   return (
     <>
-      {/* Backdrop with blur */}
       <div
         className={`fixed inset-0 z-30 backdrop-blur-sm transition-all duration-250 ${
           open ? "bg-black/55 opacity-100" : "bg-transparent opacity-0 pointer-events-none"
         }`}
         onClick={close}
-        aria-hidden
+        aria-hidden="true"
       />
 
-      {/* Sheet — cubic-bezier spring */}
       <div
         ref={sheetRef}
-        tabIndex={open ? 0 : -1}
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border-t outline-none ${
-          open
-            ? "translate-y-0 opacity-100"
-            : "translate-y-full opacity-0 pointer-events-none"
+        tabIndex={-1}
+        className={`fixed bottom-0 left-1/2 z-40 w-full max-w-md lg:max-w-xl -translate-x-1/2 rounded-t-3xl border-t outline-none ${
+          open ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none"
         }`}
         style={{
           background: "var(--sheet-bg)",
@@ -69,15 +115,17 @@ export function BottomSheet({
         role="dialog"
         aria-modal={open}
         aria-label={label}
+        aria-labelledby={titleId}
         aria-hidden={!open}
       >
-        {/* Grab handle */}
-        <div className="pt-3 pb-1 flex justify-center">
+        <div className="pt-3 pb-1 flex justify-center" aria-hidden="true">
           <div className="w-10 h-1.5 rounded-full" style={{ backgroundColor: "var(--app-border)" }} />
         </div>
 
-        <div className="px-5 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto">
-          <p className="text-white text-[17px] font-extrabold tracking-tight">{title}</p>
+        <div className="px-5 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-h-[82vh] overflow-y-auto">
+          <p id={titleId} className="text-[17px] font-extrabold tracking-tight" style={{ color: "var(--app-text)" }}>
+            {title}
+          </p>
           {subtitle && (
             <p className="text-[13px] mt-0.5 mb-5" style={{ color: MUTED }}>
               {subtitle}
@@ -90,15 +138,15 @@ export function BottomSheet({
   );
 }
 
-/** Card tile inside sheets — emoji + title + hint, 2-up grid, haptic press. */
+/** Card tile inside sheets — Lucide icon + title + hint, 2-up grid, haptic press. */
 export function SheetActionCard({
-  emoji,
+  icon: Icon,
   title,
   hint,
   onClick,
   disabled = false,
 }: {
-  emoji: string;
+  icon: LucideIcon;
   title: string;
   hint: string;
   onClick: () => void;
@@ -117,12 +165,12 @@ export function SheetActionCard({
       }}
     >
       <span
-        className="inline-flex items-center justify-center w-9 h-9 rounded-xl mb-2.5 text-[17px]"
-        style={{ backgroundColor: "rgba(255,255,255,0.06)", border: `1px solid ${BORDER}` }}
+        className="inline-flex items-center justify-center w-9 h-9 rounded-xl mb-2.5"
+        style={{ backgroundColor: "rgba(255,255,255,0.06)", border: `1px solid ${BORDER}`, color: "var(--accent)" }}
       >
-        {emoji}
+        <Icon size={18} aria-hidden="true" />
       </span>
-      <span className="block text-white text-[14px] font-bold tracking-tight leading-tight">
+      <span className="block text-[14px] font-bold tracking-tight leading-tight" style={{ color: "var(--app-text)" }}>
         {title}
       </span>
       <span className="block text-[11.5px] mt-0.5 leading-snug" style={{ color: MUTED }}>

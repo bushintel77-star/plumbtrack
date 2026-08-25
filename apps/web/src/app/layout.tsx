@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
+import { Lato } from "next/font/google";
 import "./globals.css";
+
+// Slack uses Lato — self-hosted via next/font so the typography stays authentic
+// without render-blocking external font requests.
+const lato = Lato({
+  weight: ["400", "700", "900"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-lato",
+});
 
 export const metadata: Metadata = {
   title: "PlumbTrack — Caulfield South Plumbing",
@@ -12,16 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={process.env.NODE_ENV === "development" ? "dev" : undefined}>
-      <head>
-        {/* Slack uses Lato — match the typography for an authentic feel */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html lang="en" className={`${lato.variable} ${process.env.NODE_ENV === "development" ? "dev" : ""}`}>
       <body>{children}</body>
     </html>
   );

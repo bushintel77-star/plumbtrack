@@ -17,7 +17,7 @@ const tabs: { key: Tab; icon: typeof Wrench; label: string }[] = [
 
 export function BottomNav({ activeTab, onTabChange, unreadCount = 0 }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-20 max-w-md mx-auto" aria-label="Primary">
+    <nav className="fixed bottom-0 left-0 right-0 z-20 app-bottom-nav" aria-label="Primary">
       {/* Frosted glass bar — safe-area padding keeps tabs clear of the home indicator */}
       <div className="app-nav backdrop-blur-xl border-t pb-[env(safe-area-inset-bottom)]">
         <div className="flex">
@@ -28,8 +28,7 @@ export function BottomNav({ activeTab, onTabChange, unreadCount = 0 }: BottomNav
                 key={key}
                 type="button"
                 onClick={() => onTabChange(key)}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 min-h-[56px] haptic relative ${
-                  active ? "text-accent" : "text-slate-600"
+                className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 min-h-[56px] haptic relative ${                    active ? "text-accent" : "text-slate-400"
                 }`}
                 aria-label={label}
                 aria-current={active ? "page" : undefined}
@@ -46,7 +45,7 @@ export function BottomNav({ activeTab, onTabChange, unreadCount = 0 }: BottomNav
                     </span>
                   )}
                 </span>
-                <span className={`text-[10px] font-semibold transition-colors ${active ? "text-accent" : "text-slate-600"}`}>
+                <span className={`text-[10px] font-semibold transition-colors ${active ? "text-accent" : "text-slate-400"}`}>
                   {label}
                 </span>
               </button>

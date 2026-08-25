@@ -33,6 +33,3 @@ export const updateQuoteLineSchema = z.object({
   rate: z.number().nonnegative().optional(),
 });
 
-export type CreateQuoteInput = z.infer<typeof createQuoteSchema>;
-export type UpdateQuoteInput = z.infer<typeof updateQuoteSchema>;
-export type UpdateQuoteLineInput = z.infer<typeof updateQuoteLineSchema>;

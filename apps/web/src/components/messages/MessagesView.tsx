@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
   ChevronDown,
+  Clipboard,
+  Clock,
+  FileText,
   Hash,
+  MapPin,
+  MessageSquare,
   MessageSquarePlus,
+  Wrench,
   MoreHorizontal,
   Plus,
   Search,
@@ -559,19 +566,19 @@ function MessageList({ onContextMenu }: { onContextMenu: (message: SlackMessage)
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface QuickUpdate {
-  emoji: string;
+  icon: typeof MapPin;
   title: string;
   hint: string;
   body: string;
 }
 
 const QUICK_UPDATES: QuickUpdate[] = [
-  { emoji: "📍", title: "On site", hint: "GPS verified at job", body: "📍 On site at the job — GPS verified." },
-  { emoji: "✅", title: "Job complete", hint: "Ready for sign-off", body: "✅ Job complete — ready for client sign-off." },
-  { emoji: "🔧", title: "Running late", hint: "Traffic / parts delay", body: "🔧 Running ~20 mins late — traffic on the way." },
-  { emoji: "🕐", title: "Clocking off", hint: "Leaving site", body: "🕐 Clocking off site now." },
-  { emoji: "🧾", title: "Quote sent", hint: "Awaiting approval", body: "🧾 Quote sent to the client for approval." },
-  { emoji: "📋", title: "Back at base", hint: "In the office", body: "📋 Back at base — call me if anything urgent." },
+  { icon: MapPin, title: "On site", hint: "GPS verified at job", body: "📍 On site at the job — GPS verified." },
+  { icon: Check, title: "Job complete", hint: "Ready for sign-off", body: "✅ Job complete — ready for client sign-off." },
+  { icon: Wrench, title: "Running late", hint: "Traffic / parts delay", body: "🔧 Running ~20 mins late — traffic on the way." },
+  { icon: Clock, title: "Clocking off", hint: "Leaving site", body: "🕐 Clocking off site now." },
+  { icon: FileText, title: "Quote sent", hint: "Awaiting approval", body: "🧾 Quote sent to the client for approval." },
+  { icon: Clipboard, title: "Back at base", hint: "In the office", body: "📋 Back at base — call me if anything urgent." },
 ];
 
 function QuickUpdateSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -581,7 +588,7 @@ function QuickUpdateSheet({ open, onClose }: { open: boolean; onClose: () => voi
     <BottomSheet open={open} onClose={onClose} title="Quick updates" subtitle={`Tap to send to #${activeChannel?.name ?? "general"}`} label="Quick updates">
       <div className="grid grid-cols-2 gap-2.5">
         {QUICK_UPDATES.map((u) => (
-          <SheetActionCard key={u.title} emoji={u.emoji} title={u.title} hint={u.hint} onClick={() => send(u)} />
+          <SheetActionCard key={u.title} icon={u.icon} title={u.title} hint={u.hint} onClick={() => send(u)} />
         ))}
       </div>
     </BottomSheet>
@@ -687,9 +694,9 @@ function MessageContextSheet({
   return (
     <BottomSheet open={open} onClose={onClose} title={member?.name ?? "Message"} subtitle={message.text.slice(0, 60)} label="Message actions">
       <div className="grid grid-cols-2 gap-2.5">
-        <SheetActionCard emoji="👍" title="React" hint="Thumbs up" onClick={() => action(() => toggleReaction(message.id, "👍"))} />
-        <SheetActionCard emoji="💬" title="Reply" hint="Quote in composer" onClick={() => action(() => onReply(message))} />
-        <SheetActionCard emoji="📋" title="Copy text" hint="Copy to clipboard" onClick={() => action(() => { void navigator.clipboard?.writeText(message.text); })} />
+        <SheetActionCard icon={MessageSquare} title="React" hint="Thumbs up" onClick={() => action(() => toggleReaction(message.id, "👍"))} />
+        <SheetActionCard icon={MessageSquarePlus} title="Reply" hint="Quote in composer" onClick={() => action(() => onReply(message))} />
+        <SheetActionCard icon={Clipboard} title="Copy text" hint="Copy to clipboard" onClick={() => action(() => { void navigator.clipboard?.writeText(message.text); })} />
       </div>
     </BottomSheet>
   );

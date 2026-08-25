@@ -33,17 +33,3 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
     </div>
   );
 }
-
-/** Skeleton for a message row. */
-export function SkeletonMessage() {
-  return (
-    <div className="flex gap-3 px-4 py-2 animate-fade-in">
-      <SkeletonAvatar size={28} />
-      <div className="flex-1 space-y-2">
-        <SkeletonLine className="w-20" />
-        <SkeletonLine className="w-full" />
-        <SkeletonLine className="w-2/3" />
-      </div>
-    </div>
-  );
-}

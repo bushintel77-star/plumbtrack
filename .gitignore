@@ -25,6 +25,9 @@ pnpm-debug.log*
 .mimosa/
 .freebuff/
 
+# Local GUI test evidence
+gui-test-screenshots/
+
 # OS / editor
 .DS_Store
 Thumbs.db

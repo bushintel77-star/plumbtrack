@@ -79,6 +79,10 @@
   --sheet-muted: #72767d;
   background-color: var(--app-bg);
   color: var(--app-text);
+  width: 100%;
+  max-width: 1120px;
+  min-height: 100dvh;
+  margin-inline: auto;
 }
 
 .app-shell[data-theme="light"] {
@@ -149,7 +153,7 @@ html[data-theme="light"] body {
 
 body {
   background-color: var(--page-bg);
-  font-family: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-lato), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior: none;
@@ -410,6 +414,44 @@ body {
    remain in the dev-server terminal. */
 html.dev nextjs-portal {
   pointer-events: none;
+}
+
+.app-main {
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.app-bottom-nav {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+.app-fixed-footer {
+  width: 100%;
+  max-width: 1120px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    border-inline: 1px solid var(--app-border);
+    box-shadow: 0 0 48px rgba(0, 0, 0, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Pull-to-refresh indicator ────────────────────────────────────────────── */

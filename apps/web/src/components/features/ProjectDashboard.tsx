@@ -12,7 +12,7 @@ function todayStr(): string {
 }
 
 export function ProjectDashboard() {
-  const { jobs, quotes, openJob, members, setActiveTab } = usePlumbTrackCtx();
+  const { jobs, quotes, openJob, members, setActiveTab, setActiveId, setView } = usePlumbTrackCtx();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const activeJobs = useMemo(() => jobs.filter((j) => j.status !== "completed"), [jobs]);
@@ -27,10 +27,11 @@ export function ProjectDashboard() {
     return set.size;
   }, [jobs]);
 
-  const reportsDue = useMemo(
-    () => activeJobs.filter((j) => !j.dailyReports.some((r) => r.date === today && r.submittedAt)).length,
+  const reportsDueJobs = useMemo(
+    () => activeJobs.filter((j) => !j.dailyReports.some((r) => r.date === today && r.submittedAt)),
     [activeJobs, today],
   );
+  const reportsDue = reportsDueJobs.length;
 
   const totalHoursWeek = useMemo(() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -76,7 +77,16 @@ export function ProjectDashboard() {
       </div>
 
       {/* Compliance */}
-      <GlassCard>
+      <GlassCard
+        interactive
+        onClick={() => {
+          const target = reportsDueJobs[0] ?? activeJobs[0];
+          if (!target) return;
+          setActiveId(target.id);
+          setView("dailyReport");
+        }}
+        ariaLabel="Open the daily report for the first active job"
+      >
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <CheckCircle2 size={13} /> Daily Reports

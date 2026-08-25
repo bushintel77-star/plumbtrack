@@ -1,5 +1,6 @@
 "use client";
 
+import { Camera, Check, Clock, MessageSquare } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
 
@@ -32,25 +33,25 @@ export function JobActionsSheet({
     >
       <div className="grid grid-cols-2 gap-2.5">
         <SheetActionCard
-          emoji="⏱️"
+          icon={Clock}
           title={running ? "Clock Off" : "Clock On"}
           hint={running ? "Stop the timer" : "Pick who's clocking on"}
           onClick={() => run(onClockPress)}
         />
         <SheetActionCard
-          emoji="📸"
+          icon={Camera}
           title="Add photo"
           hint="Capture work on site"
           onClick={() => run(() => addPhoto("On site"))}
         />
         <SheetActionCard
-          emoji="💬"
+          icon={MessageSquare}
           title="Post update"
           hint="Send to #field-updates"
           onClick={() => run(() => postMessage("field-updates", currentStaffId, `📢 ${job.id} — update from the field.`))}
         />
         <SheetActionCard
-          emoji="✅"
+          icon={Check}
           title="Go to sign-off"
           hint={job.photos.length === 0 ? "Add a photo first" : "Client sign-off"}
           disabled={job.photos.length === 0}

@@ -10,4 +10,3 @@ export const createOrganizationSchema = z.object({
   trade: z.string().trim().min(1).optional().default("plumbing"),
 });
 
-export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;

@@ -201,20 +201,6 @@ export async function enqueueIntegrationDelivery(input: {
   return true;
 }
 
-export async function enqueueSlackDelivery(input: {
-  orgId: string;
-  notificationId: string;
-  text: string;
-  channel?: string;
-}): Promise<boolean> {
-  return enqueueIntegrationDelivery({
-    orgId: input.orgId,
-    provider: "slack",
-    notificationId: input.notificationId,
-    payload: { text: input.text, channel: input.channel, notificationId: input.notificationId },
-  });
-}
-
 export function createIntegrationWorker(router: ProviderDeliveryRouter, intervalMs = DEFAULT_INTERVAL_MS) {
   let stopped = false;
   let running = false;

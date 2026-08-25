@@ -44,7 +44,7 @@ describe("relayToSlack", () => {
 
     await expect(relayToSlack("hello", "general")).resolves.toEqual({
       delivered: false,
-      error: "no webhook configured",
+      error: "no valid Slack webhook configured",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

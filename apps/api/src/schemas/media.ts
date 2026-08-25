@@ -13,5 +13,3 @@ export const completeUploadSchema = z.object({
   assetId: z.string().trim().min(1),
 });
 
-export type CreateUploadIntentInput = z.infer<typeof createUploadIntentSchema>;
-export type CompleteUploadInput = z.infer<typeof completeUploadSchema>;

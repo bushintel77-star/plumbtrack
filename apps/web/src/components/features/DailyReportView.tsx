@@ -426,7 +426,7 @@ function DailyReportForm({ job }: { job: Job }) {
 
       <MaterialPicker open={pickerOpen} onClose={() => setPickerOpen(false)} options={materialOptions} onAdd={addMaterial} />
 
-      <div className="fixed bottom-0 inset-x-0 z-20 max-w-md mx-auto px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer backdrop-blur-md border-t">
+      <div className="app-fixed-footer fixed bottom-0 z-20 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer backdrop-blur-md border-t">
         <div className="flex gap-2">
           <button type="button" onClick={() => saveReport(false)} className="flex-1 min-h-[48px] rounded-xl bg-white/[0.06] border border-white/[0.1] text-slate-300 text-sm font-semibold active:scale-[0.98] transition">{saved ? "Draft saved" : "Save draft"}</button>
           <button type="button" onClick={() => saveReport(true)} disabled={!workSummary.trim()} className="flex-[1.35] min-h-[48px] rounded-xl bg-accent text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-35 active:scale-[0.98] transition"><Send size={15} /> Submit log</button>
