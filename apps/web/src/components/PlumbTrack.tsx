@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Camera,
   Check,
   Clock,
   Cloud,
@@ -15,11 +14,10 @@ import {
   Sun,
   Moon,
   Trash2,
-  Wrench,
   Wifi,
   ArrowLeft,
-  Clipboard,
   X,
+  Camera,
 } from "lucide-react";
 
 import type { Job, View } from "@/types";
@@ -50,17 +48,14 @@ import { useTimer } from "@/hooks/useTimer";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { PlumbTrackProvider, usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { SwipeableCard } from "@/components/ui/SwipeableCard";
-import { SkeletonList } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { SignaturePad } from "@/components/ui/SignaturePad";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MessagesView, useMessagesDrawer } from "./messages/MessagesView";
-import { JobActionsSheet as JobActionsSheetComp } from "./messages/JobActionsSheet";
 import { StaffClockInSheet } from "@/components/messages/StaffClockInSheet";
-import { ShiftCard } from "@/components/shift/ShiftCard";
+import { TodayStream } from "@/components/features/TodayStream";
 import { NotificationFeedView } from "@/components/notifications/NotificationFeedView";
-import { DailyReportView, requiresDailyReport } from "@/components/features/DailyReportView";
+import { DailyReportView } from "@/components/features/DailyReportView";
 import { ResidentialJobView } from "@/components/features/ResidentialJobView";
 import { ProjectDashboard } from "@/components/features/ProjectDashboard";
 import { SyncCenterView } from "@/components/features/SyncCenterView";
@@ -82,7 +77,6 @@ export default function PlumbTrack() {
 function PlumbTrackInner() {
   const s = usePlumbTrackCtx();
   const { job, quote, view, activeTab, clientName, running, startedAt, theme } = s;
-  const [jobActionsOpen, setJobActionsOpen] = useState(false);
   const [staffSheet, setStaffSheet] = useState<{ open: boolean; mode: "clockin" | "switch" }>({
     open: false,
     mode: "clockin",
@@ -218,7 +212,7 @@ function PlumbTrackInner() {
           className="app-main flex-1 overflow-y-auto pb-[calc(1.5rem+var(--bottom-nav-clearance))]"
           style={{ scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}
         >
-          {view === "list" && activeTab === "jobs" && <JobListView />}
+          {view === "list" && activeTab === "jobs" && <TodayStream />}
           {view === "list" && activeTab === "quotes" && <QuoteListView />}
           {view === "list" && activeTab === "dashboard" && <ProjectDashboard />}
             {view === "list" && activeTab === "settings" && <SettingsView />}
@@ -248,28 +242,6 @@ function PlumbTrackInner() {
         <BottomNav activeTab={activeTab} onTabChange={s.setActiveTab} unreadCount={mounted ? s.totalUnread : 0} />
       )}
 
-      {/* ── Floating job-actions trigger (job detail only) ────── */}
-      {view === "job" && job && (
-        <button
-          type="button"
-          onClick={() => setJobActionsOpen(true)}
-          className="absolute bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center shadow-lg shadow-accent/30 haptic"
-          aria-label="Job actions"
-        >
-          <Plus size={24} />
-        </button>
-      )}
-
-      {/* ── Job actions bottom sheet ───────────────────────────── */}
-      <JobActionsSheetComp
-        open={jobActionsOpen}
-        onClose={() => {
-          (document.activeElement as HTMLElement | null)?.blur?.();
-          setJobActionsOpen(false);
-        }}
-        onClockPress={onClockPress}
-      />
-
       {/* ── Staff clock-in / operator sheet ─────────────────────── */}
       <StaffClockInSheet
         open={staffSheet.open}
@@ -281,137 +253,6 @@ function PlumbTrackInner() {
 }
 
 // ── Views ────────────────────────────────────────────────────────────────────
-
-function JobListView() {
-  const { jobs, openJob, staffMembers, currentStaffId, setCurrentStaffId, startClockOn } = usePlumbTrackCtx();
-  const toast = useToast();
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "in_progress" | "scheduled" | "completed">("all");
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const filtered = useMemo(() => {
-    return jobs.filter((j) => {
-      const status = derivedJobStatus(j);
-      if (filter !== "all" && status !== filter) return false;
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
-      return (
-        j.client.toLowerCase().includes(q) ||
-        j.address.toLowerCase().includes(q) ||
-        j.scope.toLowerCase().includes(q) ||
-        j.id.toLowerCase().includes(q)
-      );
-    });
-  }, [jobs, search, filter]);
-
-  const counts = useMemo(() => {
-    let scheduled = 0, inProgress = 0, completed = 0;
-    for (const j of jobs) {
-      const s = derivedJobStatus(j);
-      if (s === "scheduled") scheduled++;
-      else if (s === "in_progress") inProgress++;
-      else completed++;
-    }
-    return { all: jobs.length, scheduled, inProgress: inProgress, completed };
-  }, [jobs]);
-
-  const filters: { key: typeof filter; label: string }[] = [
-    { key: "all", label: mounted ? `All (${counts.all})` : "All (…)" },
-    { key: "in_progress", label: mounted ? `Active (${counts.inProgress})` : "Active (…)" },
-    { key: "scheduled", label: mounted ? `Scheduled (${counts.scheduled})` : "Scheduled (…)" },
-    { key: "completed", label: mounted ? `Done (${counts.completed})` : "Done (…)" },
-  ];
-
-  return (
-    <div className="p-3 space-y-2">
-      {/* Shift banner — day-level log-on/log-off bounding tracking + pay */}
-      <ShiftCard />
-
-      {/* Search */}
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search jobs by client, address, or scope…"          className="app-input w-full rounded-xl px-3.5 py-2.5 text-sm placeholder-slate-600 focus:outline-none focus:border-accent/50 transition"
-      />
-
-      {/* Filter chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {filters.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setFilter(f.key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition ${
-              filter === f.key
-                ? "bg-accent/15 text-accent border border-accent/30"
-                : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {!mounted ? (
-        <SkeletonList count={2} />
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-10 animate-fade-in">
-          <div className="w-12 h-12 rounded-full bg-white/[0.04] flex items-center justify-center mx-auto mb-3">
-            <Wrench size={20} className="text-slate-600" />
-          </div>
-          <p className="text-slate-500 text-sm">
-            {search ? "No jobs match your search." : "No jobs in this category."}
-          </p>
-        </div>
-      ) : (
-        filtered.map((j, i) => {
-          const status = mounted ? derivedJobStatus(j) : j.status;
-          return (
-            <SwipeableCard
-              key={j.id}
-              rightAction={{
-                label: "Clock In",
-                icon: Clock,
-                color: "rgba(232, 135, 30, 0.85)",
-                onTrigger: () => {
-                  // Use the first staff member (current operator defaults to tim)
-                  setCurrentStaffId(currentStaffId);
-                  startClockOn(j.id, currentStaffId);
-                  toast.toast("success", `Clock-in started for ${j.id}`);
-                },
-              }}
-              leftAction={{
-                label: "Open",
-                icon: Clipboard,
-                color: "rgba(51, 65, 85, 0.85)",
-                onTrigger: () => openJob(j.id),
-              }}
-              className="animate-enter"
-              onActivate={() => openJob(j.id)}
-              ariaLabel={`Open job ${j.id} for ${j.client}`}
-            >
-              <div className="surface-card surface-card--interactive w-full text-left p-3.5 min-h-[80px]">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[11px] font-mono tracking-wide text-slate-500 bg-white/[0.04] border border-white/[0.06] rounded-md px-1.5 py-0.5">
-                    {j.id}
-                  </span>
-                  <StatusBadge status={status} />
-                </div>
-                <p className="font-semibold text-white text-[15px] tracking-tight mb-0.5">{j.client}</p>
-                <p className="text-xs text-slate-400 flex items-center gap-1">
-                  <MapPin size={11} /> {j.address}
-                </p>
-                <p className="text-sm text-slate-500 mt-2 line-clamp-2 leading-relaxed">{j.scope}</p>
-              </div>
-            </SwipeableCard>
-          );
-        })
-      )}
-    </div>
-  );
-}
 
 function QuoteListView() {
   const { quotes, openQuote, createQuote } = usePlumbTrackCtx();
@@ -565,223 +406,6 @@ function SettingsView() {
           Reset Demo Data
         </button>
       </GlassCard>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Job Detail
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function JobDetailView({
-  job,
-  billedSeconds,
-  onClockPress,
-  onSwitchStaff,
-}: {
-  job: Job;
-  billedSeconds: number;
-  onClockPress: () => void;
-  onSwitchStaff: () => void;
-}) {
-  const { addPhoto, setView, running, currentStaff, currentStaffName, dispatch, staffMembers } = usePlumbTrackCtx();
-  const [showManualTime, setShowManualTime] = useState(false);
-  const [manualStaff, setManualStaff] = useState(currentStaff?.id ?? "tim");
-  const [manualStart, setManualStart] = useState("");
-  const [manualEnd, setManualEnd] = useState("");
-
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [pendingPhotoLabel, setPendingPhotoLabel] = useState<string | null>(null);
-
-  const openCamera = (label: string) => {
-    setPendingPhotoLabel(label);
-    cameraInputRef.current?.click();
-  };
-
-  const onCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !pendingPhotoLabel) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = typeof reader.result === "string" ? reader.result : "";
-      if (url) addPhoto(pendingPhotoLabel, url);
-    };
-    reader.readAsDataURL(file);
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-  };
-
-  return (
-    <div className="p-3 space-y-2">
-      <GlassCard>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-semibold text-white text-[15px]">{job.client}</p>
-            <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
-              <MapPin size={11} /> {job.address}
-            </p>
-            <p className="text-sm text-slate-500 mt-2">{job.scope}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onSwitchStaff}
-            className="shrink-0 flex flex-col items-center gap-1 px-2.5 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] active:bg-white/[0.08] transition min-w-[56px]"
-            aria-label={`Working as ${currentStaffName} — tap to switch`}
-          >
-            <span
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-              style={{ backgroundColor: currentStaff?.color ?? "#64748b" }}
-            >
-              {currentStaffName.slice(0, 2).toUpperCase()}
-            </span>
-            <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">
-              {currentStaffName}
-            </span>
-          </button>
-        </div>
-      </GlassCard>
-
-      {/* Timer */}
-      <div className="surface-card p-5 text-center">
-        <div className="flex items-center justify-center gap-1.5 mb-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent/70 animate-pulse" />
-          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-bold">
-            Time on site (billable)
-          </p>
-        </div>
-        <p className="text-5xl font-mono text-white tabular-nums font-light tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
-          {formatDuration(Math.floor(billedSeconds))}
-        </p>
-        <button
-          type="button"
-          onClick={onClockPress}
-          className={`mt-4 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 min-h-[48px] transition active:scale-[0.98] shadow-lg ${
-            running
-              ? "bg-red-500 text-white shadow-red-500/25"
-              : "bg-accent text-white shadow-accent/25"
-          }`}
-        >
-          <Clock size={16} />
-          {running ? "Clock Off Site" : "Clock On Site"}
-        </button>
-        <p className="text-[10px] text-slate-600 mt-2">
-          GPS-verified at job address on clock-in
-        </p>
-      </div>
-
-      {/* Manual Time Entry (inline) */}
-      {!showManualTime ? (
-        <button
-          type="button"
-          onClick={() => {
-            setManualStart(toLocalDateTime(new Date()));
-            setManualEnd("");
-            setManualStaff(currentStaff?.id ?? "tim");
-            setShowManualTime(true);
-          }}
-          className="w-full py-3.5 rounded-xl surface-card text-slate-400 text-xs font-semibold flex items-center justify-center gap-2 min-h-[48px] active:bg-white/[0.08] transition border border-white/[0.08]"
-        >
-          <Clock size={14} /> Add Manual Time Entry
-        </button>
-      ) : (
-        <GlassCard>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Manual Time Entry</p>
-          <div className="space-y-3">
-            <select
-              value={manualStaff}
-              onChange={(e) => setManualStaff(e.target.value)}
-              className="w-full app-input border rounded-lg px-3 py-2.5 text-sm text-white"
-            >
-              {staffMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[10px] text-slate-500 mb-1">Start</label>
-                <input
-                  type="datetime-local"
-                  value={manualStart}
-                  onChange={(e) => setManualStart(e.target.value)}
-                  className="w-full app-input border rounded-lg px-3 py-2.5 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-slate-500 mb-1">End (optional)</label>
-                <input
-                  type="datetime-local"
-                  value={manualEnd}
-                  onChange={(e) => setManualEnd(e.target.value)}
-                  className="w-full app-input border rounded-lg px-3 py-2.5 text-xs text-white"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowManualTime(false)}
-                className="flex-1 py-2.5 rounded-xl surface-card text-slate-400 text-xs font-semibold border border-white/[0.08]"
-              >Cancel</button>
-              <button type="button"
-                onClick={() => {
-                  if (!manualStart) return;
-                  dispatch({ type: "ADD_MANUAL_TIME", jobId: job.id, staffId: manualStaff,
-                    start: new Date(manualStart).toISOString(),
-                    end: manualEnd ? new Date(manualEnd).toISOString() : new Date().toISOString() });
-                  setShowManualTime(false);
-                }}
-                disabled={!manualStart}
-                className="flex-1 py-2.5 rounded-xl bg-accent/15 text-accent text-xs font-semibold border border-accent/30 disabled:opacity-30"
-              >Add Entry</button>
-            </div>
-          </div>
-        </GlassCard>
-      )}
-
-      {/* Photos */}
-      <GlassCard>
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-          Photos ({job.photos.length})
-        </p>
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {job.photos.map((p) => (
-            <div key={p.id} className="aspect-square surface-inset flex flex-col items-center justify-center text-slate-500 overflow-hidden relative">
-              {p.url ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.label} className="absolute inset-0 w-full h-full object-cover" />
-                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-[9px] py-0.5 text-center text-white font-semibold">
-                    {p.label}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Camera size={16} />
-                  <span className="text-[9px] mt-1 px-1 text-center">{p.label}</span>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => openCamera("Before")}
-            className="flex-1 py-3 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-white/[0.08] transition border border-white/[0.08]"
-          ><Camera size={13} /> Before</button>
-          <button type="button" onClick={() => openCamera("After")}
-            className="flex-1 py-3 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-white/[0.08] transition border border-white/[0.08]"
-          ><Camera size={13} /> After</button>
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onCameraCapture} className="hidden" />
-        </div>
-      </GlassCard>
-
-      <button type="button" onClick={() => setView("signoff")} disabled={job.photos.length === 0}
-        className="w-full py-3 rounded-xl bg-accent text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition shadow-lg shadow-accent/25"
-      ><Check size={16} /> Proceed to Sign-off</button>
-      {job.photos.length === 0 && (
-        <p className="text-[11px] text-center text-slate-500 -mt-2">Add at least one photo to continue</p>
-      )}
-      {requiresDailyReport(job) && (
-        <button type="button" onClick={() => setView("dailyReport")}
-          className="w-full py-3 rounded-xl surface-card text-slate-300 text-sm font-semibold flex items-center justify-center gap-2 min-h-[48px] active:bg-white/[0.08] transition border border-white/[0.08]"
-        ><Send size={14} /> End of Day Report</button>
-      )}
     </div>
   );
 }
@@ -1266,30 +890,8 @@ function exportTimesheetCsv(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function toLocalDateTime(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // Status Badges
 // ═══════════════════════════════════════════════════════════════════════════════
-
-function StatusBadge({ status }: { status: import("@/types").JobStatus }) {
-  const styles: Record<string, string> = {
-    completed: "bg-white/[0.08] text-slate-300 border border-white/[0.08]",
-    in_progress: "bg-accent/15 text-accent border border-accent/20",
-    scheduled: "bg-slate-700/50 text-slate-400 border border-white/[0.06]",
-  };
-  return (
-    <span suppressHydrationWarning className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full ${styles[status] ?? styles.scheduled}`}>
-      {status === "in_progress" ? "In Progress" : status}
-    </span>
-  );
-}
 
 function QuoteStatusBadge({ status }: { status: import("@/types").QuoteStatus }) {
   const styles: Record<string, string> = {

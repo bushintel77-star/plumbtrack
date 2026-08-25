@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Coffee, LogIn, LogOut, Radio } from "lucide-react";
 
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { useTimer } from "@/hooks/useTimer";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { formatDuration } from "@/lib/billing";
+import {
+  IconGpsFix,
+  IconMugBreak,
+  IconValve,
+  IconValveShut,
+} from "@/components/icons/FieldIcons";
 import { LogOnSheet } from "./LogOnSheet";
 import { LogOffSheet } from "./LogOffSheet";
 
@@ -66,7 +71,7 @@ export function ShiftCard() {
                 onClick={endMealBreak}
                 className="py-3 rounded-xl bg-accent/15 text-accent text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:scale-[0.98] transition border border-accent/30"
               >
-                <Coffee size={14} /> End Break
+                <IconMugBreak size={14} /> End Break
               </button>
             ) : (
               <button
@@ -74,7 +79,7 @@ export function ShiftCard() {
                 onClick={startMealBreak}
                 className="py-3 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:bg-white/[0.08] transition border border-white/[0.08]"
               >
-                <Coffee size={14} /> Meal Break
+                <IconMugBreak size={14} /> Meal Break
               </button>
             )}
             <button
@@ -82,13 +87,13 @@ export function ShiftCard() {
               onClick={() => setLogOffOpen(true)}
               className="py-3 rounded-xl bg-red-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:scale-[0.98] transition shadow-lg shadow-red-500/20"
             >
-              <LogOut size={14} /> Log Off
+              <IconValveShut size={14} /> Log Off
             </button>
           </div>
 
           {trackingActive && (
             <p className="text-[10px] text-slate-600 mt-2.5 flex items-center gap-1.5">
-              <Radio size={10} /> GPS shared with dispatch while on shift — never off-duty
+              <IconGpsFix size={10} /> GPS shared with dispatch while on shift — never off-duty
             </p>
           )}
         </GlassCard>
@@ -99,7 +104,7 @@ export function ShiftCard() {
           className="w-full surface-card surface-card--interactive p-4 flex items-center gap-3.5 text-left"
         >
           <span className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-            <LogIn size={20} className="text-accent" />
+            <IconValve size={20} className="text-accent" />
           </span>
           <span className="flex-1 min-w-0">
             <span className="block text-white text-[14.5px] font-bold tracking-tight">Off duty — log on to start</span>

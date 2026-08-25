@@ -2,25 +2,22 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
-  AlertTriangle,
-  Camera,
-  Check,
   ChevronRight,
+  Check,
   Clock,
-  ExternalLink,
-  FileText,
   MapPin,
   Mic,
   Navigation,
   Phone,
-  Plus,
-  ShieldCheck,
   ShoppingCart,
   Volume2,
   X,
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { CaptureBar } from "@/components/field/CaptureBar";
+import { OnTheWayButton } from "@/components/field/OnTheWayButton";
+import { IconCameraField } from "@/components/icons/FieldIcons";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { JobActivityTimeline } from "@/components/features/JobActivityTimeline";
@@ -175,8 +172,8 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
   const { addPhoto, setView, dispatch, currentStaff, currentStaffName, members, syncStatus } = usePlumbTrackCtx();
   const online = useOnlineStatus();
   const [kitOpen, setKitOpen] = useState(false);
+  const [safetySheet, setSafetySheet] = useState(false);
   const [voiceText, setVoiceText] = useState("");
-  const [safetyOpen, setSafetyOpen] = useState(false);
   const [pendingPhotoLabel, setPendingPhotoLabel] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const items = job.serviceItems ?? [];
@@ -240,6 +237,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
           <a href={job.phone ? `tel:${job.phone}` : undefined} aria-disabled={!job.phone} className={`min-h-[48px] rounded-xl flex items-center justify-center gap-2 border text-sm font-semibold transition haptic ${job.phone ? "bg-white/[0.06] text-white border-white/[0.1]" : "bg-white/[0.03] text-slate-600 border-white/[0.06] pointer-events-none"}`}><Phone size={16} /> Call client</a>
           <a href={destinationUrl(job.address)} target="_blank" rel="noreferrer" className="min-h-[48px] rounded-xl flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold transition haptic"><Navigation size={16} /> Navigate</a>
         </div>
+        {job.status !== "completed" && <OnTheWayButton jobId={job.id} />}
         {job.accessCode && <div className="mt-2 flex items-center gap-2 text-xs text-slate-500"><span className="text-accent font-semibold">Access</span><span>{job.accessCode}</span></div>}
       </GlassCard>
 
@@ -253,7 +251,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       <GlassCard>
         <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Photo proof</p><p className="text-[11px] text-slate-600 mt-0.5">Timestamped before and after evidence</p></div><span className="text-xs text-slate-500">{job.photos.length} saved</span></div>
         <div className="grid grid-cols-2 gap-2 mb-2">
-          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} className="min-h-[92px] rounded-xl border border-dashed border-white/[0.14] bg-white/[0.03] text-slate-300 flex flex-col items-center justify-center gap-1.5 haptic"><Camera size={21} className="text-accent" /><span className="text-xs font-semibold">{label} photo</span><span className="text-[10px] text-slate-600">Open camera</span></button>)}
+          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} className="min-h-[92px] rounded-xl border border-dashed border-white/[0.14] bg-white/[0.03] text-slate-300 flex flex-col items-center justify-center gap-1.5 haptic"><IconCameraField size={21} className="text-accent" /><span className="text-xs font-semibold">{label} photo</span><span className="text-[10px] text-slate-600">Open camera</span></button>)}
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
           {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-black/60 text-[8px] text-center text-white">{photo.label}</span></div>)}
@@ -270,22 +268,28 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
 
       <div style={{ scrollMarginBottom: "128px" }}>
       <GlassCard>
-        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pricing & materials</p><p className="text-[11px] text-slate-600 mt-0.5">Use the + in the completion tray to add a preset kit</p></div><ShoppingCart size={17} className="text-accent" /></div>
+        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pricing & materials</p><p className="text-[11px] text-slate-600 mt-0.5">Use the Part slot in the capture bar to add a preset kit</p></div><ShoppingCart size={17} className="text-accent" /></div>
         {items.length === 0 ? <div className="min-h-[48px] rounded-xl border border-dashed border-white/[0.1] flex items-center justify-center text-xs text-slate-600">No items added yet</div> : <div>{items.map((item) => <ItemRow key={item.id} item={item} onQty={(qty) => dispatch({ type: "UPDATE_SERVICE_ITEM_QTY", jobId: job.id, itemId: item.id, qty })} onRemove={() => dispatch({ type: "REMOVE_SERVICE_ITEM", jobId: job.id, itemId: item.id })} />)}</div>}
         <div className="flex justify-between pt-2 mt-1 border-t border-white/[0.06] text-sm font-bold text-white"><span>Items total</span><span>${itemTotal.toFixed(2)}</span></div>
       </GlassCard>
       </div>
 
-      <GlassCard>
-        <button type="button" onClick={() => setSafetyOpen((open) => !open)} className="w-full flex items-center justify-between text-left"><span className="flex items-center gap-2"><ShieldCheck size={17} className="text-accent" /><span><span className="block text-xs font-bold text-slate-300 uppercase tracking-wider">Safety confirmation</span><span className="block text-[11px] text-slate-600 mt-0.5">Record the checks relevant to this repair</span></span></span><ChevronRight size={17} className={`text-slate-500 transition ${safetyOpen ? "rotate-90" : ""}`} /></button>
-        {safetyOpen && <div className="mt-3 space-y-1.5">{([{ key: "waterIsolated", label: "Water isolated before work" }, { key: "gasChecked", label: "Gas appliance / line checked" }, { key: "pressureTested", label: "Pressure or function tested" }] as const).map((check) => <button key={check.key} type="button" onClick={() => updateSafety(check.key)} className="w-full min-h-[44px] flex items-center gap-2 text-left text-sm text-slate-300"><span className={`w-6 h-6 rounded-md border flex items-center justify-center ${safety[check.key] ? "bg-accent border-accent text-white" : "border-white/[0.14]"}`}>{safety[check.key] && <Check size={15} />}</span>{check.label}</button>)}</div>}
-      </GlassCard>
-
       <BottomSheet open={kitOpen} onClose={() => setKitOpen(false)} title="Add service item" subtitle="Preset rates and repair kits for fast driveway pricing" label="Service item picker">
         <div className="space-y-2">{KITS.map((kit) => <button key={kit.id} type="button" onClick={() => addKit(kit)} className="w-full min-h-[72px] rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 text-left flex items-center gap-3 haptic"><span className="w-10 h-10 shrink-0 rounded-xl bg-accent/15 text-accent flex items-center justify-center"><ShoppingCart size={18} /></span><span className="flex-1 min-w-0"><span className="block text-sm font-bold text-white">{kit.title}</span><span className="block text-xs text-slate-500 mt-0.5">{kit.hint}</span></span><span className="text-sm font-bold text-accent">${kit.rate}</span><ChevronRight size={16} className="text-slate-600" /></button>)}</div>
       </BottomSheet>
 
-      <div className="app-fixed-footer fixed bottom-0 z-20 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer backdrop-blur-md border-t"><div className="flex gap-2"><button type="button" onClick={() => setView("signoff")} disabled={job.photos.length === 0} className="flex-[1.35] min-h-[52px] rounded-xl bg-accent text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-35 haptic"><FileText size={16} /> Complete & sign</button><button type="button" onClick={() => setKitOpen(true)} className="w-14 min-h-[52px] rounded-xl bg-white/[0.07] border border-white/[0.1] text-slate-200 flex items-center justify-center haptic" aria-label="Add service item"><Plus size={20} /></button></div>{job.photos.length === 0 && <p className="text-[10px] text-center text-slate-600 mt-1">Add one completion photo to continue</p>}</div>
+      <BottomSheet open={safetySheet} onClose={() => setSafetySheet(false)} title="Safety confirmation" subtitle="Record the checks relevant to this repair" label="Safety confirmation">
+        <div className="space-y-1.5">{([{ key: "waterIsolated", label: "Water isolated before work" }, { key: "gasChecked", label: "Gas appliance / line checked" }, { key: "pressureTested", label: "Pressure or function tested" }] as const).map((check) => <button key={check.key} type="button" onClick={() => updateSafety(check.key)} className="w-full min-h-[52px] flex items-center gap-2.5 text-left text-sm text-slate-300"><span className={`w-6 h-6 rounded-md border flex items-center justify-center ${safety[check.key] ? "bg-accent border-accent text-white" : "border-white/[0.14]"}`}>{safety[check.key] && <Check size={15} />}</span>{check.label}</button>)}</div>
+      </BottomSheet>
+
+      <CaptureBar
+        job={job}
+        onComplete={() => setView("signoff")}
+        onPhoto={openCamera}
+        onSaveNote={(text) => dispatch({ type: "ADD_VOICE_NOTE", jobId: job.id, note: { id: crypto.randomUUID(), transcript: text, createdAt: new Date().toISOString(), createdBy: currentStaff?.id ?? "tim" } })}
+        onPart={() => setKitOpen(true)}
+        onSafety={() => setSafetySheet(true)}
+      />
     </div>
   );
 }

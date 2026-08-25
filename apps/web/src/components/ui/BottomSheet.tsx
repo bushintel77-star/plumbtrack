@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, type ComponentType, type ReactNode } from "react";
 
 const MUTED = "var(--sheet-muted)";
 const BORDER = "var(--app-border)";
@@ -138,7 +137,8 @@ export function BottomSheet({
   );
 }
 
-/** Card tile inside sheets — Lucide icon + title + hint, 2-up grid, haptic press. */
+/** Card tile inside sheets — icon + title + hint, 2-up grid, haptic press.
+ *  Accepts both Lucide icons and the bespoke FieldIcons set. */
 export function SheetActionCard({
   icon: Icon,
   title,
@@ -146,7 +146,7 @@ export function SheetActionCard({
   onClick,
   disabled = false,
 }: {
-  icon: LucideIcon;
+  icon: ComponentType<{ size?: number; className?: string }>;
   title: string;
   hint: string;
   onClick: () => void;

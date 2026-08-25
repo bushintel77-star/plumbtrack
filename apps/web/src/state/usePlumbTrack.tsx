@@ -465,6 +465,20 @@ function usePlumbTrackImpl() {
 
   // ── Shift actions (log-on / log-off) ──────────────────────────────────────
 
+  /** Customer-facing ETA ping — queued like every outbound message. */
+  const sendOnTheWay = useCallback(
+    (jobId: string, etaMinutes: number) => {
+      const j = jobs.find((x) => x.id === jobId);
+      if (!j) return;
+      postMessage(
+        "field-updates",
+        "plumbtrack",
+        `🚚 ${currentStaffName} is on the way to ${j.client} (${j.id}) — ETA about ${etaMinutes} min. Track arrival in your booking confirmation.`,
+      );
+    },
+    [jobs, currentStaffName, postMessage],
+  );
+
   const logOn = useCallback(
     (workType: ShiftWorkType) => {
       const startedAt = new Date().toISOString();
@@ -736,7 +750,7 @@ function usePlumbTrackImpl() {
 
     // Shift (log-on / log-off)
     shifts: state.shifts, activeShift, openBreak, trackingActive, shiftTracking,
-    logOn, startMealBreak, endMealBreak, logOff, interpretActiveShift,
+    logOn, startMealBreak, endMealBreak, logOff, interpretActiveShift, sendOnTheWay,
 
     // Actions
     openJob, openQuote, createQuote, updateQuoteMeta,
