@@ -13,8 +13,9 @@ import { createSyncManager, DeferredSyncError, TerminalSyncError } from "@/lib/s
 import { useOutboxStatus } from "@/hooks/useOutboxStatus";
 import { useShiftTracking } from "@/hooks/useShiftTracking";
 import { seedChannels, seedDocuments, seedJobs, seedMembers, seedMessages, seedQuotes, seedRfis } from "@/lib/seed";
+import { captureEvidenceCoordinates } from "@/lib/geolocation";
 import { reducer } from "./reducer";
-import type { Action } from "./actions";
+
 
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
@@ -131,7 +132,6 @@ function usePlumbTrackImpl() {
 
   const [activeTab, setActiveTab] = useState<Tab>("jobs");
   const [view, setView] = useState<View>("list");
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeChannelId, setActiveChannelId] = useState<string>("general");
   const [currentStaffId, setCurrentStaffId] = useState<string>("tim");
@@ -201,21 +201,6 @@ function usePlumbTrackImpl() {
 
   // Persist on every state change
   useEffect(() => { persistState(state); }, [state]);
-
-  // Theme is a user preference, not job data. Start dark for SSR parity, then
-  // hydrate the saved preference on the client without blocking field work.
-  useEffect(() => {
-    const saved = window.localStorage.getItem("plumbtrack-theme");
-    if (saved === "light" || saved === "dark") setTheme(saved);
-  }, []);
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("plumbtrack-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => current === "dark" ? "light" : "dark");
-  }, []);
 
   // Register the lightweight background-sync bridge. It wakes the foreground
   // manager when the browser reports connectivity, while browsers without
@@ -517,9 +502,10 @@ function usePlumbTrackImpl() {
   );
 
   const logOn = useCallback(
-    (workType: ShiftWorkType) => {
+    async (workType: ShiftWorkType) => {
       const startedAt = new Date().toISOString();
-      dispatch({ type: "LOG_ON", staffId: currentStaffId, workType, startedAt, noticeAckAt: startedAt });
+      const coords = await captureEvidenceCoordinates();
+      dispatch({ type: "LOG_ON", staffId: currentStaffId, workType, startedAt, noticeAckAt: startedAt, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
       const label =
         workType === "callback" ? " (call-back)" : workType === "inclement" ? " (inclement weather)" : "";
       postMessage("field-updates", "plumbtrack", `🔐 ${currentStaffName} logged on${label} — shift tracking active until log-off.`);
@@ -592,7 +578,11 @@ function usePlumbTrackImpl() {
       if (!activeId) return;
       const photoId = crypto.randomUUID();
       const uploadOpId = crypto.randomUUID();
-      dispatch({ type: "ADD_PHOTO", jobId: activeId, photo: { id: photoId, label, url, takenAt: new Date().toISOString() } });
+      const takenAt = new Date().toISOString();
+      dispatch({ type: "ADD_PHOTO", jobId: activeId, photo: { id: photoId, label, url, takenAt, lat: null, lng: null } });
+      void captureEvidenceCoordinates().then((coords) => {
+        dispatch({ type: "UPDATE_PHOTO_EVIDENCE", jobId: activeId, photoId, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+      });
       if (!url) return;
 
       // Keep the local preview instant, but move the heavy payload into the
@@ -610,15 +600,17 @@ function usePlumbTrackImpl() {
   );
 
   const saveSignature = useCallback(
-    (dataUrl: string) => {
+    async (dataUrl: string) => {
       if (!job) return;
       const name = clientName.trim() || job.client;
-      dispatch({ type: "SIGN_JOB", jobId: job.id, signature: dataUrl, client: name });
+      const capturedAt = new Date().toISOString();
+      const coords = await captureEvidenceCoordinates();
+      dispatch({ type: "SIGN_JOB", jobId: job.id, signature: dataUrl, client: name, capturedAt, capturedBy: currentStaffId, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
       setView("invoice");
       // Slack integration: announce sign-off in #field-updates.
       postMessage("field-updates", "plumbtrack", `✅ ${job.id} signed off by ${name}.`);
     },
-    [job, clientName, postMessage],
+    [job, clientName, currentStaffId, postMessage],
   );
 
   const addLine = useCallback(() => {
@@ -895,7 +887,6 @@ function usePlumbTrackImpl() {
     activeChannel, activeChannelId, setActiveChannelId,
     unreadByChannel, totalUnread,
     activeTab, setActiveTab,
-    theme, toggleTheme,
     view, setView,
     activeId, setActiveId,
     clientName, setClientName,

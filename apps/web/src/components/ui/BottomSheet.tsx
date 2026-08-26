@@ -243,7 +243,7 @@ export function BottomSheet({
     <>
       <div
         className={`fixed inset-0 z-30 backdrop-blur-sm transition-all duration-250 ${
-          open ? "bg-black/55 opacity-100" : "bg-transparent opacity-0 pointer-events-none"
+          open ? "bg-scrim opacity-100" : "bg-transparent opacity-0 pointer-events-none"
         }`}
         onClick={close}
         aria-hidden="true"
@@ -306,28 +306,33 @@ export function SheetActionCard({
   hint,
   onClick,
   disabled = false,
+  active = false,
+  className = "",
 }: {
   icon: ComponentType<{ size?: number; className?: string }>;
   title: string;
   hint: string;
   onClick: () => void;
   disabled?: boolean;
+  active?: boolean;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="group text-left rounded-2xl p-3.5 transition-all duration-150 haptic disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100"
+      aria-pressed={active}
+      className={`sheet-action-card group text-left rounded-2xl p-3.5 transition-all duration-150 haptic disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100 ${className} ${active ? "is-active" : ""}`}
       style={{
         background: "linear-gradient(180deg, var(--sheet-tile) 0%, var(--sheet-tile-soft) 100%)",
         border: `1px solid ${BORDER}`,
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px var(--app-shadow)",
+        boxShadow: "var(--shadow-sheet), 0 4px 14px var(--app-shadow)",
       }}
     >
       <span
         className="inline-flex items-center justify-center w-9 h-9 rounded-xl mb-2.5"
-        style={{ backgroundColor: "rgba(255,255,255,0.06)", border: `1px solid ${BORDER}`, color: "var(--accent)" }}
+        style={{ backgroundColor: "var(--accent-dim)", border: `1px solid ${BORDER}`, color: "var(--accent)" }}
       >
         <Icon size={18} aria-hidden="true" />
       </span>

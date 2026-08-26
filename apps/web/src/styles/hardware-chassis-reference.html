@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FSM Dashboard - Master Chassis</title>
+  <style>
+    /* --- 1. THE PHYSICS ENGINE (TOKENS) --- */
+    :root {
+      --chrome-950: #071022;  
+      --chrome-800: #103B8C;  
+      --chrome-600: #1E56E0;  
+      --chrome-400: #4E8CFF;  
+
+      --status-urgent: #D93636;
+      --status-complete: #2E9E4F;
+      --text-primary: #FFFFFF;
+      --text-secondary: rgba(255, 255, 255, 0.55); 
+    }
+
+    body {
+      background-color: var(--chrome-950);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, sans-serif;
+      font-variant-numeric: tabular-nums; 
+      -webkit-font-smoothing: antialiased;
+      
+      display: flex;
+      justify-content: center;
+      padding: 40px 0;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    /* Simulates the phone screen */
+    .mobile-simulator {
+      width: 100%;
+      max-width: 380px; 
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px; /* Space between the widgets */
+    }
+
+    /* --- 2. TYPOGRAPHY SHARPENING --- */
+    .data-hero {
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em; 
+      color: var(--text-primary);
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); 
+    }
+
+    .label-micro {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em; 
+      color: var(--text-secondary);
+    }
+    
+    .text-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+      margin-top: 2px;
+    }
+
+    /* --- 3. THE HARDWARE CHASSIS --- */
+    .widget-chassis {
+      position: relative;
+      background: linear-gradient(160deg, rgba(16, 59, 140, 0.5) 0%, rgba(7, 16, 34, 0.9) 100%);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px); 
+      
+      border-radius: 24px;
+      padding: 24px; 
+      
+      border: 1px solid rgba(0, 0, 0, 0.8);
+      box-shadow: 
+        inset 0 1px 0 rgba(255, 255, 255, 0.15), 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 20px 40px rgba(0, 0, 0, 0.2), 
+        0 12px 24px rgba(0, 0, 0, 0.6),
+        0 2px 4px rgba(0, 0, 0, 0.8);
+    }
+
+    /* --- 4. STRUCTURAL LAYERS --- */
+    .widget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #FF5A5A; 
+      box-shadow: 0 0 10px var(--status-urgent), inset 0 1px 2px rgba(255,255,255,0.8); 
+    }
+
+    .work-order-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: 0.05em;
+    }
+
+    .hairline-divider {
+      border: none;
+      height: 2px;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6) 50%, rgba(255, 255, 255, 0.08) 50%);
+      margin: 0 0 24px 0;
+    }
+
+    /* --- 5. THE CHRONOGRAPH TELEMETRY --- */
+    .telemetry-grid {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .telemetry-data {
+      display: flex;
+      gap: 32px; 
+    }
+
+    .data-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px; 
+    }
+
+    .data-unit {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-left: 2px;
+    }
+
+    /* REVERTED: Clean Hardware Route Axis */
+    .route-axis {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 64px;
+    }
+
+    .axis-node {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .axis-node.current {
+      border-color: var(--chrome-400); 
+      background: var(--chrome-400);
+      box-shadow: 0 0 8px rgba(78, 140, 255, 0.6), inset 0 2px 2px rgba(255,255,255,0.5);
+    }
+
+    .axis-line {
+      width: 2px;
+      height: 20px; 
+      flex-grow: 0; 
+      background: rgba(255, 255, 255, 0.2); 
+      margin: 4px 0;
+    }
+
+    /* --- 6. SHIFT MANIFEST TIMELINE --- */
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      position: relative;
+    }
+
+    /* The central milled spine connecting the timeline */
+    .timeline-container::before {
+      content: '';
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      left: 6px;
+      width: 2px;
+      background: linear-gradient(to right, rgba(0,0,0,0.8), rgba(255,255,255,0.1));
+      border-radius: 2px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Default Hollow Node (Future Task) */
+    .timeline-node {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--chrome-950);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.9);
+    }
+
+    /* Illuminated Node (Active Task) */
+    .timeline-item.active .timeline-node {
+      border-color: var(--chrome-400);
+      background: var(--chrome-400);
+      box-shadow: 0 0 10px rgba(78, 140, 255, 0.5), inset 0 2px 2px rgba(255,255,255,0.6);
+    }
+
+    /* Depressed Node (Completed Task) */
+    .timeline-item.complete .timeline-node {
+      border-color: var(--status-complete);
+      background: rgba(46, 158, 79, 0.2); /* Muted dark green */
+    }
+
+    .timeline-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .timeline-item.complete .text-title,
+    .timeline-item.complete .label-micro {
+      color: var(--text-secondary); /* Mutes completed tasks so the eye jumps to the active one */
+    }
+    
+    .task-detail {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* --- 7. TACTILE ACTIONS --- */
+    .action-array {
+      display: flex;
+      gap: 16px; 
+    }
+
+    .btn-machined {
+      flex: 1;
+      height: 52px; 
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-machined.primary {
+      background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%); 
+      color: #FFF;
+      border: 1px solid rgba(0, 0, 0, 0.4);
+      box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.4),  
+        inset 0 -1px 2px rgba(0, 0, 0, 0.2),       
+        0 4px 8px rgba(0, 0, 0, 0.4),              
+        0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .btn-machined.secondary {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%); 
+      color: var(--text-primary);
+      border: 1px solid rgba(0, 0, 0, 0.6);
+      box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.5), 
+        0 1px 0 rgba(255, 255, 255, 0.08);  
+    }
+
+    .btn-machined:active {
+      transform: scale(0.97); 
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Simulator Wrapper -->
+  <div class="mobile-simulator">
+    
+    <!-- WIDGET 1: THE DISPATCH CHRONOGRAPH -->
+    <div class="widget-chassis">
+      <header class="widget-header" style="margin-bottom: 24px;">
+        <div class="status-indicator">
+          <span class="status-dot urgent"></span>
+          <span class="label-micro">Active Route</span>
+        </div>
+        <h2 class="work-order-id">#WO-8927</h2>
+      </header>
+
+      <hr class="hairline-divider" />
+
+      <div class="telemetry-grid">
+        <div class="telemetry-data">
+          <div class="data-block">
+            <span class="label-micro">ETA</span>
+            <div class="data-hero">14<span class="data-unit">MIN</span></div>
+          </div>
+          <div class="data-block">
+            <span class="label-micro">Distance</span>
+            <div class="data-hero">6.2<span class="data-unit">KM</span></div>
+          </div>
+        </div>
+        
+        <div class="route-axis">
+          <div class="axis-node current"></div>
+          <div class="axis-line"></div>
+          <div class="axis-node destination"></div>
+        </div>
+      </div>
+
+      <div class="action-array">
+        <button class="btn-machined primary">Navigate</button>
+        <button class="btn-machined secondary">Call</button>
+      </div>
+    </div>
+
+    <!-- WIDGET 2: THE SHIFT MANIFEST -->
+    <div class="widget-chassis">
+      <header class="widget-header" style="margin-bottom: 16px;">
+        <span class="label-micro">Today's Manifest</span>
+      </header>
+      
+      <hr class="hairline-divider" />
+
+      <div class="timeline-container">
+        
+        <!-- Completed Task -->
+        <div class="timeline-item complete">
+          <div class="timeline-node"></div>
+          <div class="timeline-content">
+            <span class="label-micro">07:30 AM</span>
+            <div class="text-title">Load Truck & Clock In</div>
+          </div>
+        </div>
+
+        <!-- Active Task -->
+        <div class="timeline-item active">
+          <div class="timeline-node"></div>
+          <div class="timeline-content">
+            <span class="label-micro">09:15 AM — En Route</span>
+            <div class="text-title">Commercial Heater Install</div>
+            <div class="task-detail">#WO-8927 • Oakland, CA</div>
+          </div>
+        </div>
+
+        <!-- Future Task 1 -->
+        <div class="timeline-item">
+          <div class="timeline-node"></div>
+          <div class="timeline-content">
+            <span class="label-micro">11:30 AM</span>
+            <div class="text-title">Parts Run (Grainger)</div>
+            <div class="task-detail">Pick up 2x Brass Fittings</div>
+          </div>
+        </div>
+
+        <!-- Future Task 2 -->
+        <div class="timeline-item">
+          <div class="timeline-node"></div>
+          <div class="timeline-content">
+            <span class="label-micro">13:00 PM</span>
+            <div class="text-title">Residential Pipe Leak</div>
+            <div class="task-detail">#WO-8931 • Berkeley, CA</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

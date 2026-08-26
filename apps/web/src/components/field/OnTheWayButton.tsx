@@ -32,8 +32,8 @@ export function OnTheWayButton({ jobId }: { jobId: string }) {
         disabled={sent !== null}
         className={`w-full min-h-[48px] mt-2 rounded-xl flex items-center justify-center gap-2 text-sm font-semibold border transition haptic ${
           sent !== null
-            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
-            : "bg-white/[0.06] text-white border-white/[0.1]"
+            ? "bg-complete-dim text-complete border-complete-line"
+            : "bg-fill-strong text-ink border-line"
         }`}
       >
         <IconVanRoute size={17} />

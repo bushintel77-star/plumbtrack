@@ -4,17 +4,20 @@ export type Action =
   | { type: "MERGE_REMOTE"; jobs: Job[]; quotes: Quote[] }
   | { type: "CLOCK_ON"; jobId: string; staffId: string; lat: number | null; lng: number | null }
   | { type: "CLOCK_OFF"; jobId: string; staffId: string }
-  | { type: "LOG_ON"; staffId: string; workType: ShiftWorkType; startedAt: string; noticeAckAt: string }
+  | { type: "LOG_ON"; staffId: string; workType: ShiftWorkType; startedAt: string; noticeAckAt: string; lat?: number | null; lng?: number | null }
   | { type: "START_BREAK"; staffId: string }
   | { type: "END_BREAK"; staffId: string }
   | { type: "LOG_OFF"; staffId: string; endedAt: string; workType?: ShiftWorkType; kmDriven?: number; toilElection?: boolean }
   | { type: "ADD_PHOTO"; jobId: string; photo: JobPhoto }
+  | { type: "UPDATE_PHOTO_EVIDENCE"; jobId: string; photoId: string; lat: number | null; lng: number | null }
   | { type: "ADD_SERVICE_ITEM"; jobId: string; item: import("@/types").ServiceItem }
   | { type: "UPDATE_SERVICE_ITEM_QTY"; jobId: string; itemId: string; qty: number }
   | { type: "REMOVE_SERVICE_ITEM"; jobId: string; itemId: string }
   | { type: "ADD_VOICE_NOTE"; jobId: string; note: import("@/types").VoiceNote }
   | { type: "SET_SAFETY_CONFIRMATION"; jobId: string; confirmation: import("@/types").SafetyConfirmation }
-  | { type: "SIGN_JOB"; jobId: string; signature: string; client: string }
+  | { type: "UPDATE_SAFETY_EVIDENCE"; jobId: string; confirmedAt: string; confirmedBy: string; lat: number | null; lng: number | null }
+  | { type: "SIGN_JOB"; jobId: string; signature: string; client: string; capturedAt: string; capturedBy: string; lat: number | null; lng: number | null }
+  | { type: "UPDATE_SIGNATURE_EVIDENCE"; jobId: string; capturedAt: string; capturedBy: string; lat: number | null; lng: number | null }
   | { type: "SET_JOB_STATUS"; jobId: string; status: JobStatus }
   | { type: "CREATE_QUOTE"; quote: Quote }
   | { type: "UPDATE_QUOTE_META"; quoteId: string; field: "client" | "address" | "description"; value: string }

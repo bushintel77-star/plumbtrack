@@ -1,25 +1,78 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Clock, Users, FileText, AlertCircle, CheckCircle2, TrendingUp, ClipboardList, Shield, ShieldAlert } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Clock, Users, FileText, CheckCircle2, ShieldAlert } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { derivedJobStatus, formatDuration } from "@/lib/billing";
 import { expiryState } from "@/lib/documents";
 import type { Job } from "@/types";
+import { formatSerial } from "@/lib/display";
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Animated counter — rolls up from 0 to target.
+ */
+function useCounter(target: number): number {
+  const [current, setCurrent] = useState(0);
+  const frameRef = useRef<number | undefined>(undefined);
+  const startRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    startRef.current = Date.now();
+    const from = current;
+
+    const tick = () => {
+      const elapsed = Date.now() - (startRef.current ?? 0);
+      const progress = Math.min(elapsed / 600, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCurrent(Math.round(from + (target - from) * eased));
+
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    frameRef.current = requestAnimationFrame(tick);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+  }, [target]);
+
+  return current;
+}
+
+/**
+ * Stat tile — Hardware chassis with data-hero number
+ */
+function StatTile({
+  value,
+  label,
+  unit,
+}: {
+  value: number;
+  label: string;
+  unit?: string;
+}) {
+  const display = useCounter(value);
+
+  return (
+    <div className="data-block" style={{ textAlign: "center" }}>
+      <span className="label-micro">{label}</span>
+      <div className="data-hero" style={{ fontSize: "2rem" }}>
+        {display}
+        {unit && <span className="data-unit">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function ProjectDashboard() {
-  const { jobs, quotes, openJob, members, setActiveTab, setActiveId, setView, documents } = usePlumbTrackCtx();
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const { jobs, quotes, openJob, setActiveTab, setActiveId, setView, documents } = usePlumbTrackCtx();
 
   const activeJobs = useMemo(() => jobs.filter((j) => j.status !== "completed"), [jobs]);
   const today = todayStr();
 
-  // Stats
   const crewClockedIn = useMemo(() => {
     const set = new Set<string>();
     for (const j of jobs)
@@ -45,155 +98,172 @@ export function ProjectDashboard() {
 
   const openQuotes = useMemo(() => quotes.filter((q) => q.status === "sent" || q.status === "draft"), [quotes]);
 
-  const jobHealth = (j: Job) => {
-    let score = 0;
-    let issues: string[] = [];
-    if (j.dailyReports.some((r) => r.date === today && r.submittedAt)) score++;
-    else issues.push("No daily report today");
-    if (j.photos.length > 0) score++;
-    if (j.timeEntries.some((e) => e.end === null)) score++;
-    if (j.checklists.some((c) => c.completedAt)) score++;
-    return { score, issues, color: score >= 3 ? "green" : score >= 2 ? "amber" : "red" };
-  };
+  const expired = documents.filter((d) => expiryState(d.expiresOn) === "expired");
+  const soon = documents.filter((d) => expiryState(d.expiresOn) === "soon");
 
   return (
-    <div className="p-3 space-y-2">
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2">
-        <GlassCard className="text-center p-3">
-          <Users size={16} className="text-accent mx-auto mb-1" />
-          <p className="text-lg font-bold text-white">{crewClockedIn}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">On site</p>
-        </GlassCard>
-        <GlassCard className="text-center p-3">
-          <FileText size={16} className="text-accent mx-auto mb-1" />
-          <p className="text-lg font-bold text-white">{activeJobs.length}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Active jobs</p>
-        </GlassCard>
-        <GlassCard className="text-center p-3">
-          <Clock size={16} className="text-accent mx-auto mb-1" />
-          <p className="text-sm font-bold text-white font-mono">{formatDuration(Math.floor(totalHoursWeek))}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Hours this wk</p>
-        </GlassCard>
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "20px" }}>
+      {/* Stats — Hardware chassis with telemetry */}
+      <div className="widget-chassis">
+        <header className="widget-header" style={{ marginBottom: "16px" }}>
+          <span className="label-micro">Shift Telemetry</span>
+        </header>
+        <hr className="hairline-divider" />
+
+        <div className="telemetry-grid" style={{ marginBottom: "0" }}>
+          <div className="telemetry-data" style={{ gap: "24px" }}>
+            <StatTile value={crewClockedIn} label="CREW" />
+            <StatTile value={activeJobs.length} label="JOBS" />
+            <StatTile value={Math.floor(totalHoursWeek / 3600)} label="HRS" />
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Reports */}
+      <div className="widget-chassis">
+        <button
+          type="button"
+          onClick={() => {
+            const target = reportsDueJobs[0] ?? activeJobs[0];
+            if (!target) return;
+            setActiveId(target.id);
+            setView("dailyReport");
+          }}
+          className="w-full text-left"
+        >
+          <header className="widget-header" style={{ marginBottom: "16px" }}>
+            <div className="status-indicator">
+              <CheckCircle2 size={14} style={{ color: "var(--text-secondary)" }} />
+              <span className="label-micro">Daily Reports</span>
+            </div>
+            <span className={`label-micro ${reportsDue === 0 ? "" : ""}`}
+              style={{ color: reportsDue === 0 ? "var(--status-complete)" : "var(--status-urgent)" }}
+            >
+              {reportsDue === 0 ? "✓ DONE" : `${reportsDue} DUE`}
+            </span>
+          </header>
+          <hr className="hairline-divider" style={{ margin: "0 0 12px 0" }} />
+          
+          {/* Progress */}
+          <div style={{ 
+            height: "4px", 
+            background: "var(--surface-border)", 
+            borderRadius: "2px",
+            overflow: "hidden"
+          }}>
+            <div style={{ 
+              height: "100%", 
+              background: "var(--chrome-400)", 
+              width: `${((activeJobs.length - reportsDue) / Math.max(1, activeJobs.length)) * 100}%`,
+              transition: "width 300ms ease"
+            }} />
+          </div>
+          <div className="label-micro" style={{ marginTop: "8px" }}>
+            {activeJobs.length - reportsDue}/{activeJobs.length} SUBMITTED
+          </div>
+        </button>
       </div>
 
       {/* Compliance */}
-      <GlassCard
-        interactive
-        onClick={() => {
-          const target = reportsDueJobs[0] ?? activeJobs[0];
-          if (!target) return;
-          setActiveId(target.id);
-          setView("dailyReport");
-        }}
-        ariaLabel="Open the daily report for the first active job"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <CheckCircle2 size={13} /> Daily Reports
-          </p>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-            reportsDue === 0 ? "bg-accent/15 text-accent" : "bg-red-500/15 text-red-400"
-          }`}>
-            {reportsDue === 0 ? "All submitted" : `${reportsDue} due`}
-          </span>
-        </div>
-        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-          <div
-            className="h-full rounded-full bg-accent transition-all"
-            style={{ width: `${((activeJobs.length - reportsDue) / Math.max(1, activeJobs.length)) * 100}%` }}
-          />
-        </div>
-      </GlassCard>
-
-      {/* Compliance — document expiry watch */}
-      {(() => {
-        const expired = documents.filter((d) => expiryState(d.expiresOn) === "expired");
-        const soon = documents.filter((d) => expiryState(d.expiresOn) === "soon");
-        const atRisk = expired.length + soon.length;
-        if (atRisk === 0) return null;
-        return (
-          <GlassCard
-            interactive
+      {(expired.length + soon.length) > 0 && (
+        <div className="widget-chassis">
+          <button
+            type="button"
             onClick={() => setActiveTab("documents")}
-            ariaLabel="Open the document vault — compliance documents need attention"
+            className="w-full text-left"
           >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldAlert size={13} className="text-amber-400" /> Compliance
-              </p>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                expired.length > 0 ? "bg-red-500/15 text-red-400" : "bg-amber-400/15 text-amber-400"
-              }`}>
-                {expired.length > 0 ? `${expired.length} expired` : `${soon.length} expiring`}
+            <header className="widget-header" style={{ marginBottom: "16px" }}>
+              <div className="status-indicator">
+                <ShieldAlert size={14} style={{ color: "var(--status-urgent)" }} />
+                <span className="label-micro">Compliance</span>
+              </div>
+              <span className="label-micro" style={{ color: "var(--status-urgent)" }}>
+                {expired.length > 0 ? `${expired.length} EXPIRED` : `${soon.length} EXPIRING`}
               </span>
-            </div>
-            <div className="space-y-1">
+            </header>
+            <hr className="hairline-divider" style={{ margin: "0 0 12px 0" }} />
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {[...expired, ...soon].slice(0, 3).map((doc) => (
-                <div key={doc.id} className="flex items-center gap-2 text-xs text-slate-300">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    expiryState(doc.expiresOn) === "expired" ? "bg-red-400" : "bg-amber-400"
-                  }`} />
-                  <span className="truncate flex-1">{doc.name}</span>
-                  {doc.jobId && <span className="text-[10px] font-mono text-slate-500 shrink-0">{doc.jobId}</span>}
+                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span className={`status-dot ${expiryState(doc.expiresOn) === "expired" ? "urgent" : ""}`}
+                    style={{ width: "6px", height: "6px" }}
+                  />
+                  <span className="task-detail" style={{ flex: 1 }}>
+                    {doc.name}
+                  </span>
+                  {doc.jobId && (
+                    <span className="work-order-id" style={{ fontSize: "0.7rem" }}>
+                      {formatSerial(doc.jobId)}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
-          </GlassCard>
-        );
-      })()}
+          </button>
+        </div>
+      )}
 
-      {/* Active jobs health */}
-      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-1 pt-1">Active Jobs</p>
-      {activeJobs.map((j) => {
-        const h = jobHealth(j);
-        return (
-          <GlassCard
-            key={j.id}
-            interactive
-            onClick={() => openJob(j.id)}
-            ariaLabel={`Job ${j.id} — ${j.client}`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{j.client}</p>
-                <p className="text-[11px] text-slate-500 truncate mt-0.5">{j.scope}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Health dot */}
-                <span className={`w-2.5 h-2.5 rounded-full ${
-                  h.color === "green" ? "bg-accent" : h.color === "amber" ? "bg-amber-400" : "bg-red-400"
-                }`} />
-                {/* Crew indicator */}
-                {j.timeEntries.some((e) => e.end === null) && (
-                  <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
-                    {j.timeEntries.filter((e) => e.end === null).length} on site
-                  </span>
-                )}
-              </div>
-            </div>
-          </GlassCard>
-        );
-      })}
-
-      {/* Open quotes */}
-      {openQuotes.length > 0 && (
-        <>
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider px-1 pt-1">Pending Quotes</p>
-          {openQuotes.map((q) => (
-            <GlassCard key={q.id} interactive onClick={() => setActiveTab("quotes")} ariaLabel={`Quote ${q.id} — ${q.client}`}>
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{q.client}</p>
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">{q.description}</p>
+      {/* Active Jobs */}
+      <div>
+        <div className="label-micro" style={{ marginBottom: "12px" }}>
+          ACTIVE JOBS · {activeJobs.length}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {activeJobs.map((j) => (
+            <button
+              key={j.id}
+              type="button"
+              onClick={() => openJob(j.id)}
+              className="widget-chassis"
+              style={{ 
+                padding: "16px", 
+                textAlign: "left",
+                cursor: "pointer",
+                transition: "transform 100ms ease"
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+              onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              <div className="text-title">{j.client}</div>
+              <div className="task-detail" style={{ marginTop: "4px" }}>{j.scope}</div>
+              {j.timeEntries.some((e) => e.end === null) && (
+                <div className="label-micro" style={{ marginTop: "8px", color: "var(--chrome-400)" }}>
+                  {j.timeEntries.filter((e) => e.end === null).length} ON SITE
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400">
-                  {q.status}
-                </span>
-              </div>
-            </GlassCard>
+              )}
+            </button>
           ))}
-        </>
+        </div>
+      </div>
+
+      {/* Quotes */}
+      {openQuotes.length > 0 && (
+        <div>
+          <div className="label-micro" style={{ marginBottom: "12px" }}>
+            PENDING QUOTES · {openQuotes.length}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {openQuotes.map((q) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setActiveTab("quotes")}
+                className="widget-chassis"
+                style={{ padding: "16px", textAlign: "left", cursor: "pointer" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="text-title">{q.client}</div>
+                  <span className="label-micro" style={{ color: "var(--status-pending)" }}>
+                    {q.status}
+                  </span>
+                </div>
+                <div className="task-detail" style={{ marginTop: "4px" }}>{q.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

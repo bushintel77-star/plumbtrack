@@ -161,6 +161,8 @@ export function reducer(state: AppState, action: Action): AppState {
             breaks: [],
             toilElection: false,
             trackingNoticeAckAt: action.noticeAckAt,
+            loggedOnLat: action.lat ?? null,
+            loggedOnLng: action.lng ?? null,
           },
         ],
       };
@@ -316,6 +318,14 @@ export function reducer(state: AppState, action: Action): AppState {
         ),
       };
 
+    case "UPDATE_PHOTO_EVIDENCE":
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => j.id === action.jobId
+          ? { ...j, photos: j.photos.map((photo) => photo.id === action.photoId ? { ...photo, lat: action.lat, lng: action.lng } : photo) }
+          : j),
+      };
+
     case "ADD_VOICE_NOTE":
       return {
         ...state,
@@ -330,18 +340,51 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         jobs: state.jobs.map((j) =>
-          j.id === action.jobId ? { ...j, safetyConfirmation: action.confirmation } : j,
+          j.id === action.jobId
+            ? {
+                ...j,
+                safetyConfirmation: {
+                  ...action.confirmation,
+                  confirmedAt: action.confirmation.confirmedAt ?? new Date().toISOString(),
+                },
+              }
+            : j,
         ),
+      };
+
+    case "UPDATE_SAFETY_EVIDENCE":
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => j.id === action.jobId && j.safetyConfirmation
+          ? { ...j, safetyConfirmation: { ...j.safetyConfirmation, confirmedAt: action.confirmedAt, confirmedBy: action.confirmedBy, confirmedLat: action.lat, confirmedLng: action.lng } }
+          : j),
       };
 
     case "SIGN_JOB":
       return {
         ...state,
         jobs: state.jobs.map((j) =>
-          j.id === action.jobId
-            ? { ...j, signature: action.signature, status: "completed" as const, client: action.client }
+          j.id === action.jobId              ? {
+                  ...j,
+                  signature: action.signature,
+                  status: "completed" as const,
+                  client: action.client,
+                  signatureCapturedAt: action.capturedAt,
+                  signatureCapturedBy: action.capturedBy,
+                  signatureLat: action.lat,
+                  signatureLng: action.lng,
+                }
+
             : j,
         ),
+      };
+
+    case "UPDATE_SIGNATURE_EVIDENCE":
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => j.id === action.jobId
+          ? { ...j, signatureCapturedAt: action.capturedAt, signatureCapturedBy: action.capturedBy, signatureLat: action.lat, signatureLng: action.lng }
+          : j),
       };
 
     case "SET_JOB_STATUS":

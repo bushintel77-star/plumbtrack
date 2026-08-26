@@ -3,6 +3,7 @@
 import { Camera, Check, Clock, MessageSquare } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
+import { formatSerial } from "@/lib/display";
 
 /** Bottom sheet of quick job actions — clock, photos, Slack update, sign-off. */
 export function JobActionsSheet({
@@ -28,7 +29,7 @@ export function JobActionsSheet({
       open={open}
       onClose={onClose}
       title="Job actions"
-      subtitle={`${job.id} · ${job.client}`}
+      subtitle={`${formatSerial(job.id)} · ${job.client}`}
       label="Job actions"
     >
       <div className="grid grid-cols-2 gap-2.5">
@@ -48,7 +49,7 @@ export function JobActionsSheet({
           icon={MessageSquare}
           title="Post update"
           hint="Send to #field-updates"
-          onClick={() => run(() => postMessage("field-updates", currentStaffId, `📢 ${job.id} — update from the field.`))}
+          onClick={() => run(() => postMessage("field-updates", currentStaffId, `📢 ${formatSerial(job.id)} — update from the field.`))}
         />
         <SheetActionCard
           icon={Check}

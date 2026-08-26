@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, FolderOpen, Search, ShieldAlert, Upload } from "lucide-react";
+import { AlertCircle, ChevronRight, FolderOpen, Search, ShieldAlert, Upload } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/documents/DocumentComponents";
 import { expiryState, formatBytes, relativeTime } from "@/lib/documents";
 import type { DocumentCategory, PlumbDocument } from "@/types";
+import { formatSerial } from "@/lib/display";
 
 type ScopeFilter = "all" | "company" | "jobs";
 
@@ -85,40 +86,40 @@ export function DocumentsView({
       <div className="grid grid-cols-3 gap-2">
         <GlassCard className="text-center p-3">
           <FolderOpen size={16} className="text-accent mx-auto mb-1" />
-          <p className="text-lg font-bold text-white">{stats.total}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Documents</p>
+          <p className="text-lg font-bold text-ink">{stats.total}</p>
+          <p className="text-[10px] text-ink-low uppercase tracking-wide">Documents</p>
         </GlassCard>
         <GlassCard className="text-center p-3">
-          <ShieldAlert size={16} className="text-amber-400 mx-auto mb-1" />
-          <p className="text-lg font-bold text-white">{stats.soon}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Expiring soon</p>
+          <ShieldAlert size={16} className="text-pending mx-auto mb-1" />
+          <p className="text-lg font-bold text-ink">{stats.soon}</p>
+          <p className="text-[10px] text-ink-low uppercase tracking-wide">Expiring soon</p>
         </GlassCard>
         <GlassCard className="text-center p-3">
-          <span className="mx-auto mb-1 block w-4 h-4 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-[10px] font-bold">!</span>
-          <p className="text-lg font-bold text-white">{stats.expired}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Expired</p>
+          <AlertCircle size={16} className="text-urgent mx-auto mb-1" />
+          <p className="text-lg font-bold text-ink">{stats.expired}</p>
+          <p className="text-[10px] text-ink-low uppercase tracking-wide">Expired</p>
         </GlassCard>
       </div>
 
       <ExpiryAlertBanner documents={documents} />
 
-      {/* Upload */}
+      {/* Upload — primary CTA, reserved glow surface (chrome-200) */}
       <button
         type="button"
         onClick={() => setUploadOpen(true)}
-        className="w-full min-h-[48px] rounded-xl bg-accent text-white text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-accent/20 haptic"
+        className="documents-upload-button w-full min-h-[48px] rounded-xl bg-accent glow-chrome text-on-accent text-sm font-bold flex items-center justify-center gap-2 haptic"
       >
         <Upload size={16} /> Upload document
       </button>
 
       {/* Search */}
       <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-low" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search name, tag or note…"
-          className="w-full min-h-[44px] app-input border rounded-xl pl-10 pr-3 text-sm text-white placeholder-slate-600"
+          className="documents-search-input w-full min-h-[44px] app-input border rounded-xl pl-10 pr-3 text-sm text-ink placeholder-ink-low"
           aria-label="Search documents"
         />
       </div>
@@ -131,7 +132,7 @@ export function DocumentsView({
             type="button"
             onClick={() => setScope(s)}
             className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition haptic ${
-              scope === s ? "bg-accent/15 text-accent border-accent/30" : "bg-white/[0.03] text-slate-500 border-white/[0.08]"
+              scope === s ? "bg-accent/15 text-accent border-accent/30" : "bg-fill text-ink-low border-line"
             }`}
           >
             {s === "all" ? "All" : s === "company" ? "Company" : "Jobs"}
@@ -145,7 +146,7 @@ export function DocumentsView({
             type="button"
             onClick={() => setCategory(c.id)}
             className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-semibold border transition haptic ${
-              category === c.id ? "bg-white/[0.1] text-white border-white/[0.18]" : "bg-white/[0.03] text-slate-500 border-white/[0.08]"
+              category === c.id ? "bg-fill-strong text-ink border-line-strong" : "bg-fill text-ink-low border-line"
             }`}
           >
             {c.label}
@@ -156,7 +157,7 @@ export function DocumentsView({
       {/* Document list */}
       {filtered.length === 0 ? (
         <GlassCard>
-          <p className="text-slate-500 text-sm text-center py-6">No documents match — upload one to start the vault.</p>
+          <p className="text-ink-low text-sm text-center py-6">No documents match — upload one to start the vault.</p>
         </GlassCard>
       ) : (
         <div className="space-y-1.5">
@@ -168,14 +169,14 @@ export function DocumentsView({
                 key={doc.id}
                 type="button"
                 onClick={() => setDetailDoc(doc)}
-                className="w-full flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left min-h-[60px] haptic"
+                className="w-full flex items-center gap-3 rounded-xl border border-line bg-fill p-3 text-left min-h-[60px] haptic"
               >
                 <CategoryIcon category={doc.category} size={18} />
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[13.5px] font-semibold text-white truncate">{doc.name}</span>
-                  <span className="block text-[10.5px] text-slate-500 mt-0.5">
+                  <span className="block text-[13.5px] font-semibold text-ink truncate">{doc.name}</span>
+                  <span className="block text-[10.5px] text-ink-low mt-0.5">
                     {categoryInfo(doc.category).label}
-                    {doc.jobId ? ` · ${doc.jobId}` : " · Company"}
+                    {doc.jobId ? ` · ${formatSerial(doc.jobId)}` : " · Company"}
                     {linkedJob ? ` · ${linkedJob.client.split(" ")[0]}` : ""}
                     {doc.versions.length > 0 ? ` · v${doc.versions.length} · ${formatBytes(latest?.size ?? 0)}` : ""}
                     {doc.expiresOn ? ` · ${doc.expiresOn}` : ""}
@@ -183,7 +184,7 @@ export function DocumentsView({
                   </span>
                 </span>
                 <ExpiryBadge expiresOn={doc.expiresOn} />
-                <ChevronRight size={15} className="text-slate-600 shrink-0" />
+                <ChevronRight size={15} className="text-ink-low shrink-0" />
               </button>
             );
           })}

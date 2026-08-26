@@ -4,20 +4,56 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PlumbTrack — Tier-1 Design System
+   Chrome Blue ramp · Soft White · Status (red/amber/green, theme-invariant)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 
 :root {
-  --page-bg: #0c0c0e;
+  /* ═══ Hardware Grade Token System ═══════════════════════════════════════ */
+  --chassis-void: #071022;
+  --chassis-recess: #03060E;
+  --chassis-glass: #103B8C;
+  --chrome-600: #1E56E0;
+  --chrome-400: #4E8CFF;
+  --chrome-200: #B8D8FF;
+  --status-urgent: #FF3B30;
+  --status-pending: #FF9F0A;
+  --status-complete: #32D74B;
+  --status-pending-light: #B45309;
+  --text-hero: #FFFFFF;
+  --text-muted-grade: #8B94A6;
+  --edge-highlight: rgba(255, 255, 255, 0.15);
+  --edge-shadow: rgba(0, 0, 0, 0.8);
+  --divider-etch: rgba(255, 255, 255, 0.08);
 
-  /* Fixed bottom navigation — single source of truth for surfaces that must
-     clear it. env(safe-area-inset-bottom) keeps content above the home
-     indicator on notched devices. */
+  /* Compatibility aliases; components consume semantic names only. */
+  --chrome-950: var(--chassis-void);
+  --chrome-800: var(--chassis-glass);
+
+  /* ═══ Brand palette (legacy names re-pointed at the ramp) ════════════════ */
+  --brand-ocean: var(--chrome-600);
+  --brand-aqua: var(--chrome-400);
+  --brand-white: var(--text-hero);
+  --brand-charcoal: var(--chrome-950);
+
+  /* ═══ Accent ═══════════════════════════════════════════════════════════════ */
+  --accent: var(--brand-aqua);
+  --accent-dim: var(--chassis-recess);
+  --accent-border: var(--edge-highlight);
+  --selection-bg: var(--accent-dim);
+
+  /* ═══ Focus ring ══════════════════════════════════════════════════════════ */
+  --focus-ring: 0 0 0 3px var(--edge-highlight);
+
+  /* ═══ Page background ═════════════════════════════════════════════════════ */
+  --page-bg: var(--brand-charcoal);
+
+  /* ═══ Fixed bottom navigation ════════════════════════════════════════════ */
   --bottom-nav-height: 56px;
   --bottom-nav-clearance: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
 
-  /* Spacing scale (4px base) */
+  /* ═══ Spacing scale (4px base) ════════════════════════════════════════════ */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -26,14 +62,72 @@
   --space-2xl: 24px;
   --space-3xl: 32px;
 
-  /* Border radius scale */
+  /* ═══ Border radius scale ═════════════════════════════════════════════════ */
+
+  /* ═══ Brutalist typography tokens ══════════════════════════════════════════ */
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-brutal: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Hero number scale — for data-dominant UIs */
+  --text-hero-size-token: 56px;
+  --text-display: 40px;
+  --text-stat: 32px;
+  --text-data: 24px;
+
+  /* Raw label scale — monospace uppercase */
+  --text-label-lg: 11px;
+  --text-label-md: 10px;
+  --text-label-sm: 9px;
+  --text-label-xs: 8px;
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* Typography scale */
+  /* ═══ Hardware Chassis Tokens (from reference) ═══════════════════════════ */
+  --chassis-bg: var(--chassis-glass);
+  --chassis-border: 1px solid var(--edge-shadow);
+  --chassis-radius: 16px;
+  --chassis-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+
+  /* Typography from reference */
+  --font-chassis: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, sans-serif;
+  --text-hero-size: 2.5rem;
+  --text-hero-tracking: -0.03em;
+  --text-hero-shadow: 0 2px 4px var(--edge-shadow);
+  --text-label-tracking: 0.1em;
+  --text-label-size: 0.7rem;
+
+  /* Hairline divider */
+  --hairline-bg: var(--divider-etch);
+  --hairline-height: 1px;
+
+  /* Status dot */
+  --status-dot-size: 8px;
+  --status-dot-glow-urgent: 0 0 10px var(--status-urgent), inset 0 1px 1px var(--edge-highlight);
+  --status-dot-glow-active: 0 0 8px var(--chrome-400), inset 0 1px 1px var(--edge-highlight);
+  --status-dot-glow-complete: 0 0 8px var(--status-complete), inset 0 1px 1px var(--edge-highlight);
+
+  /* Button machined */
+  --btn-primary-bg: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+  --btn-primary-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+  --btn-secondary-bg: var(--chassis-glass);
+  --btn-secondary-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+
+  /* Timeline */
+  --timeline-spine-bg: var(--divider-etch);
+  --timeline-node-size: 14px;
+  --timeline-node-bg: var(--chassis-recess);
+  --timeline-node-border: 1px solid var(--divider-etch);
+  --timeline-node-shadow: inset 0 1px 1px var(--edge-shadow);
+  --timeline-node-active-bg: var(--chrome-400);
+  --timeline-node-active-border: 1px solid var(--chrome-400);
+  --timeline-node-active-shadow: 0 0 10px var(--chrome-400), inset 0 1px 1px var(--edge-highlight);
+  --timeline-node-complete-bg: var(--chassis-recess);
+  --timeline-node-complete-border: 1px solid var(--status-complete);
+
+  /* ═══ Typography scale ════════════════════════════════════════════════════ */
   --text-2xs: 10px;
   --text-xs: 12px;
   --text-sm: 14px;
@@ -42,82 +136,155 @@
   --text-xl: 20px;
   --text-2xl: 24px;
 
-  /* Accent */
-  --accent: #E8871E;
-  --accent-dim: rgba(232, 135, 30, 0.15);
-  --accent-border: rgba(232, 135, 30, 0.30);
+  /* ═══ Surface & surface overlay tokens ═══════════════════════════════════ */
+  --surface-hover: var(--divider-etch);
+  --surface-hover-strong: var(--edge-highlight);
+  --surface-hover-subtle: var(--divider-etch);
+  --surface-border: var(--divider-etch);
+  --surface-border-strong: var(--edge-highlight);
+  --surface-border-subtle: var(--divider-etch);
+  --surface-border-mild: var(--edge-highlight);
+  --surface-text: var(--text-hero);
+  --surface-text-muted: var(--text-muted-grade);
+  --surface-text-subtle: var(--text-muted-grade);
 
-  /* Focus ring */
-  --focus-ring: 0 0 0 3px rgba(232, 135, 30, 0.35);
+  /* ═══ Semantic status tokens ═══════════════════════════════════════════════ */
+  --status-urgent-dim: var(--chassis-recess);
+  --status-urgent-border: var(--edge-highlight);
+  --status-pending-dim: var(--chassis-recess);
+  --status-pending-border: var(--edge-highlight);
+  --status-complete-dim: var(--chassis-recess);
+  --status-complete-border: var(--edge-highlight);
+
+  /* ═══ Presence & activity tokens ══════════════════════════════════════════ */
+  --color-online: var(--status-complete);
+  --color-offline: var(--text-muted);
+  --color-info: var(--chrome-400);
+
+  /* ═══ Interactive & link tokens ════════════════════════════════════════════ */
+  --color-link-job: var(--brand-aqua);
+  --color-link-quote: var(--status-urgent);
+  --color-unread: var(--status-urgent);
+  --color-active-item: var(--brand-ocean);
+
+  /* ═══ Message composer & surface tokens ════════════════════════════════════ */
+  --composer-bg: var(--chassis-recess);
+  --composer-border: var(--divider-etch);
+  --composer-placeholder: var(--text-muted);
+
+  /* ═══ Neutral text tokens ══════════════════════════════════════════════════ */
+  --readout-muted: var(--text-muted-grade);
+  --text-primary: var(--text-hero);
+  --text-secondary: var(--text-muted);
+  --text-muted: var(--readout-muted);
+  --text-subtle: var(--readout-muted);
+  --text-inverse: var(--text-hero);
+  --text-channel: var(--text-hero);
+  --text-label: var(--readout-muted);
+
+  /* ═══ Background tokens ════════════════════════════════════════════════════ */
+  --bg-sidebar: var(--chassis-recess);
+  --bg-pane: var(--chassis-void);
+  --bg-workspace-badge: var(--chrome-600);
+  --bg-fallback-member: var(--chassis-glass);
+
+  /* ═══ Skeleton shimmer tokens ══════════════════════════════════════════════ */
+  --skeleton-shimmer: linear-gradient(90deg, var(--chassis-void) 0%, var(--chassis-glass) 40%, var(--chassis-void) 80%);
+
+  /* ═══ Shadow tokens ════════════════════════════════════════════════════════ */
+  --shadow-card: inset 0 1px 0 var(--edge-highlight);
+  --shadow-card-hover: inset 0 1px 0 var(--edge-highlight);
+  --shadow-sheet: inset 0 1px 0 var(--edge-highlight);
+  --shadow-sheet-dark: 0 4px 12px var(--edge-shadow);
+
+  /* ═══ Tooltip & interaction tokens ═════════════════════════════════════════ */
+  --tooltip-bg: var(--chassis-recess);
+  --tooltip-border: var(--divider-etch);
+
+  /* ═══ Modal scrim ═══════════════════════════════════════════════════════════ */
+  --scrim: var(--edge-shadow);
+
+  /* ═══ Glass effect tokens ════════════════════════════════════════════════════ */
+  --glass-bg: var(--chassis-glass);
+  --glass-blur: 16px;
+  --glass-border: var(--edge-highlight);
+  --glass-shadow: 0 4px 12px var(--edge-shadow), inset 0 1px 1px var(--edge-highlight);
+  --glass-gradient: none;
+
+  /* Appearance hardware switch — intentionally dark in both themes so the
+     thumb reads as a physical blue instrument part against a milled track. */
+  --appearance-track: #03060E;
+  --appearance-track-shadow: rgba(0, 0, 0, 0.8);
 }
 
-:root[data-theme="light"] {
-  --page-bg: #f4f6f8;
-
-  /* Light mode swaps the brand accent from orange to a modern construction
-     blue — the contractor look on white/light-grey surfaces. Blue-700 keeps
-     WCAG AA contrast for text-accent on light backgrounds. */
-  --accent: #1d4ed8;
-  --accent-dim: rgba(29, 78, 216, 0.12);
-  --accent-border: rgba(29, 78, 216, 0.32);
-  --focus-ring: 0 0 0 3px rgba(29, 78, 216, 0.28);
+/* Daylight hardware tokens. The same semantic component names remain in use;
+   only the chassis/readout materials change when the operator selects LIGHT. */
+html[data-theme="light"] {
+  --chassis-void: #F4F6F8;
+  --chassis-recess: #EEF2F5;
+  --chassis-glass: #FFFFFF;
+  --brand-charcoal: var(--chassis-void);
+  --brand-white: #17212B;
+  --text-muted-grade: #526170;
+  --edge-highlight: rgba(23, 33, 43, 0.12);
+  --edge-shadow: rgba(23, 33, 43, 0.18);
+  --divider-etch: rgba(23, 33, 43, 0.14);
+  --text-hero: #0A0F1C;
+  --text-primary: #0A0F1C;
+  --text-secondary: #526170;
+  --text-muted: #526170;
+  --text-subtle: #697887;
+  --text-label: #526170;
+  --app-on-accent: #FFFFFF;
+  --surface-hover: rgba(23, 33, 43, 0.08);
+  --surface-hover-strong: rgba(23, 33, 43, 0.12);
+  --surface-hover-subtle: rgba(23, 33, 43, 0.06);
+  --surface-border: rgba(23, 33, 43, 0.14);
+  --surface-border-strong: rgba(23, 33, 43, 0.22);
+  --surface-border-subtle: rgba(23, 33, 43, 0.10);
+  --surface-text: #17212B;
+  --surface-text-muted: #526170;
+  --surface-text-subtle: #697887;
+  --page-bg: var(--chassis-void);
+  --accent: var(--chrome-600);
+  --accent-dim: rgba(30, 86, 224, 0.12);
+  --accent-border: rgba(30, 86, 224, 0.32);
+  --focus-ring: 0 0 0 3px rgba(30, 86, 224, 0.28);
+  --status-pending-light: #B45309;
+  --light-pusher-rim: #FFFFFF;
+  --light-pusher-shadow: rgba(10, 15, 28, 0.2);
+  --light-input-shadow: rgba(10, 15, 28, 0.15);
+  --light-object-shadow: rgba(10, 15, 28, 0.15);
 }
 
-/* Semantic application tokens. Components should consume these tokens rather
-   than binding layout surfaces directly to a provider-specific colour. */
+
+/* ── App shell semantic tokens ─────────────────────────────────────────────── */
 .app-shell {
-  --app-bg: #0c0c0e;
-  --app-header: #161619;
-  --app-surface: rgba(30, 41, 59, 0.75);
-  --app-surface-solid: #1e293b;
-  --app-inset: rgba(0, 0, 0, 0.22);
-  --app-control: rgba(12, 12, 14, 0.92);
-  --app-border: rgba(51, 65, 85, 0.5);
-  --app-nav: rgba(22, 22, 25, 0.92);
-  --app-text: #f8fafc;
-  --app-muted: #94a3b8;
-  --app-subtle: #64748b;
-  --app-on-accent: #ffffff;
-  --app-shadow: rgba(0, 0, 0, 0.4);
-  --signature-bg: #101827;
-  --signature-ink: #fcd34d;
-  --sheet-bg: #26282d;
-  --sheet-tile: #2b2e34;
-  --sheet-tile-soft: #232529;
-  --sheet-muted: #72767d;
+  --app-bg: var(--brand-charcoal);
+  --app-header: var(--chassis-recess);
+  --app-surface: var(--chassis-glass);
+  --app-surface-solid: var(--chassis-glass);
+  --app-inset: var(--chassis-recess);
+  --app-control: var(--chassis-recess);
+  --app-border: var(--divider-etch);
+  --app-nav: var(--chassis-recess);
+  --app-text: var(--brand-white);
+  --app-muted: var(--text-muted);
+  --app-subtle: var(--text-subtle);
+  --app-on-accent: var(--text-hero);
+  --app-shadow: var(--edge-shadow);
+  --signature-bg: var(--chassis-recess);
+  --signature-ink: var(--chrome-200);
+  --sheet-bg: var(--chassis-recess);
+  --sheet-tile: var(--chassis-glass);
+  --sheet-tile-soft: var(--chassis-void);
+  --sheet-muted: var(--text-muted);
   background-color: var(--app-bg);
   color: var(--app-text);
   width: 100%;
   max-width: 1120px;
   min-height: 100dvh;
   margin-inline: auto;
-}
-
-.app-shell[data-theme="light"] {
-  --app-bg: #f4f6f8;
-  --app-header: #ffffff;
-  --app-surface: rgba(255, 255, 255, 0.96);
-  --app-surface-solid: #ffffff;
-  --app-inset: #eef2f5;
-  --app-control: #f8fafc;
-  --app-border: #d8e0e7;
-  --app-nav: rgba(255, 255, 255, 0.94);
-  --app-text: #17212b;
-  --app-muted: #526170;
-  --app-subtle: #697887;
-  --app-on-accent: #ffffff;
-  --app-shadow: rgba(23, 33, 43, 0.12);
-  --signature-bg: #eef2f5;
-  --signature-ink: #b45309;
-  --sheet-bg: #ffffff;
-  --sheet-tile: #f8fafc;
-  --sheet-tile-soft: #eef2f5;
-  --sheet-muted: #697887;
-}
-
-html[data-theme="light"],
-html[data-theme="light"] body {
-  background-color: var(--page-bg);
 }
 
 .app-header {
@@ -136,7 +303,7 @@ html[data-theme="light"] body {
 }
 
 .app-footer {
-  background-color: color-mix(in srgb, var(--app-bg) 94%, transparent);
+  background-color: var(--app-bg);
   border-color: var(--app-border);
 }
 
@@ -146,7 +313,7 @@ html[data-theme="light"] body {
 }
 
 .app-overlay {
-  background-color: color-mix(in srgb, var(--app-bg) 95%, transparent);
+  background-color: var(--edge-shadow);
 }
 
 .signature-pad {
@@ -241,6 +408,241 @@ body {
   animation: scale-in 180ms ease-out both;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Motion Design Tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Duration scale ─────────────────────────────────────────────────────── */
+  --duration-instant: 50ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 400ms;
+  --duration-glacial: 600ms;
+
+  /* ── Easing curves ──────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0.0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Enhanced micro-interaction classes ────────────────────────────────────── */
+
+/* Card entrance: fade + slide + scale */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-card-enter {
+  animation: card-enter var(--duration-slow) var(--ease-spring) both;
+}
+
+.animate-card-enter:nth-child(1) { animation-delay: 0ms; }
+.animate-card-enter:nth-child(2) { animation-delay: 50ms; }
+.animate-card-enter:nth-child(3) { animation-delay: 100ms; }
+.animate-card-enter:nth-child(4) { animation-delay: 150ms; }
+.animate-card-enter:nth-child(5) { animation-delay: 200ms; }
+.animate-card-enter:nth-child(6) { animation-delay: 250ms; }
+.animate-card-enter:nth-child(7) { animation-delay: 300ms; }
+.animate-card-enter:nth-child(8) { animation-delay: 350ms; }
+
+/* Float: subtle vertical bob for status indicators */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-float {
+  animation: float 3s var(--ease-in-out) infinite;
+}
+
+/* Pulse glow: breathing effect for active elements */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--chrome-400);
+  }
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s var(--ease-in-out) infinite;
+}
+
+/* Shimmer highlight: sweep across element */
+@keyframes shimmer-highlight {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer-highlight {
+  background: linear-gradient(90deg, transparent 0%, var(--divider-etch) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer-highlight 2.5s var(--ease-in-out) infinite;
+}
+
+/* Stagger container: applies card-enter to children */
+.stagger-children > * {
+  opacity: 0;
+  animation: card-enter var(--duration-slow) var(--ease-spring) both;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+/* Hover lift: elevates card on hover */
+.hover-lift {
+  transition: transform var(--duration-normal) var(--ease-out),
+              box-shadow var(--duration-normal) var(--ease-out);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--edge-shadow);
+}
+
+.hover-lift:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Press scale: tactile feedback on press */
+.press-scale {
+  transition: transform var(--duration-fast) var(--ease-snap);
+}
+
+.press-scale:active {
+  transform: scale(0.95);
+}
+
+/* Icon spin: for loading states */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Slide in from direction */
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-slow) var(--ease-out) both;
+}
+
+/* Scale up: for modals and popovers */
+@keyframes scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-scale-up {
+  animation: scale-up var(--duration-slow) var(--ease-spring) both;
+}
+
+/* Status badge pulse */
+@keyframes status-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.85;
+  }
+}
+
+.animate-status-pulse {
+  animation: status-pulse 2s var(--ease-in-out) infinite;
+}
+
+/* Reduced motion: disable all non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-enter,
+  .animate-float,
+  .animate-pulse-glow,
+  .animate-shimmer-highlight,
+  .animate-slide-in-left,
+  .animate-slide-in-right,
+  .animate-scale-up,
+  .animate-status-pulse,
+  .stagger-children > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .hover-lift:hover {
+    transform: none !important;
+  }
+
+  .press-scale:active {
+    transform: none !important;
+  }
+}
+
 /* ── Haptic active press (all interactive surfaces) ──────────────────────── */
 
 .haptic {
@@ -253,7 +655,7 @@ body {
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────── */
 
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.04) 80%);
+  background: var(--skeleton-shimmer);
   background-size: 400px 100%;
   animation: shimmer 1.6s ease-in-out infinite;
   border-radius: var(--radius-md);
@@ -278,6 +680,525 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* ── Dual surface modes ──────────────────────────────────────────────────── */
+
+/* Workspace screens are deliberately flat: the void, readable type, and
+   etched separators carry the hierarchy. This class is scoped by the shell so
+   dashboard chassis surfaces keep their physical depth. */
+.workspace-flat {
+  --workspace-bg: var(--chrome-950);
+  --workspace-divider-dark: var(--edge-shadow);
+  --workspace-divider-light: var(--edge-highlight);
+  --app-bg: var(--workspace-bg);
+  --app-header: var(--workspace-bg);
+  --app-surface: var(--workspace-bg);
+  --app-surface-solid: var(--workspace-bg);
+  --app-inset: var(--workspace-bg);
+  --app-control: var(--workspace-bg);
+  --app-nav: var(--workspace-bg);
+  --app-text: var(--brand-white);
+  --app-muted: var(--text-secondary);
+  --app-subtle: var(--text-muted);
+  --bg-sidebar: var(--workspace-bg);
+  --bg-pane: var(--workspace-bg);
+  --composer-bg: var(--workspace-bg);
+  --workspace-shadow: inset 0 1px 0 var(--workspace-divider-dark), inset 0 -1px 0 var(--workspace-divider-light);
+  --sheet-bg: var(--workspace-bg);
+  --sheet-tile: var(--workspace-bg);
+  --sheet-tile-soft: var(--workspace-bg);
+  --app-shadow: var(--edge-shadow);
+  background-color: var(--workspace-bg);
+  color: var(--brand-white);
+}
+
+.workspace-flat .app-header,
+.workspace-flat .app-footer,
+.workspace-flat .app-nav {
+  background: var(--workspace-bg) !important;
+  border-color: var(--workspace-divider-light) !important;
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.workspace-flat .bg-fill,
+.workspace-flat .bg-fill-strong {
+  background: var(--workspace-bg) !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.workspace-flat .bg-fill[class*="bg-accent"],
+.workspace-flat .bg-fill-strong[class*="bg-accent"] {
+  background: var(--accent) !important;
+  color: var(--app-on-accent);
+}
+
+.workspace-flat .surface-card,
+.workspace-flat .glass-card,
+.workspace-flat .widget-chassis {
+  background: var(--workspace-bg) !important;
+  background-image: none !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.workspace-flat .glass-card::before {
+  display: none;
+}
+
+.workspace-flat .surface-card--interactive:hover,
+.workspace-flat .surface-card--interactive:active {
+  transform: none;
+  border-color: transparent;
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.workspace-flat .animate-enter,
+.workspace-flat .animate-card-enter,
+.workspace-flat .stagger-children > * {
+  animation: none !important;
+  filter: none !important;
+}
+
+.workspace-flat .app-input,
+.workspace-flat .surface-inset,
+.workspace-flat input,
+.workspace-flat select,
+.workspace-flat textarea {
+  background: var(--workspace-bg) !important;
+  color: var(--brand-white);
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 0 1px 0 var(--workspace-divider-dark),
+    inset 0 -1px 0 var(--workspace-divider-light) !important;
+}
+
+.workspace-flat input::placeholder,
+.workspace-flat textarea::placeholder {
+  color: var(--text-subtle);
+}
+
+.workspace-flat .workspace-list-item,
+.workspace-flat .workspace-divider {
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 1px 0 var(--workspace-divider-dark),
+    inset 0 -1px 0 var(--workspace-divider-light) !important;
+}
+
+.workspace-flat .hairline-divider {
+  height: 1px;
+  background: var(--workspace-divider-light);
+  box-shadow: 0 -1px 0 var(--workspace-divider-dark);
+}
+
+.workspace-flat [role="dialog"] {
+  background: var(--workspace-bg) !important;
+  background-image: none !important;
+  box-shadow: var(--workspace-shadow) !important;
+  border-radius: 0 !important;
+}
+
+.workspace-flat [role="dialog"] .group {
+  background: var(--workspace-bg) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: var(--workspace-shadow) !important;
+}
+
+.workspace-flat .shadow-2xl,
+.workspace-flat .shadow-xl,
+.workspace-flat .shadow-lg,
+.workspace-flat .shadow-md {
+  box-shadow: none !important;
+}
+
+.workspace-flat .backdrop-blur-sm,
+.workspace-flat .backdrop-blur-md,
+.workspace-flat .backdrop-blur-lg,
+.workspace-flat .backdrop-blur-xl {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.workspace-flat [class*="bg-gradient-"] {
+  background-image: none !important;
+}
+
+.workspace-flat [class*="shadow-"] {
+  box-shadow: none !important;
+}
+
+.workspace-flat [style*="linear-gradient"] {
+  background: var(--workspace-bg) !important;
+  background-image: none !important;
+}
+
+/* Hardware-grade activity roles. */
+.activity-node {
+  background: var(--chassis-recess);
+  border-color: var(--divider-etch);
+  color: var(--chrome-400);
+}
+
+.activity-tag {
+  color: var(--text-muted);
+  border-color: var(--divider-etch);
+  background: var(--chassis-recess);
+}
+
+.activity-accent {
+  color: var(--chrome-400);
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.activity-complete {
+  color: var(--status-complete);
+  border-color: var(--status-complete-border);
+  background: var(--status-complete-dim);
+}
+
+.activity-urgent {
+  color: var(--status-urgent);
+  border-color: var(--status-urgent-border);
+  background: var(--status-urgent-dim);
+}
+
+/* Voice Modulator: the active Work Completed microphone becomes a live
+   3x3 hardware diode matrix. Every color comes from the hardware token set. */
+@keyframes mic-core {
+  0%, 100% {
+    background: var(--status-urgent);
+    box-shadow: 0 0 12px var(--status-urgent), inset 0 0 2px var(--text-hero);
+  }
+  50% {
+    background: var(--status-urgent);
+    box-shadow: 0 0 8px var(--status-urgent), inset 0 0 2px var(--text-hero);
+  }
+}
+
+@keyframes mic-wave {
+  0%, 100% {
+    background: var(--chassis-recess);
+    opacity: 0.45;
+    box-shadow: inset 0 1px 2px var(--edge-shadow);
+  }
+  40% {
+    background: var(--status-urgent);
+    opacity: 1;
+    box-shadow: 0 0 8px var(--status-urgent);
+  }
+  70% {
+    background: var(--status-urgent);
+    opacity: 0.55;
+    box-shadow: 0 0 2px var(--status-urgent);
+  }
+}
+
+.matrix-array {
+  display: grid;
+  grid-template-columns: repeat(3, 5px);
+  grid-template-rows: repeat(3, 5px);
+  gap: 2px;
+  width: 19px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+}
+
+.matrix-array .led {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--divider-etch);
+  border-radius: 50%;
+  background: var(--chassis-recess);
+  box-shadow: inset 0 1px 2px var(--edge-shadow);
+}
+
+.matrix-array.theme-mic .led {
+  animation: mic-wave 0.8s infinite alternate ease-in-out;
+}
+
+.matrix-array.theme-mic .led:nth-child(5) {
+  animation: mic-core 2s infinite ease-in-out;
+}
+
+.matrix-array.theme-mic .led:nth-child(1) { animation-duration: 0.70s; }
+.matrix-array.theme-mic .led:nth-child(2) { animation-duration: 0.95s; }
+.matrix-array.theme-mic .led:nth-child(3) { animation-duration: 0.60s; }
+.matrix-array.theme-mic .led:nth-child(4) { animation-duration: 1.10s; }
+.matrix-array.theme-mic .led:nth-child(6) { animation-duration: 0.85s; }
+.matrix-array.theme-mic .led:nth-child(7) { animation-duration: 1.00s; }
+.matrix-array.theme-mic .led:nth-child(8) { animation-duration: 0.75s; }
+.matrix-array.theme-mic .led:nth-child(9) { animation-duration: 0.90s; }
+
+/* Packet Push: completion proof moves from the bottom row to the top row. */
+@keyframes push-up {
+  0%, 100% {
+    background: var(--chassis-recess);
+    box-shadow: inset 0 1px 2px var(--edge-shadow);
+  }
+  30% {
+    background: var(--status-complete);
+    border-color: transparent;
+    box-shadow: 0 0 8px var(--status-complete), inset 0 0 2px var(--text-hero);
+  }
+}
+
+.matrix-array.theme-upload .led {
+  animation: push-up 1s infinite linear;
+}
+
+.matrix-array.theme-upload .led:nth-child(7),
+.matrix-array.theme-upload .led:nth-child(8),
+.matrix-array.theme-upload .led:nth-child(9) { animation-delay: 0s; }
+.matrix-array.theme-upload .led:nth-child(4),
+.matrix-array.theme-upload .led:nth-child(5),
+.matrix-array.theme-upload .led:nth-child(6) { animation-delay: 0.15s; }
+.matrix-array.theme-upload .led:nth-child(1),
+.matrix-array.theme-upload .led:nth-child(2),
+.matrix-array.theme-upload .led:nth-child(3) { animation-delay: 0.3s; }
+
+.matrix-array.theme-complete .led {
+  background: var(--status-complete);
+  border-color: var(--status-complete);
+  box-shadow: 0 0 5px var(--status-complete), inset 0 0 2px var(--text-hero);
+}
+
+.capture-complete-button {
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+  box-shadow: var(--btn-primary-shadow);
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+}
+
+.capture-complete-button:hover { filter: brightness(1.06); }
+.capture-complete-button:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 3px var(--edge-shadow), 0 2px 6px var(--edge-shadow);
+}
+.capture-complete-button.is-processing {
+  cursor: wait;
+  gap: 3px;
+}
+
+.daily-report-voice-button.is-modulator.is-listening,
+.job-diary-voice-button.is-listening {
+  background: var(--chassis-recess) !important;
+  border-color: var(--status-urgent) !important;
+  color: var(--status-urgent) !important;
+  box-shadow: inset 0 2px 4px var(--edge-shadow), 0 0 8px var(--status-urgent);
+}
+
+/* Keep the live voice hardware animation above generic matrix/button rules. */
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led,
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led {
+  animation-name: mic-wave !important;
+  animation-duration: 0.8s !important;
+  animation-delay: 0s;
+  animation-iteration-count: infinite !important;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+  animation-play-state: running !important;
+}
+
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(5),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(5) {
+  animation-name: mic-core !important;
+  animation-duration: 2s !important;
+  animation-direction: alternate;
+}
+
+/* Preserve the intentional out-of-phase ring timing after the animation
+   precedence guard above. The center remains on its slower core pulse. */
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(1),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(1) { animation-duration: 0.70s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(2),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(2) { animation-duration: 0.95s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(3),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(3) { animation-duration: 0.60s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(4),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(4) { animation-duration: 1.10s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(6),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(6) { animation-duration: 0.85s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(7),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(7) { animation-duration: 1.00s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(8),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(8) { animation-duration: 0.75s !important; }
+.daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led:nth-child(9),
+.job-diary-voice-button.is-listening .matrix-array.theme-mic .led:nth-child(9) { animation-duration: 0.90s !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-report-voice-button.is-modulator.is-listening .matrix-array.theme-mic .led,
+  .job-diary-voice-button.is-listening .matrix-array.theme-mic .led {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* Daily Report / Field Log controls: keep the workspace void flat while
+   giving only the controls a milled, glove-friendly hardware treatment. */
+.daily-report-screen .daily-report-input {
+  background: var(--chassis-recess) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--divider-etch) !important;
+  box-shadow: inset 0 2px 4px var(--edge-shadow) !important;
+  min-height: 48px;
+}  .daily-report-screen .daily-report-input:focus {
+  border-color: var(--chrome-400) !important;
+  box-shadow: inset 0 2px 4px var(--edge-shadow), 0 0 0 2px var(--chrome-400) !important;
+}
+
+.daily-report-screen .daily-report-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--chassis-recess) !important;
+  border-color: var(--divider-etch) !important;
+  color: var(--text-muted-grade) !important;
+  min-height: 40px;
+  box-shadow: inset 0 2px 4px var(--edge-shadow);
+  transition: transform 100ms ease, box-shadow 100ms ease, background-color 100ms ease, border-color 100ms ease;
+}
+
+.daily-report-screen .daily-report-toggle:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 3px 5px var(--edge-shadow);
+}
+
+.daily-report-screen .daily-report-toggle.is-active {
+  background: var(--chrome-600) !important;
+  border-color: var(--chrome-400) !important;
+  color: var(--text-hero) !important;
+  box-shadow: inset 0 2px 4px var(--edge-shadow), 0 0 8px var(--chrome-400);
+  transform: translateY(1px);
+}
+
+.daily-report-action-bar {
+  background: var(--chassis-void) !important;
+  border-top-color: var(--divider-etch) !important;
+  box-shadow: inset 0 1px 0 var(--edge-shadow), 0 -4px 12px var(--edge-shadow) !important;
+}
+
+.daily-report-action-bar .daily-report-save {
+  background: var(--chassis-recess) !important;
+  border-color: var(--divider-etch) !important;
+  color: var(--text-muted-grade) !important;
+  box-shadow: inset 0 2px 4px var(--edge-shadow), inset 0 1px 0 var(--divider-etch) !important;
+}
+
+.daily-report-action-bar .daily-report-save:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 3px 5px var(--edge-shadow) !important;
+}
+
+.daily-report-action-bar .daily-report-submit {
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%) !important;
+  border: 1px solid var(--edge-highlight) !important;
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow) !important;
+}
+
+.daily-report-action-bar .daily-report-submit:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 3px var(--edge-shadow), 0 2px 6px var(--edge-shadow) !important;
+}
+
+.daily-report-screen .border-t,
+.daily-report-screen .border-b,
+.daily-report-screen .daily-report-etch {
+  border-color: var(--divider-etch) !important;
+  box-shadow: inset 0 1px 0 var(--edge-shadow), inset 0 -1px 0 var(--divider-etch) !important;
+}
+
+.daily-report-screen hr,
+.daily-report-screen .hairline-divider {
+  border: 0 !important;
+  height: 1px !important;
+  background: var(--divider-etch) !important;
+  box-shadow: 0 -1px 0 var(--edge-shadow) !important;
+}
+
+
+.hardware-pusher {
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+  color: var(--app-on-accent);
+  border: 1px solid var(--edge-highlight);
+  border-radius: 12px;
+  box-shadow: var(--btn-primary-shadow);
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+}
+
+.hardware-pusher:hover {
+  filter: brightness(1.06);
+}
+
+.hardware-pusher:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 2px 6px var(--edge-shadow);
+}
+
+/* Dashboard surfaces use the hardened chassis tolerances above. */
+.dashboard-chassis .widget-chassis,
+.dashboard-chassis .glass-card {
+  border-radius: var(--chassis-radius);
+  box-shadow: var(--chassis-shadow);
+}
+
+.dashboard-chassis .widget-chassis {
+  border-top-color: var(--edge-highlight);
+}
+
+/* Job rows are the primary dashboard card: keep the exact milled tolerance
+   even when the swipe interaction supplies its own outer wrapper. */
+.dashboard-chassis .job-card-shell,
+.dashboard-chassis .job-card-chassis {
+  border-radius: 12px !important;
+}
+
+.dashboard-chassis .job-card-chassis {
+  box-shadow: inset 0 1px 0 var(--edge-highlight), 0 4px 12px var(--edge-shadow) !important;
+}
+
+.job-serial-readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.active-job-led {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--chrome-400);
+  box-shadow: 0 0 8px var(--chrome-400), inset 0 1px 1px var(--edge-highlight);
+}
+
+.dashboard-chassis .job-card-chassis.is-active {
+  border: 2px solid var(--chrome-600) !important;
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 6px 16px rgba(10, 15, 28, 0.18) !important;
+}
+
+html[data-theme="light"] .dashboard-chassis .job-card-chassis.is-active {
+  border-color: var(--chrome-600) !important;
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 6px 16px rgba(10, 15, 28, 0.18) !important;
+}
+
+.dashboard-chassis .glass-card {
+  box-shadow: var(--glass-shadow);
+}
+
+.dashboard-chassis .glass-card::before {
+  border-radius: inherit;
+}
+
 /* ── Surface primitives ──────────────────────────────────────────────────── */
 
 .surface-card {
@@ -285,50 +1206,29 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--app-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 1px 2px var(--app-shadow),
-    0 4px 12px -2px var(--app-shadow);
+    var(--shadow-card),
+    0 4px 12px var(--app-shadow);
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
 .surface-card--interactive:hover {
   transform: translateY(-1px);
-  border-color: rgba(51, 65, 85, 0.7);
+  border-color: var(--chrome-400);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 2px 4px rgba(0, 0, 0, 0.35),
-    0 6px 16px -4px rgba(0, 0, 0, 0.45);
+    var(--shadow-card-hover),
+    0 2px 4px var(--edge-shadow),
+    0 6px 16px -4px var(--edge-shadow);
 }
 
 .surface-card--interactive:active {
   transform: scale(0.985);
-  border-color: rgba(232, 135, 30, 0.3);
+  border-color: var(--accent-border);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.02),
-    0 1px 1px rgba(0, 0, 0, 0.3),
-    0 2px 6px -2px rgba(0, 0, 0, 0.35);
-}
-
-/* Light mode keeps the same hierarchy with ink-led surfaces and softer depth. */
-.app-shell[data-theme="light"] .surface-card .text-white,
-.app-shell[data-theme="light"] .app-header .text-white {
-  color: var(--app-text) !important;
-}
-
-.app-shell[data-theme="light"] .surface-card .text-slate-200,
-.app-shell[data-theme="light"] .surface-card .text-slate-300 {
-  color: var(--app-muted) !important;
-}
-
-.app-shell[data-theme="light"] .surface-card .text-slate-400 {
-  color: var(--app-subtle) !important;
-}
-
-.app-shell[data-theme="light"] [role="dialog"] .text-white:not(.bg-accent),
-.app-shell[data-theme="light"] .app-input.text-white {
-  color: var(--app-text) !important;
+    inset 0 1px 0 var(--divider-etch),
+    0 1px 1px var(--edge-shadow),
+    0 2px 6px -2px var(--edge-shadow);
 }
 
 /* Inset panel inside cards */
@@ -336,7 +1236,101 @@ body {
   background: var(--app-inset);
   border: 1px solid var(--app-border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 2px 6px var(--edge-shadow);
+}
+
+/* ── Glass card (home screen premium surface) ─────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glass-gradient);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.glass-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Chrome glow — reserved surfaces ONLY ──────────────────────────────────
+   Dashboard stat tiles · primary CTA · active nav indicator · login card.
+   chrome-200 appears nowhere else, so these surfaces read as "powered"
+   without brand colour competing with the red/amber/green status system. */
+.glow-chrome {
+  border-color: var(--chrome-200);
+  box-shadow:
+    0 0 0 1px var(--edge-highlight),
+    0 0 28px -6px var(--chrome-400),
+    inset 0 1px 0 var(--edge-highlight);
+}
+
+/* Solid accent fills render as primary chrome (chrome-600) in both themes so
+   white label text keeps ≥6:1 contrast; text/icon accents stay on the
+   brighter --accent step. Placed after the Tailwind utilities on purpose. */
+.bg-accent {
+  background-color: var(--chrome-600);
+}
+
+/* ── Icon pop — icons get their own vivid step, distinct from text accent ── */
+.app-shell {
+  --icon-accent: var(--chrome-200);
+  --icon-muted: var(--text-muted);
+}
+
+/* Accent icons render at the bright glow step so pictograms stay scannable
+   at arm's length; text accents keep the calmer --accent tone. */
+.app-shell:not([data-theme="light"]) svg.text-accent {
+  color: var(--icon-accent);
+}
+
+/* Chrome-tinted selection */
+::selection {
+  background: var(--selection-bg);
+  color: var(--text-hero);
+}
+
+/* ── Animated home gradient ─────────────────────────────────────────────── */
+@keyframes gradient-drift {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  25% {
+    background-position: 100% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  75% {
+    background-position: 0% 100%;
+  }
+}
+
+.home-gradient {
+  position: relative;
+  isolation: isolate;
+}
+
+.home-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--chassis-void);
+  background-image: none;
+  pointer-events: none;
 }
 
 /* ── Toast container ──────────────────────────────────────────────────────── */
@@ -362,13 +1356,12 @@ body {
   gap: 10px;
   padding: 12px 16px;
   border-radius: var(--radius-lg);
-  background: rgba(22, 25, 29, 0.95);
+  background: var(--tooltip-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--tooltip-border);
   box-shadow:
-    0 2px 8px rgba(0,0,0,0.3),
-    0 16px 40px -8px rgba(0,0,0,0.5);
+    var(--shadow-sheet-dark);
   animation: toast-in 200ms ease-out both;
 }
 
@@ -377,22 +1370,22 @@ body {
 }
 
 .toast--success {
-  border-color: rgba(232, 135, 30, 0.3);
+  border-color: var(--status-complete-border);
 }
 
 .toast--error {
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: var(--status-urgent-border);
 }
 
 .toast--info {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--tooltip-border);
 }
 
 /* ── Scrollbars ───────────────────────────────────────────────────────────── */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-color: var(--chrome-200) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -405,21 +1398,16 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--chrome-200);
   border-radius: 3px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.28);
+  background-color: var(--chrome-200);
 }
 
 /* ── Dev tools overlay guard (development only) ──────────────────────────── */
 
-/* Next.js 15.1 renders its dev-tools badge in a <nextjs-portal> anchored to
-   the bottom-left of the viewport. On phone widths it sits on top of the
-   fixed bottom nav and intercepts its taps. Neutralising pointer events on
-   the portal keeps the nav tappable; error text still renders and full logs
-   remain in the dev-server terminal. */
 html.dev nextjs-portal {
   pointer-events: none;
 }
@@ -447,7 +1435,7 @@ html.dev nextjs-portal {
 @media (min-width: 768px) {
   .app-shell {
     border-inline: 1px solid var(--app-border);
-    box-shadow: 0 0 48px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 0 48px var(--edge-shadow);
   }
 }
 
@@ -460,6 +1448,228 @@ html.dev nextjs-portal {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Jobs screen hardware tolerances. These selectors intentionally stay scoped
+   to the dashboard shell so workspace surfaces remain flat. */
+.dashboard-chassis .job-card-chassis {
+  background: linear-gradient(160deg, rgba(16, 59, 140, 0.2) 0%, rgba(7, 16, 34, 0.8) 100%) !important;
+  background-color: transparent !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.8) !important;
+}
+
+html[data-theme="light"] .dashboard-chassis .job-card-chassis {
+  background: var(--chassis-glass) !important;
+  background-image: none !important;
+  color: var(--text-hero);
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow) !important;
+}
+
+html[data-theme="light"] .dashboard-chassis .job-card-chassis .work-order-id,
+html[data-theme="light"] .dashboard-chassis .job-card-chassis .text-title,
+html[data-theme="light"] .dashboard-chassis .job-card-chassis .task-detail,
+html[data-theme="light"] .dashboard-chassis .job-card-chassis .label-micro,
+html[data-theme="light"] .dashboard-chassis .job-card-chassis [style*="var(--text-secondary)"] {
+  color: var(--text-hero) !important;
+}
+
+html[data-theme="light"] .dashboard-chassis .job-card-chassis .hairline-divider {
+  background: var(--divider-etch) !important;
+  box-shadow: 0 -1px 0 var(--edge-shadow) !important;
+}
+
+.dashboard-chassis .shift-logon-chassis {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.dashboard-chassis .shift-logon-button {
+  display: block;
+  padding: 24px !important;
+  border: 1px solid var(--edge-highlight);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+  color: var(--text-hero);
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+}
+
+.dashboard-chassis .shift-logon-button:hover {
+  filter: brightness(1.06);
+}
+
+.dashboard-chassis .shift-logon-button:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 3px var(--edge-shadow), 0 2px 6px var(--edge-shadow);
+}
+
+.dashboard-chassis .shift-logon-button .text-title,
+.dashboard-chassis .shift-logon-button .label-micro,
+.dashboard-chassis .shift-logon-button > span {
+  color: var(--text-hero);
+}
+
+.dashboard-chassis .jobs-section-label {
+  color: var(--text-muted) !important;
+  letter-spacing: 0.16em;
+}
+
+/* Segmented appearance switch — milled track with a blue frosted-glass thumb. */
+.appearance-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  width: 156px;
+  min-width: 156px;
+  height: 48px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid var(--edge-highlight);
+  border-radius: var(--radius-full);
+  background: var(--appearance-track);
+  box-shadow: inset 0 2px 4px var(--appearance-track-shadow);
+}
+
+.appearance-switch-thumb {
+  position: absolute;
+  z-index: 0;
+  inset: 4px auto 4px 4px;
+  width: calc(50% - 4px);
+  border: 1px solid var(--edge-highlight);
+  border-radius: var(--radius-full);
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+  transition: transform 120ms steps(2, end);
+}
+
+.appearance-switch-thumb.is-light {
+  transform: translateX(100%);
+}
+
+.appearance-switch-option {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted-grade);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 80ms linear;
+}
+
+.appearance-switch-option.is-active {
+  color: var(--text-hero);
+}
+
+html[data-theme="light"] .appearance-switch-option.is-active {
+  color: #FFFFFF;
+}
+
+.appearance-switch-option:focus-visible {
+  z-index: 2;
+  box-shadow: 0 0 0 2px var(--chrome-400);
+}
+
+@media (max-width: 420px) {
+  .appearance-switch {
+    width: 138px;
+    min-width: 138px;
+  }
+}
+
+/* ── Light-mode daylight hardware physics ──────────────────────────────────
+   Ceramic surfaces stay bright, while controls retain physical depth. */
+html[data-theme="light"] .app-shell {
+  --app-on-accent: var(--light-pusher-rim);
+  --status-pending: var(--status-pending-light);
+  --status-pending-border: rgba(180, 83, 9, 0.32);
+  --status-pending-dim: rgba(180, 83, 9, 0.10);
+}
+
+html[data-theme="light"] .hardware-pusher,
+html[data-theme="light"] .dashboard-chassis .shift-logon-button,
+html[data-theme="light"] .documents-upload-button,
+html[data-theme="light"] .capture-complete-button,
+html[data-theme="light"] .daily-report-action-bar .daily-report-submit,
+html[data-theme="light"] .btn-machined.primary,
+html[data-theme="light"] button.bg-accent,
+html[data-theme="light"] a.bg-accent {
+  background: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%) !important;
+  border-color: var(--light-pusher-rim) !important;
+  color: var(--app-on-accent) !important;
+  box-shadow: inset 0 1px 1px var(--light-pusher-rim), 0 4px 6px var(--light-pusher-shadow) !important;
+  transform: translateZ(0);
+}
+
+html[data-theme="light"] .hardware-pusher:active,
+html[data-theme="light"] .dashboard-chassis .shift-logon-button:active,
+html[data-theme="light"] .documents-upload-button:active,
+html[data-theme="light"] .capture-complete-button:active,
+html[data-theme="light"] .daily-report-action-bar .daily-report-submit:active,
+html[data-theme="light"] .btn-machined.primary:active,
+html[data-theme="light"] button.bg-accent:active,
+html[data-theme="light"] a.bg-accent:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: inset 0 2px 3px var(--light-pusher-shadow), 0 2px 3px var(--light-pusher-shadow) !important;
+}
+
+html[data-theme="light"] .documents-search-input {
+  background: var(--chassis-recess) !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  color: var(--text-hero) !important;
+  box-shadow: inset 0 2px 4px var(--light-input-shadow) !important;
+}
+
+html[data-theme="light"] .documents-search-input:focus {
+  box-shadow: inset 0 2px 4px var(--light-input-shadow), 0 0 0 2px var(--chrome-400) !important;
+}
+
+html[data-theme="light"] .documents-search-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="light"] .dashboard-chassis .job-card-chassis,
+html[data-theme="light"] .dashboard-chassis .glass-card,
+html[data-theme="light"] .dashboard-chassis .widget-chassis,
+html[data-theme="light"] [role="dialog"] {
+  box-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--light-object-shadow) !important;
+}
+
+/* Shift type tiles are selectable hardware: the chosen tile lands in the
+   tray, loses its lift, and arms with the chrome border. */
+[role="dialog"] .shift-type-tile.is-active {
+  box-shadow: inset 0 2px 6px rgba(10, 15, 28, 0.12) !important;
+  border: 2px solid var(--chrome-600) !important;
+  transform: scale(0.98);
+  transition: all 0.1s ease-out;
+}
+
+/* Only the explicit shift-type hook receives the lock-in treatment. */
+.shift-type-tile.is-active {
+  box-shadow: inset 0 2px 6px rgba(10, 15, 28, 0.12) !important;
+  border: 2px solid var(--chrome-600) !important;
+  transform: scale(0.98);
+  transition: all 0.1s ease-out;
+}
+
+/* Read-only pre-flight information stays visibly separate from billable
+   controls: a recessed comms tray for contact, navigation, and access data. */
+.comms-tray {
+  padding: 12px;
+  border: 1px solid var(--divider-etch);
+  border-radius: 12px;
+  background: var(--chassis-recess);
+  box-shadow: inset 0 2px 4px var(--edge-shadow);
 }
 
 /* ── Pull-to-refresh indicator ────────────────────────────────────────────── */
@@ -479,11 +1689,6 @@ html.dev nextjs-portal {
 
 /* ── Mobile input sizing & touch behaviour ────────────────────────────────── */
 
-/* iOS Safari (and Android Chrome) auto-zoom the viewport when a form field
-   smaller than 16px gains focus — a constant annoyance on phones. Bumping
-   fields to 16px on coarse-pointer (touch) devices kills the zoom; desktop
-   sizing is untouched. The class-level selector ties Tailwind's text-sm
-   utilities and wins by cascade order (later in the file). */
 @media (pointer: coarse) {
   .app-input,
   input,
@@ -493,8 +1698,6 @@ html.dev nextjs-portal {
   }
 }
 
-/* Remove the ~300ms tap delay and double-tap zoom from interactive elements
-   (touch-action: manipulation still allows pan/scroll gestures). */
 button,
 a,
 [role="button"],
@@ -503,4 +1706,354 @@ select,
 textarea,
 summary {
   touch-action: manipulation;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Gold-Standard Micro-Interaction Polish
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Enhanced focus states with glow */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--page-bg),
+    0 0 0 4px var(--chrome-400),
+    0 0 12px var(--chrome-400);
+  border-radius: var(--radius-md);
+}
+
+/* Glass card hover enhancement */
+.glass-card {
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out),
+    border-color var(--duration-normal) var(--ease-out);
+}
+
+.glass-card:hover {
+  border-color: var(--chrome-200);
+  box-shadow:
+    var(--glass-shadow),
+    0 4px 16px -4px var(--edge-shadow);
+}
+
+/* Status indicator breathing */
+@keyframes status-breathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+.status-breathe {
+  animation: status-breathe 3s var(--ease-in-out) infinite;
+}
+
+/* Hero number animation */
+@keyframes number-count {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-number {
+  animation: number-count var(--duration-slow) var(--ease-spring) both;
+}
+
+/* Subtle shimmer for loading states */
+@keyframes subtle-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-subtle {
+  background: linear-gradient(90deg, transparent 0%, var(--divider-etch) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: subtle-shimmer 3s ease-in-out infinite;
+}
+
+/* Progress bar animation */
+@keyframes progress-fill {
+  from {
+    width: 0%;
+  }
+}
+
+.animate-progress {
+  animation: progress-fill var(--duration-slower) var(--ease-out) both;
+}
+
+/* Card border accent animation */
+@keyframes border-glow {
+  0%, 100% {
+    border-left-color: var(--chrome-400);
+  }
+  50% {
+    border-left-color: var(--chrome-200);
+  }
+}
+
+.border-glow {
+  animation: border-glow 2s var(--ease-in-out) infinite;
+}
+
+/* Reduced motion for new animations */
+@media (prefers-reduced-motion: reduce) {
+  .status-breathe,
+  .animate-number,
+  .shimmer-subtle,
+  .animate-progress,
+  .border-glow {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HARDWARE CHASSIS — From Reference Design
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Widget chassis — the hardware container */
+.widget-chassis {
+  position: relative;
+  background: var(--chassis-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: var(--chassis-radius);
+  padding: 24px;
+  border: var(--chassis-border);
+  box-shadow: var(--chassis-shadow);
+}
+
+/* Typography from reference */
+.data-hero {
+  font-size: var(--text-hero-size);
+  font-weight: 600;
+  letter-spacing: var(--text-hero-tracking);
+  color: var(--text-primary);
+  text-shadow: var(--text-hero-shadow);
+  line-height: 1;
+}
+
+.label-micro {
+  font-size: var(--text-label-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--text-label-tracking);
+  color: var(--text-secondary);
+}
+
+.text-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+  margin-top: 2px;
+}
+
+/* Hairline divider — milled look */
+.hairline-divider {
+  border: none;
+  height: var(--hairline-height);
+  background: var(--hairline-bg);
+  margin: 0 0 24px 0;
+}
+
+/* Status dot — glowing indicator */
+.status-dot {
+  width: var(--status-dot-size);
+  height: var(--status-dot-size);
+  border-radius: 50%;
+  background-color: var(--chrome-400);
+}
+
+.status-dot.urgent {
+  background-color: var(--status-urgent);
+  box-shadow: var(--status-dot-glow-urgent);
+}
+
+.status-dot.active {
+  background-color: var(--chrome-400);
+  box-shadow: var(--status-dot-glow-active);
+}
+
+.status-dot.complete {
+  background-color: var(--status-complete);
+  box-shadow: var(--status-dot-glow-complete);
+}
+
+/* Work order ID — monospace */
+.work-order-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted-grade);
+  letter-spacing: 0.05em;
+}
+
+/* Telemetry grid */
+.telemetry-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.telemetry-data {
+  display: flex;
+  gap: 32px;
+}
+
+.data-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.data-unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* Route axis */
+.route-axis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 64px;
+}
+
+.axis-node {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--edge-highlight);
+  box-shadow: inset 0 2px 4px var(--edge-shadow);
+}
+
+.axis-node.current {
+  border-color: var(--chrome-400);
+  background: var(--chrome-400);
+  box-shadow: 0 0 8px var(--chrome-400), inset 0 2px 2px var(--edge-highlight);
+}
+
+.axis-line {
+  width: 2px;
+  height: 20px;
+  flex-grow: 0;
+  background: var(--divider-etch);
+  margin: 4px 0;
+}
+
+/* Timeline container */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+}
+
+.timeline-container::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: 2px;
+  background: var(--timeline-spine-bg);
+  border-radius: 2px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-node {
+  width: var(--timeline-node-size);
+  height: var(--timeline-node-size);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--timeline-node-bg);
+  border: var(--timeline-node-border);
+  box-shadow: var(--timeline-node-shadow);
+}
+
+.timeline-item.active .timeline-node {
+  background: var(--timeline-node-active-bg);
+  border: var(--timeline-node-active-border);
+  box-shadow: var(--timeline-node-active-shadow);
+}
+
+.timeline-item.complete .timeline-node {
+  background: var(--timeline-node-complete-bg);
+  border: var(--timeline-node-complete-border);
+}
+
+.timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-item.complete .text-title,
+.timeline-item.complete .label-micro {
+  color: var(--text-secondary);
+}
+
+.task-detail {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Machined buttons */
+.btn-machined {
+  flex: 1;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  border: none;
+  transition: transform 100ms ease;
+}
+
+.btn-machined.primary {
+  background: var(--btn-primary-bg);
+  color: var(--text-hero);
+  border: 1px solid var(--edge-shadow);
+  box-shadow: var(--btn-primary-shadow);
+}
+
+.btn-machined.secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--edge-shadow);
+  box-shadow: var(--btn-secondary-shadow);
+}
+
+.btn-machined:active {
+  transform: scale(0.97);
 }

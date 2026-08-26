@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { Job } from "@/types";
 import { useOutboxKind } from "@/hooks/useOutboxKind";
@@ -19,6 +19,14 @@ const QUICK_NOTES = [
   "Checked for leaks",
 ];
 
+function CompletionMatrix({ state }: { state: "uploading" | "complete" }) {
+  return (
+    <span className={`matrix-array ${state === "uploading" ? "theme-upload" : "theme-complete"}`} aria-hidden="true">
+      {Array.from({ length: 9 }, (_, index) => <span key={index} className="led" />)}
+    </span>
+  );
+}
+
 /**
  * Thumb-zone capture bar — the four field captures (photo, note, part,
  * safety) plus the primary completion action, all in one predictable row.
@@ -32,6 +40,7 @@ export function CaptureBar({
   onSaveNote,
   onPart,
   onSafety,
+  billableActive,
 }: {
   job: Job;
   onComplete: () => void;
@@ -39,11 +48,27 @@ export function CaptureBar({
   onSaveNote: (text: string) => void;
   onPart: () => void;
   onSafety: () => void;
+  billableActive: boolean;
 }) {
   const [photoSheet, setPhotoSheet] = useState(false);
   const [noteSheet, setNoteSheet] = useState(false);
   const [noteText, setNoteText] = useState("");
+  const [completionState, setCompletionState] = useState<"idle" | "uploading" | "complete">("idle");
+  const completionTimers = useRef<number[]>([]);
   const photoSync = useOutboxKind("photo-upload");
+
+  useEffect(() => () => {
+    completionTimers.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  const completeJob = () => {
+    if (job.photos.length === 0 || completionState !== "idle") return;
+    setCompletionState("uploading");
+    completionTimers.current.push(window.setTimeout(() => {
+      setCompletionState("complete");
+      completionTimers.current.push(window.setTimeout(onComplete, 420));
+    }, 1100));
+  };
 
   const saveNote = () => {
     const text = noteText.trim();
@@ -59,12 +84,13 @@ export function CaptureBar({
         <div className="flex items-stretch gap-1.5">
           <button
             type="button"
-            onClick={onComplete}
-            disabled={job.photos.length === 0}
-            className="flex-[1.25] min-h-[58px] rounded-xl bg-accent text-white text-sm font-bold flex flex-col items-center justify-center gap-0.5 disabled:opacity-35 haptic"
+            onClick={completeJob}
+            disabled={!billableActive || job.photos.length === 0 || completionState !== "idle"}
+            aria-busy={completionState === "uploading"}
+            className={`capture-complete-button flex-[1.25] min-h-[58px] rounded-xl text-on-accent text-sm font-bold flex flex-col items-center justify-center gap-0.5 disabled:opacity-35 haptic ${completionState !== "idle" ? "is-processing" : ""}`}
           >
-            <IconSealCheck size={19} />
-            Complete &amp; sign
+            {completionState === "idle" ? <IconSealCheck size={19} /> : <CompletionMatrix state={completionState} />}
+            {completionState === "uploading" ? "Uploading proof…" : completionState === "complete" ? "Ready for sign-off" : "Complete & sign"}
           </button>
 
           <CaptureSlot
@@ -72,11 +98,13 @@ export function CaptureBar({
             label="Photo"
             badge={job.photos.length === 0 ? undefined : <SyncBadge state={photoSync.state} count={photoSync.count} />}
             onClick={() => setPhotoSheet(true)}
+            disabled={!billableActive}
           />
           <CaptureSlot
             icon={<IconNotePen size={20} />}
             label="Note"
             onClick={() => setNoteSheet(true)}
+            disabled={!billableActive}
           />
           <CaptureSlot
             icon={<IconHexNut size={20} />}
@@ -89,6 +117,7 @@ export function CaptureBar({
               ) : undefined
             }
             onClick={onPart}
+            disabled={!billableActive}
           />
           <CaptureSlot
             icon={<IconHat size={20} />}
@@ -96,15 +125,18 @@ export function CaptureBar({
             badge={
               job.safetyConfirmation &&
               (job.safetyConfirmation.waterIsolated || job.safetyConfirmation.gasChecked || job.safetyConfirmation.pressureTested) ? (
-                <IconHat size={11} className="text-emerald-400" />
+                <IconHat size={11} className="text-complete" />
               ) : undefined
             }
             onClick={onSafety}
+            disabled={!billableActive}
           />
         </div>
-        {job.photos.length === 0 && (
-          <p className="text-[10px] text-center text-slate-600 mt-1">Capture one completion photo to continue</p>
-        )}
+        {!billableActive ? (
+          <p className="text-[10px] text-center text-ink-low mt-1">Clock on to unlock billable field capture</p>
+        ) : job.photos.length === 0 ? (
+          <p className="text-[10px] text-center text-ink-low mt-1">Capture one completion photo to continue</p>
+        ) : null}
       </div>
 
       <BottomSheet
@@ -123,7 +155,7 @@ export function CaptureBar({
                 setPhotoSheet(false);
                 onPhoto(label);
               }}
-              className="min-h-[64px] rounded-xl border border-white/[0.1] bg-white/[0.04] flex flex-col items-center justify-center gap-1 text-slate-200 text-xs font-bold haptic"
+              className="min-h-[64px] rounded-xl border border-line bg-fill flex flex-col items-center justify-center gap-1 text-ink-mid text-xs font-bold haptic"
             >
               <IconCameraField size={20} className="text-accent" />
               {label}
@@ -154,7 +186,7 @@ export function CaptureBar({
                 key={note}
                 type="button"
                 onClick={() => setNoteText((current) => `${current}${current ? " " : ""}${note}`)}
-                className="min-h-[34px] rounded-full px-3 border border-white/[0.08] bg-white/[0.03] text-xs text-slate-400 active:scale-[0.97]"
+                className="min-h-[34px] rounded-full px-3 border border-line bg-fill text-xs text-ink-low active:scale-[0.97]"
               >
                 + {note}
               </button>
@@ -164,7 +196,7 @@ export function CaptureBar({
             type="button"
             onClick={saveNote}
             disabled={!noteText.trim()}
-            className="w-full min-h-[48px] rounded-xl bg-accent text-white text-sm font-bold disabled:opacity-30 haptic"
+            className="w-full min-h-[48px] rounded-xl bg-accent text-on-accent text-sm font-bold disabled:opacity-30 haptic"
           >
             Save note
           </button>
@@ -179,18 +211,21 @@ function CaptureSlot({
   label,
   badge,
   onClick,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   label: string;
   badge?: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
-      className="relative w-[54px] min-h-[58px] rounded-xl bg-white/[0.06] border border-white/[0.1] text-slate-200 flex flex-col items-center justify-center gap-0.5 haptic"
+      disabled={disabled}
+      aria-label={disabled ? `${label} — clock on required` : label}
+      className="relative w-[54px] min-h-[58px] rounded-xl bg-fill-strong border border-line text-ink-mid flex flex-col items-center justify-center gap-0.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"
     >
       {icon}
       <span className="text-[9px] font-bold uppercase tracking-wide">{label}</span>

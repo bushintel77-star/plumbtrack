@@ -88,7 +88,7 @@ export function SignaturePad({ onSave, confirmLabel }: SignaturePadProps) {
         <button
           type="button"
           onClick={clear}
-          className="flex-1 py-3 rounded-xl bg-white/[0.04] text-slate-300 text-sm font-medium active:bg-white/[0.08] transition border border-white/[0.08] min-h-[48px]"
+          className="flex-1 py-3 rounded-xl bg-fill text-ink-mid text-sm font-medium active:bg-fill-strong transition border border-line min-h-[48px]"
         >
           Clear
         </button>
@@ -96,7 +96,7 @@ export function SignaturePad({ onSave, confirmLabel }: SignaturePadProps) {
           type="button"
           onClick={save}
           disabled={!hasDrawn}
-          className="flex-1 py-3 rounded-xl bg-accent text-white text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed active:brightness-110 transition min-h-[48px] shadow-lg shadow-accent/20"
+          className="flex-1 py-3 rounded-xl bg-accent text-on-accent text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed active:brightness-110 transition min-h-[48px] shadow-hardware"
         >
           {confirmLabel}
         </button>

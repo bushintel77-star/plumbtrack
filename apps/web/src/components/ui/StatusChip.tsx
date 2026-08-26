@@ -17,10 +17,10 @@ import {
 // Aligned to site convention: red = urgent, amber = pending, emerald = done.
 
 const STATUS_TOKENS = {
-  scheduled: { icon: IconClockWait, label: "Scheduled", color: "#D97706", bg: "rgba(217,119,6,0.13)", border: "rgba(217,119,6,0.32)" },
-  in_progress: { icon: IconTapFlow, label: "On site", color: "#EA580C", bg: "rgba(234,88,12,0.13)", border: "rgba(234,88,12,0.32)" },
-  completed: { icon: IconSealCheck, label: "Complete", color: "#059669", bg: "rgba(5,150,105,0.12)", border: "rgba(5,150,105,0.3)" },
-  emergency: { icon: IconDropAlert, label: "Emergency", color: "#DC2626", bg: "rgba(220,38,38,0.13)", border: "rgba(220,38,38,0.32)" },
+  scheduled: { icon: IconClockWait, label: "Scheduled", color: "var(--status-pending)", bg: "var(--status-pending-dim)", border: "var(--status-pending-border)" },
+  in_progress: { icon: IconTapFlow, label: "On site", color: "var(--status-pending)", bg: "var(--status-pending-dim)", border: "var(--status-pending-border)" },
+  completed: { icon: IconSealCheck, label: "Complete", color: "var(--status-complete)", bg: "var(--status-complete-dim)", border: "var(--status-complete-border)" },
+  emergency: { icon: IconDropAlert, label: "Emergency", color: "var(--status-urgent)", bg: "var(--status-urgent-dim)", border: "var(--status-urgent-border)" },
 } as const;
 
 export function StatusChip({ status, size = 13, className = "" }: { status: JobStatus | "emergency"; size?: number; className?: string }) {
@@ -43,9 +43,9 @@ export function StatusChip({ status, size = 13, className = "" }: { status: JobS
 export type SyncBadgeState = "synced" | "queued" | "syncing" | "failed";
 
 const SYNC_TOKENS: Record<Exclude<SyncBadgeState, "synced">, { icon: typeof IconCloudQueue; color: string; label: string }> = {
-  queued: { icon: IconCloudQueue, color: "#F59E0B", label: "Queued" },
-  syncing: { icon: IconCloudSync, color: "#38BDF8", label: "Syncing" },
-  failed: { icon: IconCloudFail, color: "#F87171", label: "Retry needed" },
+  queued: { icon: IconCloudQueue, color: "var(--status-pending)", label: "Queued" },
+  syncing: { icon: IconCloudSync, color: "var(--color-info)", label: "Syncing" },
+  failed: { icon: IconCloudFail, color: "var(--status-urgent)", label: "Retry needed" },
 };
 
 /** Compact offline-honesty badge; renders nothing while fully synced. */
@@ -56,7 +56,7 @@ export function SyncBadge({ state, count, size = 12 }: { state: SyncBadgeState; 
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"
-      style={{ color: token.color, background: "rgba(255,255,255,0.05)", border: `1px solid ${token.color}44` }}
+      style={{ color: token.color, background: "var(--surface-hover-subtle)", border: `1px solid var(--divider-etch)` }}
       aria-label={`${token.label}${count && count > 1 ? ` (${count})` : ""}`}
     >
       <Icon size={size} />

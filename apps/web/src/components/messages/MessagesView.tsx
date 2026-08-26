@@ -24,14 +24,14 @@ import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
 import { config } from "@/lib/config";
 import type { SlackMember, SlackMessage } from "@/types";
 
-// ── Slack design tokens (dark theme, authentic density) ─────────────────────
-const SIDEBAR = "#1A1D21";
-const SIDEBAR_HOVER = "rgba(255,255,255,0.05)";
-const ACTIVE = "#1164A3";
-const PANE = "#1E1F22";
-const TEXT = "#D1D2D3";
-const MUTED = "#72767D";
-const BORDER = "rgba(255,255,255,0.09)";
+// ── Semantic colour tokens ──────────────────────────────────────────────────
+const SIDEBAR = "var(--bg-sidebar)";
+const SIDEBAR_HOVER = "var(--surface-hover-strong)";
+const ACTIVE = "var(--color-active-item)";
+const PANE = "var(--bg-pane)";
+const TEXT = "var(--text-primary)";
+const MUTED = "var(--text-muted)";
+const BORDER = "var(--surface-border)";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function RichText({
             type="button"
             onClick={() => onOpenJob(jobMatch[1])}
             className="inline-flex items-center font-mono font-bold underline decoration-1 underline-offset-2 hover:brightness-125 transition"
-            style={{ color: "#2EB67D" }}
+            style={{ color: "var(--color-link-job)" }}
           >
             {token}
           </button>
@@ -99,7 +99,7 @@ function RichText({
             type="button"
             onClick={() => onOpenQuote(quoteMatch[1])}
             className="inline-flex items-center font-mono font-bold underline decoration-1 underline-offset-2 hover:brightness-125 transition"
-            style={{ color: "#E01E5A" }}
+            style={{ color: "var(--color-link-quote)" }}
           >
             {token}
           </button>
@@ -113,7 +113,7 @@ function RichText({
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <strong key={i} className="font-extrabold text-white">
+          <strong key={i} className="font-extrabold text-ink">
             {part}
           </strong>
         ) : (
@@ -160,7 +160,7 @@ function MessageBody({
           <span
             key={i}
             className="block border-l-2 pl-2.5 my-0.5 italic opacity-80 text-[13px]"
-            style={{ borderColor: "#9C9EA3" }}
+            style={{ borderColor: "var(--color-offline)" }}
           >
             <RichText text={b.content} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
           </span>
@@ -177,7 +177,7 @@ function MessageBody({
 function Avatar({ member, size = 28 }: { member: SlackMember; size?: number }) {
   return (
     <div
-      className="rounded-md flex items-center justify-center font-bold text-white shrink-0 select-none"
+      className="rounded-md flex items-center justify-center font-bold text-on-accent shrink-0 select-none"
       style={{ width: size, height: size, backgroundColor: member.color, fontSize: size * 0.4 }}
       aria-hidden
     >
@@ -233,7 +233,7 @@ function ChannelDrawer({
     <>
       {/* Backdrop — full screen, over everything including header */}
       <div
-        className={`fixed inset-0 z-50 bg-black/60 transition-opacity ${
+        className={`fixed inset-0 z-50 bg-scrim transition-opacity ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -241,7 +241,7 @@ function ChannelDrawer({
       />
       {/* Panel — slides from left, full height */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-[320px] flex flex-col transition-transform duration-200 ease-out shadow-2xl ${
+        className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-[320px] flex flex-col transition-transform duration-200 ease-out shadow-chassis ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ backgroundColor: SIDEBAR }}
@@ -250,11 +250,11 @@ function ChannelDrawer({
       >
         {/* Workspace header */}
         <div className="px-4 pt-4 pb-3 flex items-center gap-2 border-b" style={{ borderColor: BORDER }}>
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-[13px] bg-[#2B4A6B]">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-on-accent font-bold text-[13px]" style={{ backgroundColor: "var(--bg-workspace-badge)" }}>
             {config.orgName.split(/\s+/).map((word) => word[0]?.toUpperCase()).filter(Boolean).slice(0, 3).join("")}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-[15px] font-extrabold leading-tight truncate">
+            <p className="text-ink text-[15px] font-extrabold leading-tight truncate">
               {config.orgName}
             </p>
             <p className="text-[11px] font-medium" style={{ color: MUTED }}>
@@ -264,7 +264,7 @@ function ChannelDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-white/10 transition text-slate-300"
+            className="p-1.5 rounded hover:bg-fill-strong transition text-ink-mid"
             aria-label="Close channel list"
           >
             <X size={18} />
@@ -275,7 +275,7 @@ function ChannelDrawer({
         <div className="px-3 pt-3">
           <div
             className="flex items-center gap-2 rounded-md px-3 py-2"
-            style={{ backgroundColor: "rgba(255,255,255,0.06)", color: MUTED }}
+            style={{ backgroundColor: "var(--surface-hover-subtle)", color: MUTED }}
           >
             <Search size={14} />
             <input
@@ -284,7 +284,8 @@ function ChannelDrawer({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Jump to…"
               aria-label="Jump to a channel or conversation"
-              className="bg-transparent outline-none text-[14px] flex-1 placeholder:text-[#5C6066] text-[#E8E8E8]"
+              className="bg-transparent outline-none text-[14px] flex-1"
+              style={{ color: "var(--text-channel)", ["--tw-placeholder-color" as string]: "var(--text-subtle)" }}
             />
             {query && (
               <button type="button" onClick={() => setQuery("")} aria-label="Clear search">
@@ -301,7 +302,7 @@ function ChannelDrawer({
             onClose();
             onOpenChannel("general");
           }}
-          className="mx-3 mt-3 flex items-center gap-2 rounded-lg px-3 py-2.5 text-white font-bold text-[14px] transition active:scale-[0.98]"
+          className="mx-3 mt-3 flex items-center gap-2 rounded-lg px-3 py-2.5 text-on-accent font-bold text-[14px] transition active:scale-[0.98]"
           style={{ backgroundColor: ACTIVE }}
         >
           <MessageSquarePlus size={16} /> Compose message
@@ -309,7 +310,7 @@ function ChannelDrawer({
 
         {/* Channel list */}
         <nav className="flex-1 overflow-y-auto px-2 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] space-y-0.5" aria-label="Channels and direct messages">
-          <p className="px-2 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "#5C6066" }}>
+          <p className="px-2 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
             Channels
           </p>
           {filteredChannels.map((c) => {
@@ -326,7 +327,7 @@ function ChannelDrawer({
                 className="w-full flex items-center gap-2 rounded-md px-2 py-[7px] text-left transition min-h-[36px]"
                 style={{
                   backgroundColor: active ? ACTIVE : "transparent",
-                  color: active ? "#FFFFFF" : "#C7CACD",
+                  color: active ? "var(--text-inverse)" : "var(--text-secondary)",
                 }}
                 onMouseEnter={(e) => {
                   if (!active) e.currentTarget.style.backgroundColor = SIDEBAR_HOVER;
@@ -340,7 +341,7 @@ function ChannelDrawer({
                 {unread > 0 && (
                   <span
                     className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md"
-                    style={{ backgroundColor: ACTIVE, color: "#fff" }}
+                    style={{ backgroundColor: ACTIVE, color: "var(--text-inverse)" }}
                   >
                     {unread}
                   </span>
@@ -349,7 +350,7 @@ function ChannelDrawer({
             );
           })}
 
-          <p className="px-2 pt-4 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "#5C6066" }}>
+          <p className="px-2 pt-4 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
             Direct messages
           </p>
           {filteredDms.map((dm) => {
@@ -367,7 +368,7 @@ function ChannelDrawer({
                 className="w-full flex items-center gap-2 rounded-md px-2 py-[7px] text-left transition min-h-[36px]"
                 style={{
                   backgroundColor: active ? ACTIVE : "transparent",
-                  color: active ? "#FFFFFF" : "#C7CACD",
+                  color: active ? "var(--text-inverse)" : "var(--text-secondary)",
                 }}
                 onMouseEnter={(e) => {
                   if (!active) e.currentTarget.style.backgroundColor = SIDEBAR_HOVER;
@@ -381,8 +382,8 @@ function ChannelDrawer({
                     <Avatar member={member} size={22} />
                   ) : (
                     <span
-                      className="w-[22px] h-[22px] rounded-md flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ backgroundColor: "#4A5568" }}
+                      className="w-[22px] h-[22px] rounded-md flex items-center justify-center text-[10px] font-bold text-on-accent"
+                      style={{ backgroundColor: "var(--chassis-glass)" }}
                     >
                       ?
                     </span>
@@ -390,7 +391,7 @@ function ChannelDrawer({
                   <span
                     className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
                     style={{
-                      backgroundColor: member?.presence === "active" ? "#2EB67D" : "#9C9EA3",
+                      backgroundColor: member?.presence === "active" ? "var(--color-online)" : "var(--color-offline)",
                       borderColor: SIDEBAR,
                     }}
                   />
@@ -399,7 +400,7 @@ function ChannelDrawer({
                 {unread > 0 && (
                   <span
                     className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md"
-                    style={{ backgroundColor: ACTIVE, color: "#fff" }}
+                    style={{ backgroundColor: ACTIVE, color: "var(--text-inverse)" }}
                   >
                     {unread}
                   </span>
@@ -419,11 +420,11 @@ function ChannelDrawer({
           <button
             type="button"
             onClick={() => { /* stays in messages */ }}
-            className="w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-white/5 transition"
+            className="w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-fill transition"
           >
             <Avatar member={members.find((m) => m.id === "tim")!} size={28} />
             <span className="flex-1 text-left leading-tight">
-              <span className="block text-[14px] font-extrabold text-white">
+              <span className="block text-[14px] font-extrabold text-ink">
                 {members.find((m) => m.id === "tim")?.name}
               </span>
               <span className="block text-[11px]" style={{ color: MUTED }}>
@@ -483,7 +484,7 @@ function MessageRow({
     <div
       className="group relative flex gap-2.5 px-4 py-1 rounded-md transition-colors select-none"
       style={{ cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.015)")}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-hover)")}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent";
         cancelPress();
@@ -502,10 +503,10 @@ function MessageRow({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className={`font-extrabold text-white leading-snug ${isReply ? "text-[13px]" : "text-[15px]"}`}>{member.name}</span>
+          <span className={`font-extrabold text-ink leading-snug ${isReply ? "text-[13px]" : "text-[15px]"}`}>{member.name}</span>
           {isBot && (
             <span
-              className="text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-white"
+              className="text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-on-accent"
               style={{ backgroundColor: ACTIVE }}
             >
               APP
@@ -535,7 +536,7 @@ function MessageRow({
                   type="button"
                   onClick={() => toggleReaction(message.id, emoji)}
                   className={`flex items-center gap-1 text-[12px] px-1.5 py-0 rounded-full border font-semibold transition hover:brightness-125 ${mine ? "bg-accent/20" : ""}`}
-                  style={{ borderColor: mine ? "var(--accent)" : "rgba(255,255,255,0.15)", color: TEXT }}
+                  style={{ borderColor: mine ? "var(--accent)" : "var(--surface-border-strong)", color: TEXT }}
                 >
                   <span className="text-[13px] leading-none">{emoji}</span>
                   <span className="text-[11px]">{ids.length}</span>
@@ -554,13 +555,13 @@ function MessageRow({
               onToggleThread();
             }}
             className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold transition hover:brightness-125"
-            style={{ color: "#2EB67D" }}
+            style={{ color: "var(--color-link-job)" }}
             aria-expanded={threadOpen}
           >
             <ChevronDown size={12} className={`transition-transform ${threadOpen ? "rotate-180" : ""}`} />
             <span>{threadOpen ? "Hide replies" : `${threadCount} ${threadCount === 1 ? "reply" : "replies"}`}</span>
             {threadUnread && !threadOpen && (
-              <span className="w-2 h-2 rounded-full bg-[#E01E5A]" aria-label="Unread replies" />
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--color-unread)" }} aria-label="Unread replies" />
             )}
           </button>
         )}
@@ -621,7 +622,7 @@ function MessageList({
     (m) => new Date(m.ts).getTime() > lastRead && m.authorId !== "tim",
   );
 
-  const fallbackMember = { id: "unknown", name: "Unknown", role: "member" as const, color: "#4A5568", presence: "away" as const };
+  const fallbackMember = { id: "unknown", name: "Unknown", role: "member" as const, color: "var(--chassis-glass)", presence: "away" as const };
   const rowProps = {
     onContextMenu,
     onOpenJob,
@@ -634,9 +635,9 @@ function MessageList({
     <div key={m.id} className="relative">
       {isFirstUnread && (
         <div className="flex items-center gap-3 px-4 mb-1">
-          <div className="flex-1 h-px bg-[#E01E5A]" />
-          <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#E01E5A] shrink-0">New</span>
-          <div className="flex-1 h-px bg-[#E01E5A]" />
+          <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-unread)" }} />
+          <span className="text-[11px] font-extrabold uppercase tracking-wide shrink-0" style={{ color: "var(--color-unread)" }}>New</span>
+          <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-unread)" }} />
         </div>
       )}
       <MessageRow
@@ -649,7 +650,7 @@ function MessageList({
         onToggleThread={byParent.has(m.id) ? () => onToggleThread(m.id) : undefined}
       />
       {byParent.has(m.id) && openThreads.has(m.id) && (
-        <div className="ml-[34px] pl-3 border-l-2" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+        <div className="ml-[34px] pl-3 border-l-2" style={{ borderColor: "var(--surface-border-mild)" }}>
           {(byParent.get(m.id) ?? []).map((reply) => (
             <MessageRow
               key={reply.id}
@@ -769,23 +770,24 @@ function Composer({
       {replyTo && (
         <div
           className="flex items-center gap-2 rounded-t-lg px-3 py-1.5"
-          style={{ backgroundColor: "#222529", borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
+          style={{ backgroundColor: "var(--sheet-tile)", borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
         >
-          <span className="text-[12px] font-bold text-white truncate max-w-[80px]">Replying in thread · {replyTo.name}</span>
-          <span className="flex-1 text-[12px] text-slate-500 truncate">&quot;{replyTo.text}&quot;</span>
-          <button type="button" onClick={onCancelReply} className="p-0.5 rounded hover:bg-white/10 text-slate-400 transition" aria-label="Cancel reply">
+          <span className="text-[12px] font-bold text-ink truncate max-w-[80px]">Replying in thread · {replyTo.name}</span>
+          <span className="flex-1 text-[12px] truncate" style={{ color: "var(--text-muted)" }}>&quot;{replyTo.text}&quot;</span>
+          <button type="button" onClick={onCancelReply} className="p-0.5 rounded hover:bg-fill-strong transition" style={{ color: "var(--text-subtle)" }} aria-label="Cancel reply">
             <X size={13} />
           </button>
         </div>
       )}
       <div
         className={`flex items-center gap-1 rounded-lg px-2 min-h-[48px] ${replyTo ? "rounded-t-none" : ""}`}
-        style={{ backgroundColor: "#222529", border: `1px solid ${BORDER}` }}
+        style={{ backgroundColor: "var(--composer-bg)", border: `1px solid var(--composer-border)` }}
       >
         <button
           type="button"
           onClick={onOpenQuickUpdate}
-          className="w-11 h-11 -ml-1 flex items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 haptic"
+          className="w-11 h-11 -ml-1 flex items-center justify-center rounded-lg transition hover:bg-fill-strong haptic"
+          style={{ color: "var(--text-subtle)" }}
           aria-label="Quick updates"
         >
           <Plus size={18} />
@@ -796,13 +798,15 @@ function Composer({
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
           placeholder={`Message #${activeChannel?.name ?? "general"}`}
           aria-label={`Message #${activeChannel?.name ?? "general"}`}
-          className="flex-1 bg-transparent outline-none text-[14px] text-white placeholder:text-[#5C6066] py-1"
+          className="flex-1 bg-transparent outline-none text-[14px] py-1"
+          style={{ color: "var(--text-primary)", ["--tw-placeholder-color" as string]: "var(--composer-placeholder)" }}
         />
         <button
           type="button"
           onClick={submit}
           disabled={!text.trim()}
-          className="w-11 h-11 -mr-1 flex items-center justify-center rounded-lg transition disabled:opacity-30 text-slate-300 hover:bg-white/10 haptic"
+          className="w-11 h-11 -mr-1 flex items-center justify-center rounded-lg transition disabled:opacity-30 hover:bg-fill-strong haptic"
+          style={{ color: "var(--text-secondary)" }}
           aria-label="Send message"
         >
           <Send size={17} />
@@ -862,7 +866,7 @@ function AvatarStack({ members, max = 4 }: { members: SlackMember[]; max?: numbe
       {rest > 0 && (
         <div
           className="-ml-1.5 flex items-center justify-center rounded-md text-[9px] font-bold"
-          style={{ width: 20, height: 20, backgroundColor: "rgba(255,255,255,0.08)", border: `2px solid ${PANE}`, color: MUTED }}
+          style={{ width: 20, height: 20, backgroundColor: "var(--surface-hover-strong)", border: `2px solid ${PANE}`, color: MUTED }}
         >
           +{rest}
         </div>
@@ -875,8 +879,8 @@ function ChannelInfoBar() {
   const { activeChannel, members } = usePlumbTrackCtx();
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0" style={{ backgroundColor: PANE, borderColor: BORDER }}>
-      <Hash size={14} style={{ color: "#C7CACD" }} />
-      <span className="text-white text-[15px] font-extrabold">{activeChannel?.name}</span>
+      <Hash size={14} style={{ color: "var(--text-secondary)" }} />
+      <span className="text-ink text-[15px] font-extrabold">{activeChannel?.name}</span>
       {activeChannel?.type === "channel" && (
         <>
           <span className="text-[12px] font-medium" style={{ color: MUTED }}>{members.length} members</span>

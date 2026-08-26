@@ -43,9 +43,11 @@ export function buildJobActivity(job: Job): JobActivity[] {
       id: `photo:${photo.id}`,
       kind: "photo",
       title: `${photo.label} photo captured`,
-      detail: photo.url ? "Evidence saved to this job" : "Photo queued for upload",
+      detail: photo.url
+        ? typeof photo.lat === "number" && typeof photo.lng === "number" ? "Evidence saved with GPS provenance" : "Evidence saved to this job"
+        : "Photo queued for upload",
       createdAt: photo.takenAt ?? "1970-01-01T00:00:00.000Z",
-      meta: photo.label.toUpperCase(),
+      meta: typeof photo.lat === "number" && typeof photo.lng === "number" ? "GPS VERIFIED" : photo.label.toUpperCase(),
     });
   }
 
@@ -66,9 +68,37 @@ export function buildJobActivity(job: Job): JobActivity[] {
       id: `signature:${job.id}`,
       kind: "signature",
       title: "Customer signed off",
-      detail: "Completion approval is on file",
-      createdAt: "1970-01-01T00:00:00.000Z",
-      meta: "ON FILE",
+      detail: typeof job.signatureLat === "number" && typeof job.signatureLng === "number" ? "Completion approval and GPS evidence are on file" : "Completion approval is on file",
+      createdAt: job.signatureCapturedAt ?? "1970-01-01T00:00:00.000Z",
+      staffId: job.signatureCapturedBy ?? undefined,
+      meta: typeof job.signatureLat === "number" && typeof job.signatureLng === "number" ? "GPS VERIFIED" : "ON FILE",
+    });
+  }
+
+  const safety = job.safetyConfirmation;
+  if (safety?.confirmedAt) {
+    events.push({
+      id: `safety:${job.id}:${safety.confirmedAt}`,
+      kind: "safety",
+      title: "Safety checks updated",
+      detail: "Field confirmation recorded with timestamp and operator",
+      createdAt: safety.confirmedAt,
+      staffId: safety.confirmedBy ?? undefined,
+      meta: typeof safety.confirmedLat === "number" && typeof safety.confirmedLng === "number" ? "GPS VERIFIED" : "RECORDED",
+    });
+  }
+
+  const reports = job.dailyReports ?? [];
+  for (const report of reports) {
+    if (!report.submittedAt) continue;
+    events.push({
+      id: `report:${report.id}`,
+      kind: "safety",
+      title: "Daily report submitted",
+      detail: report.submittedLat !== null && report.submittedLng !== null ? "Field log sealed with GPS provenance" : "Field log sealed on this device",
+      createdAt: report.submittedAt,
+      staffId: report.submittedBy ?? undefined,
+      meta: typeof report.submittedLat === "number" && typeof report.submittedLng === "number" ? "GPS VERIFIED" : "SUBMITTED",
     });
   }
 

@@ -5,6 +5,7 @@ import { ChevronRight, FileText, MessageSquare, Search, Wrench, X } from "lucide
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { searchAll } from "@/lib/search";
+import { formatSerial } from "@/lib/display";
 
 /** Case-insensitive multi-token highlighting of matches in result text. */
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -25,7 +26,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
     const { term, index } = hits[0];
     if (index > cursor) parts.push(text.slice(cursor, index));
     parts.push(
-      <mark key={`${index}-${term}`} className="rounded-[2px] bg-accent/30 text-white px-0.5">
+      <mark key={`${index}-${term}`} className="rounded-[2px] bg-accent/30 text-ink px-0.5">
         {text.slice(index, index + term.length)}
       </mark>,
     );
@@ -37,8 +38,8 @@ function Highlight({ text, query }: { text: string; query: string }) {
 function GroupHeader({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center justify-between mb-1.5 pt-1">
-      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
-      <span className="text-[10px] font-mono text-slate-600">{count}</span>
+      <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider">{label}</p>
+      <span className="text-[10px] font-mono text-ink-low">{count}</span>
     </div>
   );
 }
@@ -68,7 +69,7 @@ export function SearchSheet({
   const suggestions = useMemo(() => {
     if (query.trim()) return [];
     const chips: string[] = [];
-    for (const job of jobs.slice(0, 2)) chips.push(job.id);
+    for (const job of jobs.slice(0, 2)) chips.push(formatSerial(job.id));
     for (const doc of documents.slice(0, 2)) chips.push(doc.name.split(" — ")[0]);
     for (const m of messages.slice(0, 2)) chips.push(m.text.split(" ").slice(0, 3).join(" "));
     return chips.filter((c) => c.length > 2).slice(0, 5);
@@ -93,12 +94,12 @@ export function SearchSheet({
     <BottomSheet open={open} onClose={onClose} title="Search" subtitle="One search across job diary, documents and messages" label="Global search">
       <div className="space-y-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-low" />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Try “gas compliance”, “riser leak”, “J-1043”…"
-            className="w-full min-h-[48px] app-input border rounded-xl pl-10 pr-10 text-sm text-white placeholder-slate-600"
+            className="w-full min-h-[48px] app-input border rounded-xl pl-10 pr-10 text-sm text-ink placeholder-ink-low"
             aria-label="Search everything"
             autoFocus
           />
@@ -106,7 +107,7 @@ export function SearchSheet({
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/[0.06] text-slate-400 flex items-center justify-center haptic"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-fill-strong text-ink-low flex items-center justify-center haptic"
               aria-label="Clear search"
             >
               <X size={13} />
@@ -116,10 +117,10 @@ export function SearchSheet({
 
         {!query.trim() ? (
           <div className="space-y-2.5">
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Full-text search over your <span className="text-slate-300 font-semibold">job diary</span> (scope, voice notes,
-              log entries, daily reports, RFIs), the <span className="text-slate-300 font-semibold">document vault</span> and{" "}
-              <span className="text-slate-300 font-semibold">Slack messages</span>.
+            <p className="text-xs text-ink-low leading-relaxed">
+              Full-text search over your <span className="text-ink-mid font-semibold">job diary</span> (scope, voice notes,
+              log entries, daily reports, RFIs), the <span className="text-ink-mid font-semibold">document vault</span> and{" "}
+              <span className="text-ink-mid font-semibold">Slack messages</span>.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((chip) => (
@@ -127,7 +128,7 @@ export function SearchSheet({
                   key={chip}
                   type="button"
                   onClick={() => setQuery(chip)}
-                  className="min-h-[32px] px-3 rounded-full border border-white/[0.08] bg-white/[0.03] text-xs text-slate-400 haptic"
+                  className="min-h-[32px] px-3 rounded-full border border-line bg-fill text-xs text-ink-low haptic"
                 >
                   {chip}
                 </button>
@@ -135,7 +136,7 @@ export function SearchSheet({
             </div>
           </div>
         ) : !hasResults ? (
-          <p className="text-sm text-slate-500 text-center py-8">
+          <p className="text-sm text-ink-low text-center py-8">
             No matches for “{query.trim()}” — try a job id, document name or a word from a message.
           </p>
         ) : (
@@ -149,16 +150,16 @@ export function SearchSheet({
                       key={`${hit.jobId}-${index}`}
                       type="button"
                       onClick={() => goJob(hit.jobId)}
-                      className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5 text-left min-h-[46px] haptic"
+                      className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
                       <span className="w-8 h-8 shrink-0 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
                         <Wrench size={15} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-white truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-slate-400 truncate"><Highlight text={hit.snippet} query={query} /> <span className="text-slate-600">· {hit.field}</span></span>
+                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-[10.5px] text-ink-low truncate"><Highlight text={hit.snippet} query={query} /> <span className="text-ink-low">· {hit.field}</span></span>
                       </span>
-                      <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                      <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -178,16 +179,16 @@ export function SearchSheet({
                         onOpenDocument(hit.documentId);
                         onClose();
                       }}
-                      className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5 text-left min-h-[46px] haptic"
+                      className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
-                      <span className="w-8 h-8 shrink-0 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                      <span className="w-8 h-8 shrink-0 rounded-lg bg-pending-dim text-pending flex items-center justify-center">
                         <FileText size={15} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-white truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-slate-400 truncate">{hit.subtitle} · <Highlight text={hit.snippet} query={query} /></span>
+                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-[10.5px] text-ink-low truncate">{hit.subtitle} · <Highlight text={hit.snippet} query={query} /></span>
                       </span>
-                      <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                      <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -203,16 +204,16 @@ export function SearchSheet({
                       key={hit.messageId}
                       type="button"
                       onClick={() => goMessage(hit.channelId)}
-                      className="w-full flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2.5 text-left min-h-[46px] haptic"
+                      className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
-                      <span className="w-8 h-8 shrink-0 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                      <span className="w-8 h-8 shrink-0 rounded-lg bg-complete-dim text-complete flex items-center justify-center">
                         <MessageSquare size={15} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-white truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-slate-400 truncate"><Highlight text={hit.snippet} query={query} /></span>
+                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-[10.5px] text-ink-low truncate"><Highlight text={hit.snippet} query={query} /></span>
                       </span>
-                      <ChevronRight size={14} className="text-slate-600 shrink-0" />
+                      <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>
                   ))}
                 </div>

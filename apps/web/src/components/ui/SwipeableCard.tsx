@@ -77,11 +77,11 @@ export function SwipeableCard({
   const showLeft = offset < -10 && leftAction;
 
   return (
-    <div className="relative overflow-hidden rounded-[20px]">
+    <div className="job-card-shell relative overflow-hidden rounded-[12px]">
       {/* Right action background */}
       {rightAction && (
         <div
-          className="absolute inset-y-0 right-0 flex items-center justify-end pr-5 rounded-[20px]"
+          className="absolute inset-y-0 right-0 flex items-center justify-end pr-5 rounded-[12px]"
           style={{
             backgroundColor: rightAction.color,
             opacity: showRight ? 1 : 0,
@@ -90,7 +90,7 @@ export function SwipeableCard({
           }}
           aria-hidden={!showRight}
         >
-          <span className="text-white text-sm font-bold flex items-center gap-1.5 select-none">
+          <span className="text-on-accent text-sm font-bold flex items-center gap-1.5 select-none">
             <rightAction.icon size={16} aria-hidden="true" /> {rightAction.label}
           </span>
         </div>
@@ -99,7 +99,7 @@ export function SwipeableCard({
       {/* Left action background */}
       {leftAction && (
         <div
-          className="absolute inset-y-0 left-0 flex items-center pl-5 rounded-[20px]"
+          className="absolute inset-y-0 left-0 flex items-center pl-5 rounded-[12px]"
           style={{
             backgroundColor: leftAction.color,
             opacity: showLeft ? 1 : 0,
@@ -108,7 +108,7 @@ export function SwipeableCard({
           }}
           aria-hidden={!showLeft}
         >
-          <span className="text-white text-sm font-bold flex items-center gap-1.5 select-none">
+          <span className="text-on-accent text-sm font-bold flex items-center gap-1.5 select-none">
             <leftAction.icon size={16} aria-hidden="true" /> {leftAction.label}
           </span>
         </div>

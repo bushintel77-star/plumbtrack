@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlumbTrack — Dashboard layouts · Arctic Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  /* ═════════════════════════════════════════════════════════════════════
+     DASHBOARD LAYOUTS — three gold-standard 2026 patterns, one colourway
+     (Arctic Light — the one you picked). Same content & status system in
+     every layout; only the arrangement changes. Field rules stay fixed:
+     status = dot + label, ≥48px targets, thumb-zone actions.
+     ═════════════════════════════════════════════════════════════════════ */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: #0B0E16; }
+  body { font-family: 'Lato', sans-serif; color: #101828; }
+
+  /* ── Switcher ── */
+  .switcher {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 14px;
+    background: rgba(11,14,22,.92); backdrop-filter: blur(16px);
+    border-bottom: 1px solid #1C2030;
+  }
+  .switcher .cap { font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #7C88A6; margin-right: 4px; }
+  .sw {
+    border: 1px solid #2A2F42; background: #12141D; color: #9CA8C4;
+    font: 700 11px 'Lato'; letter-spacing: .04em; padding: 8px 13px; border-radius: 999px; cursor: pointer;
+  }
+  .sw.on { color: #fff; border-color: #4E8CFF; box-shadow: 0 0 0 1px rgba(78,140,255,.35); }
+
+  /* ── Arctic Light tokens (fixed across all three layouts) ── */
+  .phone {
+    --page: #EDF2F9; --card: #FFFFFF; --card-border: #D9E2F0;
+    --inset: #F2F5FA; --control: #F5F8FC;
+    --text: #101828; --text-2: #5B6B8C; --label: #5B6B8C;
+    --accent: #1E56E0; --accent-soft: #E7EEFC; --accent-border: #B8CDF7;
+    --urgent: #C13535; --pending: #C77A08; --complete: #1F7A3D;
+    max-width: 400px; margin: 18px auto 40px; border-radius: 22px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.15);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.8);
+    background: var(--page); min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .layout { display: none; flex-direction: column; flex: 1; }
+  .layout.on { display: flex; }
+
+  /* ── Shared chrome (identical in all layouts — structure constant) ── */
+  .app-header {
+    background: var(--card); border-bottom: 1px solid var(--card-border);
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .app-header .logo {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent-soft); border: 1px solid var(--accent-border);
+    display: grid; place-items: center; color: var(--accent);
+  }
+  .app-header .org { font-size: 9.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--label); }
+  .app-header .scr { font-size: 19px; font-weight: 900; letter-spacing: -.01em; }
+  .app-header .find { color: var(--accent); opacity: .9; margin-left: auto; }
+
+  .nav {
+    margin-top: auto; position: sticky; bottom: 0;
+    background: rgba(255,255,255,.94); backdrop-filter: blur(20px);
+    border-top: 1px solid var(--card-border);
+    display: flex; padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+  }
+  .nav a {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--label); font-size: 9.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em; padding: 6px 0; position: relative;
+  }
+  .nav a.on { color: var(--accent); }
+  .nav a.on::before {
+    content: ''; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    width: 26px; height: 3px; border-radius: 99px; background: var(--accent);
+    box-shadow: 0 0 10px rgba(30,86,224,.45);
+  }
+  .nav .badge {
+    position: absolute; top: -4px; right: 14%; min-width: 16px; height: 16px;
+    background: var(--accent); color: #fff; border-radius: 999px;
+    font-size: 9px; font-weight: 900; display: grid; place-items: center;
+  }
+
+  /* shared bits */
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; }
+  .kicker { font-size: 9.5px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; color: var(--label); }
+  .st { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+  .st i.dot { width: 7px; height: 7px; border-radius: 50%; }
+  .st.amber { color: var(--pending); } .st.amber i.dot { background: var(--pending); }
+  .st.green { color: var(--complete); } .st.green i.dot { background: var(--complete); }
+
+  /* ═════════════════════════════════════════════════════════════════════
+     LAYOUT 1 — GLANCE HERO  (the "two-second dashboard")
+     2026 pattern: hero answer block → stat strip → ranked lists.
+     The top card answers "what's happening + what next" without scroll.
+     ═════════════════════════════════════════════════════════════════════ */
+  .l1 .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .hero {
+    border-radius: 20px; padding: 18px 16px 16px;
+    background: linear-gradient(165deg, #FFFFFF 0%, #F4F8FE 100%);
+    border: 1px solid var(--card-border);
+    box-shadow: 0 14px 34px -18px rgba(30,86,224,.28);
+  }
+  .hero .row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .hero h2 { font-size: 20px; font-weight: 900; letter-spacing: -.01em; line-height: 1.15; }
+  .hero .sub { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .hero .facts { display: flex; gap: 18px; margin: 14px 0 4px; }
+  .hero .facts div b { display: block; font-size: 15px; font-weight: 900; }
+  .hero .facts div span { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--label); }
+  .hero .acts { display: flex; gap: 8px; margin-top: 14px; }
+  .btn {
+    min-height: 48px; border-radius: 13px; cursor: pointer; border: 1px solid var(--card-border);
+    background: var(--card); color: var(--text); font: 700 13px 'Lato';
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn.pri { flex: 1; background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 8px 20px -8px rgba(30,86,224,.5); }
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .strip .s { padding: 11px 6px; text-align: center; }
+  .strip .s b { display: block; font-size: 17px; font-weight: 900; }
+  .strip .s span { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--label); }
+  .strip .s svg { color: var(--accent); margin-bottom: 3px; }
+  .nextrow { display: flex; align-items: center; gap: 12px; padding: 13px 14px; }
+  .nextrow .tt { font-size: 15px; font-weight: 900; width: 46px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .nextrow .tt em { display: block; font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--label); text-transform: uppercase; letter-spacing: .08em; }
+  .nextrow .who { flex: 1; min-width: 0; }
+  .nextrow .who b { display: block; font-size: 13.5px; font-weight: 700; }
+  .nextrow .who span { display: block; font-size: 10.5px; color: var(--text-2); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .secthead { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 4px 0; }
+  .secthead a { font-size: 11.5px; color: var(--accent); font-weight: 700; text-decoration: none; }
+
+  /* ═════════════════════════════════════════════════════════════════════
+     LAYOUT 2 — METRICS BENTO  (the "numbers dashboard")
+     2026 pattern: KPI bento with micro-charts + progress rings,
+     segmented Today/Week scope. Data-dense but calm — for supervisors.
+     ═════════════════════════════════════════════════════════════════════ */
+  .l2 .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .seg {
+    display: flex; background: var(--inset); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 3px; gap: 2px;
+  }
+  .seg a {
+    flex: 1; text-align: center; text-decoration: none; min-height: 36px; line-height: 36px;
+    font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--label); border-radius: 9px;
+  }
+  .seg a.on { background: var(--card); color: var(--accent); box-shadow: 0 2px 8px -2px rgba(16,24,40,.18); }
+  .bento { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .bt { padding: 13px; }
+  .bt .cap { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .bt .big { font-size: 24px; font-weight: 900; letter-spacing: -.02em; }
+  .bt .big small { font-size: 12px; color: var(--text-2); font-weight: 700; }
+  .delta { font-size: 9px; font-weight: 900; border-radius: 999px; padding: 3px 7px; }
+  .delta.up { color: var(--complete); background: rgba(31,122,61,.1); }
+  .delta.dn { color: var(--urgent); background: rgba(193,53,53,.08); }
+  .bt.w2 { grid-column: span 2; }
+  .bars { display: flex; align-items: flex-end; gap: 4px; height: 38px; margin-top: 10px; }
+  .bars i { flex: 1; border-radius: 3px 3px 0 0; background: var(--accent-soft); }
+  .bars i.hot { background: var(--accent); }
+  .ring { position: relative; width: 62px; height: 62px; margin-left: auto; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .val { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 900; }
+  .crew { display: flex; margin-top: 10px; }
+  .crew span {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--card);
+    display: grid; place-items: center; font-size: 11px; font-weight: 900; margin-left: -8px;
+    position: relative;
+  }
+  .crew span:first-child { margin-left: 0; }
+  .crew .on::after { content: ''; position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: var(--complete); border: 2px solid var(--card); }
+  .crew .off { background: var(--inset); color: var(--label); }
+  .jobline { display: flex; align-items: center; gap: 11px; padding: 12px 14px; }
+  .jobline .who { flex: 1; min-width: 0; }
+  .jobline .who b { display: block; font-size: 13.5px; font-weight: 700; }
+  .jobline .who span { display: block; font-size: 10.5px; color: var(--text-2); }
+  .mini { font-size: 10px; font-weight: 900; border-radius: 999px; padding: 5px 9px; }
+  .mini.sched { color: var(--pending); background: rgba(199,122,8,.1); }
+  .mini.done { color: var(--complete); background: rgba(31,122,61,.1); }
+
+  /* ═════════════════════════════════════════════════════════════════════
+     LAYOUT 3 — DAY TIMELINE  (the "temporal dashboard")
+     2026 pattern: time-rail day view with a live "now" line and gap
+     awareness. Answers "what does my day look like" at a glance.
+     ═════════════════════════════════════════════════════════════════════ */
+  .l3 .body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .l3 .strip { grid-template-columns: repeat(3, 1fr); }
+  .tl { position: relative; padding-left: 58px; }
+  .tl .rail { position: absolute; left: 44px; top: 6px; bottom: 6px; width: 2px; background: var(--card-border); border-radius: 2px; }
+  .blk { position: relative; margin-bottom: 10px; }
+  .blk .tm {
+    position: absolute; left: -58px; top: 12px; width: 38px; text-align: right;
+    font-size: 11.5px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--text-2);
+  }
+  .blk .knob {
+    position: absolute; left: -7px; top: 14px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--card); border: 3px solid var(--accent); z-index: 2;
+  }
+  .blk .card { padding: 12px 14px; }
+  .blk .r1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .blk .r1 b { font-size: 14px; font-weight: 700; }
+  .blk .sub { font-size: 11px; color: var(--text-2); margin-top: 3px; }
+  .blk .dur { font-size: 10px; font-weight: 900; color: var(--label); text-transform: uppercase; letter-spacing: .06em; }
+  .blk.done .knob { border-color: var(--complete); }
+  .nowline { position: relative; margin: 2px 0 12px; }
+  .nowline .tm { position: absolute; left: -58px; top: -6px; width: 38px; text-align: right; font-size: 11px; font-weight: 900; color: var(--urgent); font-variant-numeric: tabular-nums; }
+  .nowline .ln { height: 2px; background: var(--urgent); border-radius: 2px; position: relative; }
+  .nowline .ln::after {
+    content: 'NOW'; position: absolute; right: 0; top: -16px; font-size: 8.5px; font-weight: 900;
+    letter-spacing: .12em; color: var(--urgent);
+  }
+  .gapcard {
+    border: 1.5px dashed var(--accent-border); border-radius: 14px; background: var(--accent-soft);
+    padding: 10px 12px; display: flex; align-items: center; gap: 9px; font-size: 11.5px; color: var(--accent); font-weight: 700;
+  }
+  .compline { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .compline b { font-size: 13px; font-weight: 700; }
+  .compline .due { margin-left: auto; font-size: 12px; font-weight: 900; color: var(--pending); }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="cap">Dash layout</span>
+  <button class="sw on" data-l="l1">Glance Hero</button>
+  <button class="sw" data-l="l2">Metrics Bento</button>
+  <button class="sw" data-l="l3">Day Timeline</button>
+</div>
+
+<div class="phone">
+
+  <!-- shared header -->
+  <header class="app-header">
+    <div class="logo"><i data-lucide="droplet" width="17"></i></div>
+    <div>
+      <div class="org">Caulfield South Plumbing</div>
+      <div class="scr">Dashboard</div>
+    </div>
+    <div class="find"><i data-lucide="search" width="20"></i></div>
+  </header>
+
+  <!-- ═══ LAYOUT 1 · GLANCE HERO ═══ -->
+  <div class="layout l1 on">
+    <div class="body">
+
+      <div class="hero">
+        <div class="row1">
+          <span class="kicker" style="color:var(--accent)">Now · J-1043</span>
+          <span class="st amber"><i class="dot"></i>On site</span>
+        </div>
+        <h2>OC 4021 — riser leak, unit 6</h2>
+        <p class="sub">212 Glen Eira Rd, Caulfield · Tim B. since 9:12am</p>
+        <div class="facts">
+          <div><b>4</b><span>Photos</span></div>
+          <div><b>2h 28m</b><span>On job</span></div>
+          <div><b>1:30p</b><span>Next gap</span></div>
+          <div><b>2</b><span>Cert watch</span></div>
+        </div>
+        <div class="acts">
+          <button class="btn pri"><i data-lucide="wrench" width="15"></i>Open job</button>
+          <button class="btn"><i data-lucide="phone" width="15"></i></button>
+          <button class="btn"><i data-lucide="notebook-pen" width="15"></i></button>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="card s"><i data-lucide="users" width="14"></i><b>2</b><span>On crew</span></div>
+        <div class="card s"><i data-lucide="clipboard-list" width="14"></i><b>4</b><span>Jobs</span></div>
+        <div class="card s"><i data-lucide="clock" width="14"></i><b>18.5</b><span>Hrs wk</span></div>
+        <div class="card s"><i data-lucide="shield-alert" width="14"></i><b style="color:var(--pending)">2</b><span>Expiring</span></div>
+      </div>
+
+      <div class="secthead"><span class="kicker">Up next</span><a href="#">All jobs ›</a></div>
+      <div class="card nextrow">
+        <div class="tt">1:30<em>pm</em></div>
+        <div class="who"><b>Priya Nair</b><span>14 Hawthorn Grove · mixer tap + leak</span></div>
+        <span class="st amber"><i class="dot"></i>Sched</span>
+      </div>
+      <div class="card nextrow">
+        <div class="tt">3:45<em>pm</em></div>
+        <div class="who"><b>Danny Petrakis</b><span>22 Kambrook Rd · drain camera</span></div>
+        <span class="st amber"><i class="dot"></i>Sched</span>
+      </div>
+
+      <div class="secthead"><span class="kicker">Compliance</span></div>
+      <div class="card compline" style="border-color:rgba(199,122,8,.35)">
+        <i data-lucide="shield-alert" width="16" style="color:var(--pending)"></i>
+        <div><b>Gas cert — unit 6</b> <span style="color:var(--text-2)">· J-1043</span></div>
+        <div class="due">15d</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ LAYOUT 2 · METRICS BENTO ═══ -->
+  <div class="layout l2">
+    <div class="body">
+
+      <div class="seg"><a href="#" class="on">Today</a><a href="#">This week</a><a href="#">All</a></div>
+
+      <div class="bento">
+        <div class="card bt w2">
+          <div class="cap"><span class="kicker">Hours this week</span><span class="delta up">▲ 12%</span></div>
+          <div class="big">18.5<small> h</small></div>
+          <div class="bars">
+            <i style="height:34%"></i><i style="height:58%"></i><i style="height:42%"></i><i style="height:76%"></i><i class="hot" style="height:100%"></i><i style="height:64%"></i><i style="height:30%"></i>
+          </div>
+        </div>
+        <div class="card bt w2">
+          <div class="cap"><span class="kicker">Daily reports</span></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="big">3<small>/4</small></div>
+            <div class="ring">
+              <svg width="62" height="62"><circle cx="31" cy="31" r="26" fill="none" stroke="#E7EEFC" stroke-width="7"/><circle cx="31" cy="31" r="26" fill="none" stroke="#1E56E0" stroke-width="7" stroke-linecap="round" stroke-dasharray="163" stroke-dashoffset="41"/></svg>
+              <div class="val">75%</div>
+            </div>
+          </div>
+        </div>
+        <div class="card bt w2">
+          <div class="cap"><span class="kicker">Crew</span><span class="st green"><i class="dot"></i>2 on</span></div>
+          <div class="crew">
+            <span class="on" style="background:#1E56E0;color:#fff">TB</span>
+            <span class="on" style="background:#C77A08;color:#fff">SW</span>
+            <span class="off">MR</span>
+          </div>
+        </div>
+        <div class="card bt w2">
+          <div class="cap"><span class="kicker">Quotes pending</span><span class="delta dn">▼ 1</span></div>
+          <div class="big">2<small> open</small></div>
+          <div style="font-size:10.5px;color:var(--text-2);margin-top:6px">$4,280 potential</div>
+        </div>
+      </div>
+
+      <div class="secthead"><span class="kicker">Job health</span><a href="#">All jobs ›</a></div>
+      <div class="card jobline">
+        <i data-lucide="wrench" width="16" style="color:var(--accent)"></i>
+        <div class="who"><b>OC 4021 — J-1043</b><span>On site now · Tim B. · 2h 28m</span></div>
+        <span class="mini sched">Live</span>
+      </div>
+      <div class="card jobline">
+        <i data-lucide="calendar-clock" width="16" style="color:var(--label)"></i>
+        <div class="who"><b>Priya Nair</b><span>1:30pm · mixer tap + leak</span></div>
+        <span class="mini sched">Sched</span>
+      </div>
+      <div class="card jobline">
+        <i data-lucide="check-circle-2" width="16" style="color:var(--complete)"></i>
+        <div class="who"><b>Marlene Cho</b><span>Follow-up · completed 11:05am</span></div>
+        <span class="mini done">Done</span>
+      </div>
+
+      <div class="card compline" style="border-color:rgba(199,122,8,.35)">
+        <i data-lucide="shield-alert" width="16" style="color:var(--pending)"></i>
+        <div><b>2 certs expiring</b> <span style="color:var(--text-2)">· gas 15d · liability 24d</span></div>
+        <div class="due">15d</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ LAYOUT 3 · DAY TIMELINE ═══ -->
+  <div class="layout l3">
+    <div class="body">
+
+      <div class="strip">
+        <div class="card s"><i data-lucide="users" width="14"></i><b>2</b><span>On crew</span></div>
+        <div class="card s"><i data-lucide="clock" width="14"></i><b>18.5</b><span>Hrs wk</span></div>
+        <div class="card s"><i data-lucide="shield-alert" width="14"></i><b style="color:var(--pending)">2</b><span>Expiring</span></div>
+      </div>
+
+      <div class="tl">
+        <div class="rail"></div>
+
+        <div class="blk done">
+          <div class="tm">8:00</div><div class="knob"></div>
+          <div class="card">
+            <div class="r1"><b>Marlene Cho — follow-up</b><span class="dur">1h 05</span></div>
+            <div class="sub">9 Booran Rd, gate 1042 · completed 9:05am</div>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="tm">9:12</div><div class="knob"></div>
+          <div class="card" style="border-color:var(--accent-border);box-shadow:0 10px 26px -14px rgba(30,86,224,.4)">
+            <div class="r1"><b>J-1043 · OC 4021</b><span class="st amber"><i class="dot"></i>On</span></div>
+            <div class="sub">Riser leak unit 6 · 212 Glen Eira Rd · Tim B.</div>
+          </div>
+        </div>
+
+        <div class="nowline"><div class="tm">11:52</div><div class="ln"></div></div>
+
+        <div class="gapcard">
+          <i data-lucide="coffee" width="15"></i>
+          1h 38m gap — lunch + parts run (Reece Clayton)
+        </div>
+
+        <div class="blk">
+          <div class="tm">1:30</div><div class="knob"></div>
+          <div class="card">
+            <div class="r1"><b>Priya Nair</b><span class="dur">1h 30</span></div>
+            <div class="sub">14 Hawthorn Grove · mixer tap + under-sink leak</div>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="tm">3:45</div><div class="knob"></div>
+          <div class="card">
+            <div class="r1"><b>Danny Petrakis</b><span class="dur">1h 15</span></div>
+            <div class="sub">22 Kambrook Rd · drain camera inspection</div>
+          </div>
+        </div>
+
+        <div class="blk">
+          <div class="tm">5:00</div><div class="knob"></div>
+          <div class="card">
+            <div class="r1"><b>Marlene Cho — gate 1042</b><span class="dur">45m</span></div>
+            <div class="sub">Return visit · close out quote Q-88</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card compline" style="border-color:rgba(199,122,8,.35)">
+        <i data-lucide="shield-alert" width="16" style="color:var(--pending)"></i>
+        <div><b>Gas cert — unit 6</b> <span style="color:var(--text-2)">· J-1043</span></div>
+        <div class="due">15d</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- shared nav -->
+  <nav class="nav">
+    <a href="#"><i data-lucide="wrench" width="19"></i>Jobs</a>
+    <a href="#"><i data-lucide="clipboard-list" width="19"></i>Quotes</a>
+    <a href="#"><i data-lucide="message-square" width="19"></i>Msgs<span class="badge">9</span></a>
+    <a href="#" class="on"><i data-lucide="layout-dashboard" width="19"></i>Dash</a>
+    <a href="#"><i data-lucide="folder-open" width="19"></i>Docs</a>
+    <a href="#"><i data-lucide="settings" width="19"></i>Set</a>
+  </nav>
+
+</div>
+
+<script>
+  lucide.createIcons();
+  document.querySelectorAll('.sw').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sw').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      document.querySelectorAll('.layout').forEach(l => l.classList.remove('on'));
+      document.querySelector('.' + btn.dataset.l).classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

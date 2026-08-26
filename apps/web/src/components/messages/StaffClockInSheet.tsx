@@ -4,9 +4,10 @@ import { Check } from "lucide-react";
 
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { formatSerial } from "@/lib/display";
 
-const MUTED = "#72767D";
-const BORDER = "rgba(255,255,255,0.09)";
+const MUTED = "var(--text-subtle)";
+const BORDER = "var(--surface-border)";
 
 function initials(name: string): string {
   return name
@@ -54,7 +55,7 @@ export function StaffClockInSheet({
       subtitle={
         mode === "clockin"
           ? job
-            ? `${job.id} · ${job.client}`
+            ? `${formatSerial(job.id)} · ${job.client}`
             : "Select a job to clock in"
           : "Switch who's operating this device"
       }
@@ -71,28 +72,28 @@ export function StaffClockInSheet({
               className="w-full flex items-center gap-3 p-3.5 rounded-2xl transition-transform active:scale-[0.98]"
               style={{
                 background: isCurrent
-                  ? "linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent) 0%, color-mix(in srgb, var(--accent) 7%, transparent) 100%)"
+                  ? "var(--accent-dim)"
                   : "linear-gradient(180deg, var(--sheet-tile) 0%, var(--sheet-tile-soft) 100%)",
-                border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--accent) 35%, transparent)" : BORDER}`,
+                border: `1px solid ${isCurrent ? "var(--edge-highlight)" : BORDER}`,
                 boxShadow: isCurrent
-                  ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.3)"
-                  : "inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 14px rgba(0,0,0,0.3)",
+                  ? "inset 0 1px 0 var(--edge-highlight), 0 0 24px -6px var(--chrome-400), 0 4px 14px var(--app-shadow)"
+                  : "var(--shadow-sheet), 0 4px 14px var(--app-shadow)",
               }}
             >
               <span
-                className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold text-white shrink-0"
-                style={{ backgroundColor: member.color }}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold text-on-accent shrink-0"
+                style={{ backgroundColor: "var(--chassis-glass)" }}
               >
                 {initials(member.name)}
               </span>
               <span className="flex-1 min-w-0 text-left">
-                <span className="block text-white text-[14px] font-bold tracking-tight leading-tight">
+                <span className="block text-ink text-[14px] font-bold tracking-tight leading-tight">
                   {member.name}
                   {isCurrent && (
                     <span
                       className="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                       style={{
-                        backgroundColor: "color-mix(in srgb, var(--accent) 20%, transparent)",
+                        backgroundColor: "var(--accent-dim)",
                         color: "var(--accent)",
                       }}
                     >

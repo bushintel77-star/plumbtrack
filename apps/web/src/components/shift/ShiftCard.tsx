@@ -4,10 +4,8 @@ import { useState } from "react";
 
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { useTimer } from "@/hooks/useTimer";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { formatDuration } from "@/lib/billing";
 import {
-  IconGpsFix,
   IconMugBreak,
   IconValve,
   IconValveShut,
@@ -15,15 +13,15 @@ import {
 import { LogOnSheet } from "./LogOnSheet";
 import { LogOffSheet } from "./LogOffSheet";
 
-const WORK_TYPE_BADGE: Record<string, string> = {
-  standard: "Standard shift",
-  callback: "Call-back",
-  inclement: "Inclement weather",
+const WORK_TYPE: Record<string, string> = {
+  standard: "STD",
+  callback: "CBK",
+  inclement: "WET",
 };
 
 /**
- * Shift banner for the jobs list — the day-level log-on / log-off state
- * machine that bounds location tracking and drives award interpretation.
+ * ShiftCard — Hardware Chassis Design
+ * From reference: widget-chassis container, data-hero timer, machined buttons
  */
 export function ShiftCard() {
   const { activeShift, openBreak, trackingActive, startMealBreak, endMealBreak } = usePlumbTrackCtx();
@@ -33,87 +31,131 @@ export function ShiftCard() {
   const shiftSeconds = useTimer(!!activeShift, activeShift ? new Date(activeShift.loggedOnAt).getTime() : null);
   const breakSeconds = useTimer(!!openBreak, openBreak ? new Date(openBreak.start).getTime() : null);
 
-  // Both sheets stay mounted regardless of shift state — LogOffSheet holds
-  // its completed-shift summary after the shift itself has ended.
+  const hours = Math.floor(shiftSeconds / 3600);
+  const mins = Math.floor((shiftSeconds % 3600) / 60);
+  const secs = shiftSeconds % 60;
+
+  const breakMins = Math.floor(breakSeconds / 60);
+
+  if (!activeShift) {
+    return (
+      <>
+        <div className="widget-chassis shift-logon-chassis">
+          <button
+            type="button"
+            onClick={() => setLogOnOpen(true)}
+            className="shift-logon-button w-full text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full border-2 border-dashed border-line-strong flex items-center justify-center">
+                <IconValve size={20} className="text-[var(--text-secondary)]" />
+              </div>
+              <div className="flex-1">
+                <div className="text-title">LOG ON</div>
+                <div className="label-micro" style={{ marginTop: "4px" }}>
+                  Start shift tracking
+                </div>
+              </div>
+              <span className="text-[var(--text-secondary)] text-[18px]">→</span>
+            </div>
+          </button>
+        </div>
+        <LogOnSheet open={logOnOpen} onClose={() => setLogOnOpen(false)} />
+      </>
+    );
+  }
+
   return (
     <>
-      {activeShift ? (
-        <GlassCard>
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  trackingActive ? "bg-green-400 animate-pulse" : "bg-amber-400"
-                }`}
-              />
-              <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-slate-400">
-                {openBreak ? "On break — tracking paused" : "On shift — tracking active"}
-              </p>
-            </div>
-            <span className="text-[9.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.05] text-slate-400 border border-white/[0.07]">
-              {WORK_TYPE_BADGE[activeShift.workType]}
+      <div className="widget-chassis">
+        {/* Header — Status indicator + Work order */}
+        <header className="widget-header">
+          <div className="status-indicator">
+            <span className={`status-dot ${trackingActive ? "active" : "urgent"}`} />
+            <span className="label-micro">
+              {openBreak ? "On Break" : trackingActive ? "Active Route" : "Paused"}
             </span>
           </div>
+          <span className="work-order-id">{WORK_TYPE[activeShift.workType]}</span>
+        </header>
 
-          <p className="font-mono text-white text-3xl font-light tracking-wide tabular-nums">
-            {formatDuration(shiftSeconds)}
-          </p>
-          {openBreak && (
-            <p className="text-[11px] text-amber-400/90 mt-1 font-mono">
-              Unpaid break · {formatDuration(breakSeconds)}
-            </p>
-          )}
+        <hr className="hairline-divider" />
 
-          <div className="grid grid-cols-2 gap-2 mt-3.5">
-            {openBreak ? (
-              <button
-                type="button"
-                onClick={endMealBreak}
-                className="py-3 rounded-xl bg-accent/15 text-accent text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:scale-[0.98] transition border border-accent/30"
-              >
-                <IconMugBreak size={14} /> End Break
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={startMealBreak}
-                className="py-3 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:bg-white/[0.08] transition border border-white/[0.08]"
-              >
-                <IconMugBreak size={14} /> Meal Break
-              </button>
-            )}
+        {/* Telemetry — Hero timer */}
+        <div className="telemetry-grid">
+          <div className="telemetry-data">
+            <div className="data-block">
+              <span className="label-micro">Elapsed</span>
+              <div className="data-hero">
+                {String(hours).padStart(2, "0")}
+                <span className="data-unit">HR</span>
+              </div>
+            </div>
+            <div className="data-block">
+              <span className="label-micro">Minutes</span>
+              <div className="data-hero">
+                {String(mins).padStart(2, "0")}
+                <span className="data-unit">MIN</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Route axis — shift progress */}
+          <div className="route-axis">
+            <div className={`axis-node ${trackingActive ? "current" : ""}`} />
+            <div className="axis-line" />
+            <div className="axis-node" />
+          </div>
+        </div>
+
+        {openBreak && (
+          <div className="label-micro" style={{ color: "var(--status-pending)", marginBottom: "16px" }}>
+            UNPAID BREAK · {breakMins}m
+          </div>
+        )}
+
+        {/* Action array */}
+        <div className="action-array">
+          {openBreak ? (
             <button
               type="button"
-              onClick={() => setLogOffOpen(true)}
-              className="py-3 rounded-xl bg-red-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 min-h-[44px] active:scale-[0.98] transition shadow-lg shadow-red-500/20"
+              onClick={endMealBreak}
+              className="btn-machined primary"
             >
-              <IconValveShut size={14} /> Log Off
+              <IconMugBreak size={16} style={{ marginRight: "8px" }} /> END BREAK
             </button>
-          </div>
-
-          {trackingActive && (
-            <p className="text-[10px] text-slate-600 mt-2.5 flex items-center gap-1.5">
-              <IconGpsFix size={10} /> GPS shared with dispatch while on shift — never off-duty
-            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={startMealBreak}
+              className="btn-machined secondary"
+            >
+              <IconMugBreak size={16} style={{ marginRight: "8px" }} /> BREAK
+            </button>
           )}
-        </GlassCard>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setLogOnOpen(true)}
-          className="w-full surface-card surface-card--interactive p-4 flex items-center gap-3.5 text-left"
-        >
-          <span className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-            <IconValve size={20} className="text-accent" />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-white text-[14.5px] font-bold tracking-tight">Off duty — log on to start</span>
-            <span className="block text-[11.5px] text-slate-500 mt-0.5 leading-snug">
-              Tracking runs only while logged on. Award penalties are worked out at log-off.
-            </span>
-          </span>
-        </button>
-      )}
+          <button
+            type="button"
+            onClick={() => setLogOffOpen(true)}
+            className="btn-machined secondary"
+            style={{ 
+              background: "var(--status-urgent-dim)",
+              borderColor: "var(--status-urgent-border)"
+            }}
+          >
+            <IconValveShut size={16} style={{ marginRight: "8px" }} /> LOG OFF
+          </button>
+        </div>
+
+        {/* GPS notice */}
+        {trackingActive && (
+          <>
+            <hr className="hairline-divider" style={{ marginTop: "24px" }} />
+            <div className="label-micro" style={{ textAlign: "center" }}>
+              GPS ACTIVE
+            </div>
+          </>
+        )}
+      </div>
       <LogOnSheet open={logOnOpen} onClose={() => setLogOnOpen(false)} />
       <LogOffSheet open={logOffOpen} onClose={() => setLogOffOpen(false)} />
     </>

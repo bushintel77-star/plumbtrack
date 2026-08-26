@@ -57,6 +57,9 @@ export interface Shift {
   workType: ShiftWorkType;
   /** ISO-8601 UTC log-on timestamp. */
   loggedOnAt: string;
+  /** Best-effort GPS captured at shift ignition. */
+  loggedOnLat?: number | null;
+  loggedOnLng?: number | null;
   /** ISO-8601 UTC log-off timestamp, or null while the shift is running. */
   loggedOffAt: string | null;
   breaks: ShiftBreak[];
@@ -74,6 +77,9 @@ export interface JobPhoto {
   url: string;
   /** ISO-8601 UTC timestamp captured locally or returned by the API. */
   takenAt?: string;
+  /** Optional capture coordinates for evidence provenance. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export type ResidentialJobType = "emergency" | "hot_water" | "general_maintenance" | "gas_compliance" | "blocked_drain";
@@ -99,6 +105,11 @@ export interface SafetyConfirmation {
   gasChecked: boolean;
   pressureTested: boolean;
   notes: string;
+  /** Evidence provenance for safety confirmations. */
+  confirmedAt?: string | null;
+  confirmedBy?: string | null;
+  confirmedLat?: number | null;
+  confirmedLng?: number | null;
 }
 
 // ── Production log — quantities installed, observations, incidents ──────────
@@ -143,6 +154,10 @@ export interface DailyReport {
   materials?: ReportMaterial[];
   delays: string;
   visitorLog: string;
+  /** Submission evidence; optional for reports created by older builds. */
+  submittedBy?: string | null;
+  submittedLat?: number | null;
+  submittedLng?: number | null;
   productionEntries: string[];
   checklistIds: string[];
   photoIds: string[];
@@ -197,6 +212,11 @@ export interface Job {
   quoteId?: string | null;
   xeroSyncedAt?: string | null;
   retentionPercent?: number;
+  /** Completion evidence captured when the customer signs off. */
+  signatureCapturedAt?: string | null;
+  signatureCapturedBy?: string | null;
+  signatureLat?: number | null;
+  signatureLng?: number | null;
   timeEntries: TimeEntry[];
   photos: JobPhoto[];
   serviceItems?: ServiceItem[];

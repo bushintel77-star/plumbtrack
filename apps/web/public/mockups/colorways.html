@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlumbTrack — Colourways (same structure)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  /* ═════════════════════════════════════════════════════════════════════
+     COLOURWAYS — identical structure to the live Documents screen.
+     One DOM; the switcher only swaps the token block. Status red/amber/
+     green is fixed in every colourway (the app's non-negotiable).
+     ═════════════════════════════════════════════════════════════════════ */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: #05070C; }
+  body { font-family: 'Lato', sans-serif; color: #E9EDF6; }
+
+  /* ── Switcher ── */
+  .switcher {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 14px;
+    background: rgba(5,7,12,.92); backdrop-filter: blur(16px);
+    border-bottom: 1px solid #1C2030;
+  }
+  .switcher .cap { font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: #7C88A6; margin-right: 4px; }
+  .sw {
+    border: 1px solid #2A2F42; background: #12141D; color: #9CA8C4;
+    font: 700 11px 'Lato'; letter-spacing: .04em; padding: 8px 13px; border-radius: 999px;
+    cursor: pointer; display: flex; align-items: center; gap: 7px;
+  }
+  .sw i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .sw.on { color: #fff; border-color: #4E8CFF; box-shadow: 0 0 0 1px rgba(78,140,255,.35); }
+
+  /* ── Phone frame ── */
+  .phone {
+    max-width: 400px; margin: 18px auto 40px; border-radius: 22px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.8);
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+
+  /* ═══ TOKEN BLOCKS — the only thing that changes ═══════════════════════ */
+
+  /* 1 · CHROME BLUE (what's live now) */
+  .cw-blue {
+    --page: #071022; --header: #0A142E;
+    --card: rgba(16,59,140,.32); --card-border: rgba(184,216,255,.12);
+    --row: rgba(16,59,140,.16); --row-border: rgba(184,216,255,.08);
+    --inset: rgba(3,8,20,.45); --control: rgba(9,18,40,.95);
+    --text: #FAFAFA; --text-2: #9AB0DC; --label: #8298C4;
+    --accent: #1E56E0; --accent-bright: #4E8CFF; --glow: #B8D8FF;
+    --urgent: #D93636; --pending: #E8930C; --complete: #2E9E4F;
+  }
+  /* 2 · ABYSS TEAL (the old ocean/aqua idea, done on a cool base) */
+  .cw-teal {
+    --page: #03161B; --header: #052027;
+    --card: rgba(13,90,100,.30); --card-border: rgba(153,246,228,.12);
+    --row: rgba(13,90,100,.15); --row-border: rgba(153,246,228,.08);
+    --inset: rgba(1,10,13,.45); --control: rgba(4,28,33,.95);
+    --text: #F2FBFA; --text-2: #9BD4CD; --label: #7FBDB5;
+    --accent: #0D9488; --accent-bright: #2DD4BF; --glow: #99F6E4;
+    --urgent: #D93636; --pending: #E8930C; --complete: #2E9E4F;
+  }
+  /* 3 · STEALTH GRAPHITE (mono — only status carries colour) */
+  .cw-graphite {
+    --page: #0F1114; --header: #14171B;
+    --card: rgba(255,255,255,.05); --card-border: rgba(255,255,255,.14);
+    --row: rgba(255,255,255,.03); --row-border: rgba(255,255,255,.09);
+    --inset: rgba(0,0,0,.40); --control: rgba(22,25,30,.95);
+    --text: #F4F6FA; --text-2: #AEB6C4; --label: #8E96A5;
+    --accent: #E8EDF5; --accent-bright: #FFFFFF; --glow: #FFFFFF;
+    --urgent: #E5484D; --pending: #F5A623; --complete: #46B26B;
+  }
+  /* 4 · ARCTIC LIGHT (a clean light option for indoor days) */
+  .cw-arctic {
+    --page: #EDF2F9; --header: #FFFFFF;
+    --card: #FFFFFF; --card-border: #D9E2F0;
+    --row: #FFFFFF; --row-border: #E4EBF4;
+    --inset: #F2F5FA; --control: #F5F8FC;
+    --text: #101828; --text-2: #5B6B8C; --label: #5B6B8C;
+    --accent: #1E56E0; --accent-bright: #1E56E0; --glow: #1E56E0;
+    --urgent: #C13535; --pending: #C77A08; --complete: #1F7A3D;
+  }
+
+  /* ═══ THE SCREEN — mirrors the live app, untouched across colourways ═══ */
+  .screen { background: var(--page); color: var(--text); display: flex; flex-direction: column; flex: 1; }
+
+  .app-header {
+    background: var(--header); border-bottom: 1px solid var(--card-border);
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .app-header .logo {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    display: grid; place-items: center; color: var(--accent-bright);
+  }
+  .app-header .titles { flex: 1; min-width: 0; }
+  .app-header .org { font-size: 9.5px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--label); }
+  .app-header .scr { font-size: 19px; font-weight: 900; letter-spacing: -.01em; }
+  .app-header .find { color: var(--accent-bright); opacity: .9; }
+
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* stats */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 16px; padding: 12px 10px; text-align: center;
+    backdrop-filter: blur(12px);
+  }
+  .stat svg { color: var(--accent-bright); margin-bottom: 4px; }
+  .stat.warn svg { color: var(--pending); }
+  .stat .n { font-size: 19px; font-weight: 900; line-height: 1; }
+  .stat .l { font-size: 9px; text-transform: uppercase; letter-spacing: .09em; color: var(--label); margin-top: 4px; font-weight: 700; }
+
+  /* banner */
+  .banner {
+    display: flex; align-items: center; gap: 10px;
+    background: color-mix(in srgb, var(--pending) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pending) 36%, transparent);
+    color: var(--pending); border-radius: 14px; padding: 10px 12px;
+    font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .07em;
+  }
+  .banner .chips { margin-left: auto; display: flex; gap: 6px; }
+  .banner .chip {
+    background: color-mix(in srgb, var(--pending) 16%, transparent);
+    border-radius: 999px; padding: 4px 8px; font-size: 9.5px;
+  }
+
+  /* upload CTA */
+  .cta {
+    min-height: 48px; border: 0; border-radius: 14px; cursor: pointer;
+    background: var(--accent); color: #fff;
+    font: 700 14px 'Lato'; display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 0 24px -6px color-mix(in srgb, var(--glow) 55%, transparent);
+  }
+
+  /* search */
+  .search { position: relative; }
+  .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--label); }
+  .search input {
+    width: 100%; min-height: 44px; border-radius: 14px;
+    background: var(--control); border: 1px solid var(--card-border);
+    color: var(--text); font: 400 14px 'Lato'; padding: 0 12px 0 38px; outline: none;
+  }
+  .search input::placeholder { color: var(--label); }
+
+  /* filter chips */
+  .chips-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .chips-row::-webkit-scrollbar { display: none; }
+  .fchip {
+    flex-shrink: 0; min-height: 32px; padding: 0 13px; border-radius: 999px;
+    font: 700 11px 'Lato'; text-transform: uppercase; letter-spacing: .05em;
+    background: var(--row); color: var(--label); border: 1px solid var(--row-border); cursor: pointer;
+  }
+  .fchip.on {
+    background: color-mix(in srgb, var(--accent-bright) 15%, transparent);
+    color: var(--accent-bright); border-color: color-mix(in srgb, var(--accent-bright) 35%, transparent);
+  }
+
+  /* doc rows */
+  .docs { display: flex; flex-direction: column; gap: 6px; }
+  .doc {
+    display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+    background: var(--row); border: 1px solid var(--row-border);
+    border-radius: 14px; padding: 12px; min-height: 60px;
+  }
+  .doc .ic {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    background: color-mix(in srgb, var(--accent-bright) 12%, transparent);
+    color: var(--accent-bright); display: grid; place-items: center;
+    border: 1px solid color-mix(in srgb, var(--accent-bright) 25%, transparent);
+  }
+  .doc .tx { flex: 1; min-width: 0; }
+  .doc .nm { display: block; font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc .mt { display: block; font-size: 10.5px; color: var(--label); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .expiry {
+    flex-shrink: 0; font-size: 10px; font-weight: 900; border-radius: 999px; padding: 5px 9px;
+    color: var(--pending); background: color-mix(in srgb, var(--pending) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pending) 32%, transparent);
+  }
+  .expiry.ok { color: var(--complete); background: color-mix(in srgb, var(--complete) 12%, transparent); border-color: color-mix(in srgb, var(--complete) 30%, transparent); }
+  .doc .chev { color: var(--label); flex-shrink: 0; }
+
+  /* bottom nav */
+  .nav {
+    margin-top: auto; position: sticky; bottom: 0;
+    background: color-mix(in srgb, var(--header) 94%, transparent);
+    backdrop-filter: blur(20px); border-top: 1px solid var(--card-border);
+    display: flex; padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+  }
+  .nav a {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    text-decoration: none; color: var(--label); font-size: 9.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em; padding: 6px 0; position: relative;
+  }
+  .nav a.on { color: var(--accent-bright); }
+  .nav a.on::before {
+    content: ''; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    width: 26px; height: 3px; border-radius: 99px; background: var(--glow);
+    box-shadow: 0 0 12px 2px color-mix(in srgb, var(--glow) 60%, transparent);
+  }
+  .nav .badge {
+    position: absolute; top: -4px; right: 14%; min-width: 16px; height: 16px;
+    background: var(--accent); color: #fff; border-radius: 999px;
+    font-size: 9px; font-weight: 900; display: grid; place-items: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <span class="cap">Colourway</span>
+  <button class="sw on" data-cw="cw-blue"><i style="background:linear-gradient(135deg,#071022,#1E56E0,#B8D8FF)"></i>Chrome Blue</button>
+  <button class="sw" data-cw="cw-teal"><i style="background:linear-gradient(135deg,#03161B,#0D9488,#99F6E4)"></i>Abyss Teal</button>
+  <button class="sw" data-cw="cw-graphite"><i style="background:linear-gradient(135deg,#0F1114,#8E96A5,#F4F6FA)"></i>Stealth Graphite</button>
+  <button class="sw" data-cw="cw-arctic"><i style="background:linear-gradient(135deg,#EDF2F9,#FFFFFF,#1E56E0)"></i>Arctic Light</button>
+</div>
+
+<div class="phone cw-blue" id="phone">
+<div class="screen">
+
+  <header class="app-header">
+    <div class="logo"><i data-lucide="droplet" width="17"></i></div>
+    <div class="titles">
+      <div class="org">Caulfield South Plumbing</div>
+      <div class="scr">Documents</div>
+    </div>
+    <div class="find"><i data-lucide="search" width="20"></i></div>
+  </header>
+
+  <div class="body">
+
+    <div class="stats">
+      <div class="stat"><i data-lucide="folder-open" width="16"></i><div class="n">5</div><div class="l">Documents</div></div>
+      <div class="stat warn"><i data-lucide="shield-alert" width="16"></i><div class="n">2</div><div class="l">Expiring</div></div>
+      <div class="stat"><i data-lucide="circle-alert" width="16"></i><div class="n">0</div><div class="l">Expired</div></div>
+    </div>
+
+    <div class="banner">
+      <i data-lucide="triangle-alert" width="14"></i>
+      2 expiring in 30 days
+      <span class="chips"><span class="chip">15d</span><span class="chip">24d</span></span>
+    </div>
+
+    <button class="cta"><i data-lucide="upload" width="16"></i>Upload document</button>
+
+    <div class="search">
+      <i data-lucide="search" width="15"></i>
+      <input placeholder="Search name, tag or note…">
+    </div>
+
+    <div class="chips-row">
+      <button class="fchip on">All</button><button class="fchip">Company</button><button class="fchip">Jobs</button>
+    </div>
+    <div class="chips-row">
+      <button class="fchip on">All</button><button class="fchip">Spec / Plan</button><button class="fchip">Compliance</button><button class="fchip">Warranty</button><button class="fchip">Receipt</button><button class="fchip">Permit</button><button class="fchip">Insurance</button>
+    </div>
+
+    <div class="docs">
+      <div class="doc">
+        <span class="ic"><i data-lucide="file-check-2" width="17"></i></span>
+        <span class="tx"><span class="nm">Gas compliance certificate — unit 6</span><span class="mt">Compliance · J-1043 · OC · v1 · 126 KB</span></span>
+        <span class="expiry">15d left</span>
+        <i data-lucide="chevron-right" width="15" class="chev"></i>
+      </div>
+      <div class="doc">
+        <span class="ic"><i data-lucide="shield-check" width="17"></i></span>
+        <span class="tx"><span class="nm">Public Liability Insurance — 2026</span><span class="mt">Insurance · Company · v1 · 471 KB</span></span>
+        <span class="expiry">24d left</span>
+        <i data-lucide="chevron-right" width="15" class="chev"></i>
+      </div>
+      <div class="doc">
+        <span class="ic"><i data-lucide="receipt" width="17"></i></span>
+        <span class="tx"><span class="nm">Insurer claim reference — CL-88213</span><span class="mt">Receipt · J-1043 · OC · v1 · 89.9 KB</span></span>
+        <i data-lucide="chevron-right" width="15" class="chev"></i>
+      </div>
+      <div class="doc">
+        <span class="ic"><i data-lucide="file-text" width="17"></i></span>
+        <span class="tx"><span class="nm">Mixer tap spec — Caroma Liano</span><span class="mt">Spec / Plan · J-1042 · Marlene · v1 · 1.1 MB</span></span>
+        <i data-lucide="chevron-right" width="15" class="chev"></i>
+      </div>
+      <div class="doc">
+        <span class="ic"><i data-lucide="hard-hat" width="17"></i></span>
+        <span class="tx"><span class="nm">SWMS — Drainage &amp; Excavation</span><span class="mt">Compliance · Company · v1 · 294 KB</span></span>
+        <span class="expiry ok">Valid</span>
+        <i data-lucide="chevron-right" width="15" class="chev"></i>
+      </div>
+    </div>
+
+  </div>
+
+  <nav class="nav">
+    <a href="#"><i data-lucide="wrench" width="19"></i>Jobs</a>
+    <a href="#"><i data-lucide="clipboard-list" width="19"></i>Quotes</a>
+    <a href="#"><i data-lucide="message-square" width="19"></i>Msgs<span class="badge">9</span></a>
+    <a href="#"><i data-lucide="layout-dashboard" width="19"></i>Dash</a>
+    <a href="#" class="on"><i data-lucide="folder-open" width="19"></i>Docs</a>
+    <a href="#"><i data-lucide="settings" width="19"></i>Set</a>
+  </nav>
+
+</div>
+</div>
+
+<script>
+  lucide.createIcons();
+  const phone = document.getElementById('phone');
+  document.querySelectorAll('.sw').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sw').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      phone.className = 'phone ' + btn.dataset.cw;
+    });
+  });
+</script>
+</body>
+</html>

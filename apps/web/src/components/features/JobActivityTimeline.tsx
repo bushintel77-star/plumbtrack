@@ -26,13 +26,13 @@ import type { OutboxStatus } from "@/hooks/useOutboxStatus";
 // are literal so Tailwind can see every variant.
 
 const KIND_STYLE: Record<ActivityKind, { icon: typeof Clock3; node: string; tag: string }> = {
-  time: { icon: Clock3, node: "bg-cyan-400/10 border-cyan-400/25 text-cyan-300", tag: "text-cyan-300/80 border-cyan-400/15 bg-cyan-400/[0.06]" },
-  photo: { icon: Camera, node: "bg-violet-400/10 border-violet-400/25 text-violet-300", tag: "text-violet-300/80 border-violet-400/15 bg-violet-400/[0.06]" },
-  note: { icon: Mic, node: "bg-emerald-400/10 border-emerald-400/25 text-emerald-300", tag: "text-emerald-300/80 border-emerald-400/15 bg-emerald-400/[0.06]" },
-  material: { icon: Receipt, node: "bg-orange-400/10 border-orange-400/25 text-orange-300", tag: "text-orange-300/80 border-orange-400/15 bg-orange-400/[0.06]" },
-  safety: { icon: FileCheck2, node: "bg-sky-400/10 border-sky-400/25 text-sky-300", tag: "text-sky-300/80 border-sky-400/15 bg-sky-400/[0.06]" },
-  signature: { icon: CheckCircle2, node: "bg-green-400/10 border-green-400/25 text-green-300", tag: "text-green-300/80 border-green-400/15 bg-green-400/[0.06]" },
-  invoice: { icon: Receipt, node: "bg-pink-400/10 border-pink-400/25 text-pink-300", tag: "text-pink-300/80 border-pink-400/15 bg-pink-400/[0.06]" },
+  time: { icon: Clock3, node: "activity-node", tag: "activity-tag" },
+  photo: { icon: Camera, node: "activity-node", tag: "activity-tag" },
+  note: { icon: Mic, node: "activity-node activity-complete", tag: "activity-tag activity-complete" },
+  material: { icon: Receipt, node: "activity-node", tag: "activity-tag" },
+  safety: { icon: FileCheck2, node: "activity-node activity-accent", tag: "activity-tag activity-accent" },
+  signature: { icon: CheckCircle2, node: "activity-node activity-complete", tag: "activity-tag activity-complete" },
+  invoice: { icon: Receipt, node: "activity-node activity-urgent", tag: "activity-tag activity-urgent" },
 };
 
 const KIND_LABEL: Record<ActivityKind, string> = {
@@ -91,7 +91,7 @@ function staffName(staffId: string | undefined, members: SlackMember[]): string 
 }
 
 function staffColor(staffId: string | undefined, members: SlackMember[]): string {
-  return members.find((member) => member.id === staffId)?.color ?? "#64748b";
+  return members.find((member) => member.id === staffId)?.color ?? "var(--bg-fallback-member)";
 }
 
 function Tag({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -125,7 +125,7 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
   if (event.staffId) {
     chips.push({
       key: "staff",
-      className: "border-white/[0.08] bg-white/[0.04] text-slate-400",
+      className: "border-line bg-fill text-ink-low",
       children: (
         <>
           <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: staffColor(event.staffId, members) }} />
@@ -146,7 +146,7 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
     });
   }
   if (event.meta) {
-    chips.push({ key: "meta", className: "border-white/[0.06] bg-white/[0.02] text-slate-500", children: event.meta });
+    chips.push({ key: "meta", className: "border-line bg-fill text-ink-low", children: event.meta });
   }
 
   return (
@@ -160,7 +160,7 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
         </span>
         {!isLast && (
           <span
-            className="absolute top-9 bottom-[-14px] w-px bg-gradient-to-b from-white/[0.14] via-white/[0.07] to-transparent"
+            className="absolute top-9 bottom-[-14px] w-px bg-gradient-to-b from-fill-strong via-fill to-transparent"
             aria-hidden
           />
         )}
@@ -169,16 +169,16 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
       {/* Content */}
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[13px] font-semibold text-slate-200 truncate">{event.title}</p>
+          <p className="text-[13px] font-semibold text-ink-mid truncate">{event.title}</p>
           <time
             dateTime={event.createdAt}
             title={exactDate(event.createdAt)}
-            className="text-[10px] font-mono tabular-nums text-slate-500 shrink-0"
+            className="text-[10px] font-mono tabular-nums text-ink-low shrink-0"
           >
             {exactTime(event.createdAt)}
           </time>
         </div>
-        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{event.detail}</p>
+        <p className="text-xs text-ink-low mt-0.5 line-clamp-2">{event.detail}</p>
         {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 mt-1.5">
             {chips.map((chip) => (
@@ -197,14 +197,14 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
 
 function IntegrationStatus({ label, detail, state, icon: Icon }: { label: string; detail: string; state: "ready" | "queued" | "attention"; icon: typeof Cloud }) {
   const stateLabel = state === "ready" ? "Ready" : state === "queued" ? "Queued" : "Attention";
-  const stateClass = state === "ready" ? "text-accent" : state === "queued" ? "text-amber-300" : "text-red-300";
-  const dotClass = state === "ready" ? "bg-accent" : state === "queued" ? "bg-amber-300 animate-pulse" : "bg-red-300";
+  const stateClass = state === "ready" ? "text-accent" : state === "queued" ? "text-pending" : "text-urgent";
+  const dotClass = state === "ready" ? "bg-accent" : state === "queued" ? "bg-pending animate-pulse" : "bg-urgent";
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <Icon size={15} className={stateClass} />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-slate-300 font-semibold">{label}</p>
-        <p className="text-[10px] text-slate-600 truncate">{detail}</p>
+        <p className="text-xs text-ink-mid font-semibold">{label}</p>
+        <p className="text-[10px] text-ink-low truncate">{detail}</p>
       </div>
       <span className={`inline-flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold ${stateClass}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
@@ -259,8 +259,8 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         {/* Header read-out */}
         <div className="flex items-center justify-between mb-1">
           <div>
-            <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Job activity</p>
-            <p className="text-[11px] text-slate-600 mt-0.5">One record for field, customer and HQ updates</p>
+            <p className="text-xs font-bold text-ink-mid uppercase tracking-wider">Job activity</p>
+            <p className="text-[11px] text-ink-low mt-0.5">One record for field, customer and HQ updates</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-mono uppercase tracking-wider text-accent">
@@ -273,7 +273,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         {kindCounts.size > 1 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {[...kindCounts.entries()].map(([kind, count]) => (
-              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-mono tabular-nums tracking-wide text-slate-500 border-white/[0.06] bg-white/[0.02]`}>
+              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-mono tabular-nums tracking-wide text-ink-low border-line bg-fill`}>
                 {KIND_LABEL[kind]} × {count}
               </span>
             ))}
@@ -282,19 +282,19 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
 
         {/* Journal */}
         {visibleCount === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/[0.1] px-3 py-4 text-center">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-slate-600">No field activity yet</p>
-            <p className="text-xs text-slate-500 mt-1">Clock on to open the job journal.</p>
+          <div className="rounded-xl border border-dashed border-line px-3 py-4 text-center">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-ink-low">No field activity yet</p>
+            <p className="text-xs text-ink-low mt-1">Clock on to open the job journal.</p>
           </div>
         ) : (
           <div>
             {collapsedByDay.map((group, gi) => (
               <div key={group.date}>
-                {gi > 0 && <div className="my-1.5 border-t border-white/[0.05]" />}
+                {gi > 0 && <div className="my-1.5 border-t border-line" />}
                 <div className="flex items-center gap-2 pb-1 pt-0.5">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">{group.label}</p>
-                  <p className="h-px flex-1 bg-gradient-to-r from-white/[0.08] to-transparent" aria-hidden />
-                  <p className="text-[9px] font-mono tabular-nums text-slate-700">{group.events.length}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-ink-low">{group.label}</p>
+                  <p className="h-px flex-1 bg-gradient-to-r from-fill to-transparent" aria-hidden />
+                  <p className="text-[9px] font-mono tabular-nums text-ink-low">{group.events.length}</p>
                 </div>
                 {group.events.map((event, ei) => (
                   <ActivityRow
@@ -312,41 +312,41 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="mt-2 w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 active:bg-white/[0.07] transition haptic"
+                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-[11px] font-semibold text-ink-low active:bg-fill-strong transition haptic"
               >
-                Show all {totalCount} events <ChevronDown size={14} className="text-slate-500" />
+                Show all {totalCount} events <ChevronDown size={14} className="text-ink-low" />
               </button>
             )}
             {expanded && totalCount > 5 && (
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="mt-2 w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-300 hover:bg-white/[0.07] transition haptic"
+                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-[11px] font-semibold text-ink-mid hover:bg-fill-strong transition haptic"
               >
-                Show fewer <ChevronUp size={14} className="text-slate-500" />
+                Show fewer <ChevronUp size={14} className="text-ink-low" />
               </button>
             )}
           </div>
         )}
 
         {/* Console strip */}
-        <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center gap-2 text-[9px] font-mono uppercase tracking-wider">
-          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-accent animate-pulse" : "bg-amber-300 animate-pulse"}`} aria-hidden />
-          <span className={online ? "text-slate-400" : "text-amber-200"}>{online ? "Live" : "Offline"}</span>
-          <span className="text-slate-700">·</span>
-          <span className="text-slate-500">
+        <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[9px] font-mono uppercase tracking-wider">
+          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-accent animate-pulse" : "bg-pending animate-pulse"}`} aria-hidden />
+          <span className={online ? "text-ink-low" : "text-pending"}>{online ? "Live" : "Offline"}</span>
+          <span className="text-ink-low">·</span>
+          <span className="text-ink-low">
             {pendingCount > 0 ? `${pendingCount} queued` : "all synced"}
           </span>
           <span className="flex-1" />
-          <time className="text-slate-600 tabular-nums">{exactTime(now.toISOString())}</time>
+          <time className="text-ink-low tabular-nums">{exactTime(now.toISOString())}</time>
         </div>
       </GlassCard>
 
       {/* Connected workflow */}
       <GlassCard className="!p-3">
         <div className="flex items-center justify-between mb-2.5">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Connected workflow</p>
-          {online ? <Radio size={14} className="text-accent" /> : <WifiOff size={14} className="text-amber-300" />}
+          <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider">Connected workflow</p>
+          {online ? <Radio size={14} className="text-accent" /> : <WifiOff size={14} className="text-pending" />}
         </div>
         <div className="space-y-2.5">
           <IntegrationStatus icon={Cloud} label="PlumbTrack" detail={online ? "Saved on this device and server" : "Saved locally — will sync when online"} state={online ? "ready" : "queued"} />
@@ -354,12 +354,12 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
           <IntegrationStatus icon={Receipt} label="Xero" detail={hasXero ? "Invoice draft created" : "Runs automatically after sign-off"} state={hasXero ? "ready" : "queued"} />
         </div>
         {(syncStatus.pending > 0 || syncStatus.processing > 0 || syncStatus.failed > 0) && (
-          <div className={`mt-3 pt-2.5 border-t border-white/[0.06] flex items-center gap-2 text-[10px] ${syncStatus.failed > 0 ? "text-red-300" : "text-amber-200"}`}>
+          <div className={`mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] ${syncStatus.failed > 0 ? "text-urgent" : "text-pending"}`}>
             <Cloud size={13} /> {syncStatus.label}
           </div>
         )}
         {syncStatus.pending === 0 && syncStatus.processing === 0 && syncStatus.failed === 0 && online && (
-          <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center gap-2 text-[10px] text-slate-600">
+          <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] text-ink-low">
             <Check size={13} className="text-accent" /> No action required
           </div>
         )}

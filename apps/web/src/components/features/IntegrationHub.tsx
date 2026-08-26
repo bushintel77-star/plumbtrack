@@ -55,8 +55,8 @@ export function IntegrationHub() {
 
   return (
     <GlassCard>
-      <h3 className="text-white font-semibold text-sm mb-3">Integration Hub</h3>
-      <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+      <h3 className="text-ink font-semibold text-sm mb-3">Integration Hub</h3>
+      <p className="text-xs text-ink-low mb-4 leading-relaxed">
         Connect PlumbTrack to your existing software stack. Each integration routes through the notification
         dispatcher — downstream relays never block field operations.
       </p>
@@ -64,20 +64,20 @@ export function IntegrationHub() {
         {items.map((int) => (
           <div
             key={int.id}
-            className="flex items-start gap-3 p-3 rounded-xl border border-white/[0.06] bg-white/[0.02]"
+            className="flex items-start gap-3 p-3 rounded-xl border border-line bg-fill"
           >
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5">
-              <int.icon size={15} className="text-slate-400" />
+            <div className="w-8 h-8 rounded-lg bg-fill-strong flex items-center justify-center shrink-0 mt-0.5">
+              <int.icon size={15} className="text-ink-low" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white">{int.name}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{int.description}</p>
+              <p className="text-sm font-semibold text-ink">{int.name}</p>
+              <p className="text-[11px] text-ink-low mt-0.5 leading-relaxed">{int.description}</p>
             </div>
             <span
               className={`shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full mt-0.5 ${
                 int.status === "connected"
                   ? "bg-accent/15 text-accent border border-accent/30"
-                  : "bg-slate-700/50 text-slate-500 border border-white/[0.06]"
+                  : "bg-fill-strong text-ink-low border border-line"
               }`}
             >
               {int.status === "connected" ? "Connected" : "Setup"}

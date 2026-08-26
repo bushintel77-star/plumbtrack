@@ -51,16 +51,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast--${t.kind} ${t.exiting ? "exiting" : ""}`}>
             {t.kind === "success" && <Check size={16} className="text-accent shrink-0" />}
-            {t.kind === "error" && <AlertTriangle size={16} className="text-red-400 shrink-0" />}
-            {t.kind === "info" && <Info size={16} className="text-slate-400 shrink-0" />}
-            <span className="text-[13px] text-white font-medium flex-1 leading-snug">{t.message}</span>
+            {t.kind === "error" && <AlertTriangle size={16} className="text-urgent shrink-0" />}
+            {t.kind === "info" && <Info size={16} className="text-ink-low shrink-0" />}
+            <span className="text-[13px] text-ink font-medium flex-1 leading-snug">{t.message}</span>
             <button
               type="button"
               onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
-              className="p-1 rounded hover:bg-white/10 shrink-0"
+              className="p-1 rounded hover:bg-fill-strong shrink-0"
               aria-label="Dismiss"
             >
-              <X size={13} className="text-slate-500" />
+              <X size={13} className="text-ink-low" />
             </button>
           </div>
         ))}

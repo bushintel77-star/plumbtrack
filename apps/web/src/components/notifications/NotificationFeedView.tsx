@@ -70,14 +70,14 @@ function DeliveryBadge({ item }: { item: NotificationFeedItem }) {
   }
   if (state === "failed") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-urgent-dim text-urgent border border-urgent-line">
         <AlertTriangle size={10} />
         Failed
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-500 border border-white/[0.08]">
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-fill-strong text-ink-low border border-line">
       <Clock size={10} />
       Pending
     </span>
@@ -87,7 +87,7 @@ function DeliveryBadge({ item }: { item: NotificationFeedItem }) {
 function ChannelBadge({ channel }: { channel: string }) {
   const isDm = channel.startsWith("dm-");
   return (
-    <span className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-slate-400">
+    <span className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md bg-fill border border-line text-ink-low">
       {isDm ? `💬 ${channel.replace("dm-", "@")}` : `# ${channel}`}
     </span>
   );
@@ -111,14 +111,14 @@ function FilterChip({
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition min-h-[36px] ${
         active
           ? "bg-accent/15 text-accent border border-accent/25"
-          : "bg-white/[0.04] text-slate-400 border border-white/[0.06] active:bg-white/[0.08]"
+          : "bg-fill text-ink-low border border-line active:bg-fill-strong"
       }`}
     >
       {label}
       {count > 0 && (
         <span
           className={`text-[9px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
-            active ? "bg-accent/25 text-accent" : "bg-white/[0.08] text-slate-500"
+            active ? "bg-accent/25 text-accent" : "bg-fill-strong text-ink-low"
           }`}
         >
           {count}
@@ -140,61 +140,61 @@ function NotificationDetail({
   return (
     <div className="flex flex-col h-full">
       {/* Detail header */}
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-line shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="p-2 -ml-1 rounded-xl hover:bg-slate-800 active:bg-slate-700 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-2 -ml-1 rounded-xl hover:bg-fill-strong active:bg-fill-strong transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Back to feed"
         >
-          <ArrowLeft size={18} className="text-slate-400" />
+          <ArrowLeft size={18} className="text-ink-low" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">Notification Detail</p>
+          <p className="text-sm font-semibold text-ink truncate">Notification Detail</p>
         </div>
         <DeliveryBadge item={item} />
       </div>
 
       {/* Detail body */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}>
+      <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--surface-border) transparent" }}>
         {/* Message */}
         <div className="surface-card p-5">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Message</p>
-          <p className="text-[15px] text-white leading-relaxed">{item.text}</p>
+          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider mb-2">Message</p>
+          <p className="text-[15px] text-ink leading-relaxed">{item.text}</p>
         </div>
 
         {/* Metadata */}
         <div className="surface-card p-4 space-y-3">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Metadata</p>
+          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider">Metadata</p>
           <div className="space-y-2.5">
             <div className="flex items-center gap-3">
-              <Hash size={14} className="text-slate-500 shrink-0" />
+              <Hash size={14} className="text-ink-low shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-500 mb-0.5">Channel</p>
-                <p className="text-sm text-white font-medium">
+                <p className="text-[10px] text-ink-low mb-0.5">Channel</p>
+                <p className="text-sm text-ink font-medium">
                   {item.channel.startsWith("dm-")
                     ? `Direct message — ${item.channel.replace("dm-", "@")}`
                     : `# ${item.channel}`}
                 </p>
               </div>
             </div>
-            <div className="h-px bg-white/[0.06]" />
+            <div className="h-px bg-fill-strong" />
             <div className="flex items-center gap-3">
-              <User size={14} className="text-slate-500 shrink-0" />
+              <User size={14} className="text-ink-low shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-500 mb-0.5">Author</p>
-                <p className="text-sm text-white font-medium">
+                <p className="text-[10px] text-ink-low mb-0.5">Author</p>
+                <p className="text-sm text-ink font-medium">
                   {item.author === "plumbtrack" ? "🤖 PlumbTrack (bot)" : item.author}
                 </p>
               </div>
             </div>
-            <div className="h-px bg-white/[0.06]" />
+            <div className="h-px bg-fill-strong" />
             <div className="flex items-center gap-3">
-              <Clock size={14} className="text-slate-500 shrink-0" />
+              <Clock size={14} className="text-ink-low shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-500 mb-0.5">Dispatched</p>
-                <p className="text-sm text-white font-medium">{fullTimestamp(item.createdAt)}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{timeAgo(item.createdAt)}</p>
+                <p className="text-[10px] text-ink-low mb-0.5">Dispatched</p>
+                <p className="text-sm text-ink font-medium">{fullTimestamp(item.createdAt)}</p>
+                <p className="text-[10px] text-ink-low mt-0.5">{timeAgo(item.createdAt)}</p>
               </div>
             </div>
           </div>
@@ -202,34 +202,34 @@ function NotificationDetail({
 
         {/* Delivery status */}
         <div className="surface-card p-4">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Slack Delivery</p>
+          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider mb-3">Slack Delivery</p>
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                 deliveryState(item) === "delivered"
                   ? "bg-accent/15"
                   : deliveryState(item) === "failed"
-                    ? "bg-red-500/15"
-                    : "bg-white/[0.04]"
+                    ? "bg-urgent-dim"
+                    : "bg-fill"
               }`}
             >
               {deliveryState(item) === "delivered" ? (
                 <CheckCircle2 size={18} className="text-accent" />
               ) : deliveryState(item) === "failed" ? (
-                <AlertTriangle size={18} className="text-red-400" />
+                <AlertTriangle size={18} className="text-urgent" />
               ) : (
-                <Clock size={18} className="text-slate-500" />
+                <Clock size={18} className="text-ink-low" />
               )}
             </div>
             <div className="flex-1">
-              <p className="text-sm text-white font-medium">
+              <p className="text-sm text-ink font-medium">
                 {deliveryState(item) === "delivered"
                   ? "Delivered to Slack"
                   : deliveryState(item) === "failed"
                     ? "Delivery failed"
                     : "Pending relay"}
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-ink-low mt-0.5">
                 {deliveryState(item) === "delivered"
                   ? "The webhook accepted this message successfully."
                   : deliveryState(item) === "failed"
@@ -242,10 +242,10 @@ function NotificationDetail({
 
         {/* Raw JSON */}
         <details className="surface-card">
-          <summary className="p-4 cursor-pointer text-[11px] font-bold text-slate-400 uppercase tracking-wider select-none">
+          <summary className="p-4 cursor-pointer text-[11px] font-bold text-ink-low uppercase tracking-wider select-none">
             Raw payload
           </summary>
-          <pre className="px-4 pb-4 text-[11px] text-slate-400 font-mono overflow-x-auto leading-relaxed">
+          <pre className="px-4 pb-4 text-[11px] text-ink-low font-mono overflow-x-auto leading-relaxed">
             {JSON.stringify(item, null, 2)}
           </pre>
         </details>
@@ -331,12 +331,12 @@ export function NotificationFeedView() {
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-line shrink-0">
         <div className="flex items-center gap-2">
           <Send size={14} className="text-accent" />
-          <p className="text-sm font-semibold text-white">Notification Feed</p>
+          <p className="text-sm font-semibold text-ink">Notification Feed</p>
           {status === "ready" && (
-            <span className="flex items-center gap-1 text-[9px] text-slate-500">
+            <span className="flex items-center gap-1 text-[9px] text-ink-low">
               <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
               LIVE
             </span>
@@ -346,16 +346,16 @@ export function NotificationFeedView() {
           type="button"
           onClick={load}
           disabled={status === "loading"}
-          className="p-2 rounded-lg hover:bg-slate-800 active:bg-slate-700 transition min-w-[40px] min-h-[40px] flex items-center justify-center disabled:opacity-40"
+          className="p-2 rounded-lg hover:bg-fill-strong active:bg-fill-strong transition min-w-[40px] min-h-[40px] flex items-center justify-center disabled:opacity-40"
           aria-label="Refresh feed"
         >
-          <RefreshCw size={16} className={`text-slate-400 ${status === "loading" ? "animate-spin" : ""}`} />
+          <RefreshCw size={16} className={`text-ink-low ${status === "loading" ? "animate-spin" : ""}`} />
         </button>
       </div>
 
       {/* Filter chips */}
       {status === "ready" && notifications.length > 0 && (
-        <div className="flex items-center gap-2 px-5 py-2.5 border-b border-slate-800/60 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-2 px-5 py-2.5 border-b border-line shrink-0 overflow-x-auto">
           <FilterChip label="All" count={counts.all} active={filter === "all"} onClick={() => setFilter("all")} />
           <FilterChip
             label="Delivered"
@@ -374,25 +374,25 @@ export function NotificationFeedView() {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}>
+      <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--surface-border) transparent" }}>
         {status === "loading" && notifications.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-            <div className="w-8 h-8 border-2 border-white/10 border-t-accent rounded-full animate-spin mb-3" />
+          <div className="flex flex-col items-center justify-center py-20 text-ink-low">
+            <div className="w-8 h-8 border-2 border-line border-t-accent rounded-full animate-spin mb-3" />
             <p className="text-sm">Loading notifications…</p>
           </div>
         )}
 
         {status === "error" && (
           <div className="text-center py-16">
-            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-3">
-              <AlertTriangle size={20} className="text-red-400" />
+            <div className="w-12 h-12 rounded-full bg-urgent-dim flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle size={20} className="text-urgent" />
             </div>
-            <p className="text-white font-semibold text-sm mb-1">Dispatcher unreachable</p>
-            <p className="text-slate-500 text-xs mb-4">{error}</p>
+            <p className="text-ink font-semibold text-sm mb-1">Dispatcher unreachable</p>
+            <p className="text-ink-low text-xs mb-4">{error}</p>
             <button
               type="button"
               onClick={load}
-              className="px-4 py-2 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-semibold border border-white/[0.08] active:bg-white/[0.08] transition min-h-[40px]"
+              className="px-4 py-2 rounded-xl bg-fill text-ink-mid text-xs font-semibold border border-line active:bg-fill-strong transition min-h-[40px]"
             >
               Retry
             </button>
@@ -401,11 +401,11 @@ export function NotificationFeedView() {
 
         {status === "ready" && filtered.length === 0 && notifications.length > 0 && (
           <div className="text-center py-16">
-            <div className="w-12 h-12 rounded-full bg-white/[0.04] flex items-center justify-center mx-auto mb-3">
-              <Send size={20} className="text-slate-600" />
+            <div className="w-12 h-12 rounded-full bg-fill flex items-center justify-center mx-auto mb-3">
+              <Send size={20} className="text-ink-low" />
             </div>
-            <p className="text-white font-semibold text-sm mb-1">No {filter} notifications</p>
-            <p className="text-slate-500 text-xs">
+            <p className="text-ink font-semibold text-sm mb-1">No {filter} notifications</p>
+            <p className="text-ink-low text-xs">
               Try a different filter or wait for new dispatches.
             </p>
           </div>
@@ -413,11 +413,11 @@ export function NotificationFeedView() {
 
         {status === "ready" && notifications.length === 0 && (
           <div className="text-center py-16">
-            <div className="w-12 h-12 rounded-full bg-white/[0.04] flex items-center justify-center mx-auto mb-3">
-              <Send size={20} className="text-slate-600" />
+            <div className="w-12 h-12 rounded-full bg-fill flex items-center justify-center mx-auto mb-3">
+              <Send size={20} className="text-ink-low" />
             </div>
-            <p className="text-white font-semibold text-sm mb-1">No notifications yet</p>
-            <p className="text-slate-500 text-xs">
+            <p className="text-ink font-semibold text-sm mb-1">No notifications yet</p>
+            <p className="text-ink-low text-xs">
               Notifications dispatched to Slack will appear here.
             </p>
           </div>
@@ -436,12 +436,12 @@ export function NotificationFeedView() {
                   <ChannelBadge channel={n.channel} />
                   <DeliveryBadge item={n} />
                 </div>
-                <p className="text-sm text-white leading-relaxed mb-2 line-clamp-2">{n.text}</p>
+                <p className="text-sm text-ink leading-relaxed mb-2 line-clamp-2">{n.text}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500 font-medium">
+                  <span className="text-[11px] text-ink-low font-medium">
                     {n.author === "plumbtrack" ? "🤖 PlumbTrack" : n.author}
                   </span>
-                  <span className="text-[10px] text-slate-600">{timeAgo(n.createdAt)}</span>
+                  <span className="text-[10px] text-ink-low">{timeAgo(n.createdAt)}</span>
                 </div>
               </button>
             ))}

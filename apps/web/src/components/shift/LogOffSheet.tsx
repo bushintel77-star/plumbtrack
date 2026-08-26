@@ -81,10 +81,10 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
         <div className="space-y-3">
           <div
             className="flex items-center gap-2.5 p-3 rounded-xl"
-            style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.25)" }}
+            style={{ background: "var(--status-complete-dim)", border: "1px solid var(--status-complete-border)" }}
           >
-            <ShieldCheck size={18} className="text-green-400 shrink-0" />
-            <p className="text-[12px] text-green-300 font-semibold">
+            <ShieldCheck size={18} className="text-complete shrink-0" />
+            <p className="text-[12px] text-complete font-semibold">
               GPS tracking stopped — you are off duty and no longer monitored.
             </p>
           </div>
@@ -110,7 +110,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
           </div>
 
           {done.breakdown.notes.length > 0 && (
-            <div className="p-3 rounded-xl space-y-1" style={{ background: "rgba(255,255,255,0.03)" }}>
+            <div className="p-3 rounded-xl space-y-1" style={{ background: "var(--surface-hover-subtle)" }}>
               <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--sheet-muted)" }}>
                 Award rules applied
               </p>
@@ -122,7 +122,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
             </div>
           )}
 
-          <div className="p-3 rounded-xl space-y-1.5" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <div className="p-3 rounded-xl space-y-1.5" style={{ background: "var(--surface-hover-subtle)" }}>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
               STP Phase 2 reporting categories
             </p>
@@ -140,7 +140,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
           <button
             type="button"
             onClick={close}
-            className="w-full py-3.5 rounded-xl bg-accent text-white text-sm font-bold min-h-[48px] active:scale-[0.98] transition shadow-lg shadow-accent/25"
+            className="w-full py-3.5 rounded-xl bg-accent text-on-accent text-sm font-bold min-h-[48px] active:scale-[0.98] transition shadow-hardware"
           >
             Done
           </button>
@@ -159,10 +159,10 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
                   onClick={() => setWorkTypeOverride(wt)}
                   className="py-2.5 px-2 rounded-xl text-[11.5px] font-bold transition min-h-[44px]"
                   style={{
-                    border: `1px solid ${workTypeOverride === wt ? "color-mix(in srgb, var(--accent) 40%, transparent)" : "var(--app-border)"}`,
+                    border: `1px solid ${workTypeOverride === wt ? "var(--edge-highlight)" : "var(--app-border)"}`,
                     background: workTypeOverride === wt
-                      ? "color-mix(in srgb, var(--accent) 12%, transparent)"
-                      : "rgba(255,255,255,0.03)",
+                      ? "var(--accent-dim)"
+                      : "var(--surface-hover-subtle)",
                     color: workTypeOverride === wt ? "var(--accent)" : "var(--sheet-muted)",
                   }}
                 >
@@ -195,7 +195,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
             />
           </label>
 
-          <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: "var(--surface-hover-subtle)" }}>
             <input
               type="checkbox"
               checked={toil}
@@ -209,7 +209,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
             </span>
           </label>
 
-          <div className="p-3 rounded-xl space-y-1.5" style={{ background: "rgba(255,255,255,0.03)" }}>
+          <div className="p-3 rounded-xl space-y-1.5" style={{ background: "var(--surface-hover-subtle)" }}>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
               Live pay interpretation
             </p>
@@ -228,7 +228,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
               <span className="font-mono">${preview.grossPay.toFixed(2)}</span>
             </div>
             {preview.tenHourBreach && (
-              <p className="text-[11.5px] text-amber-400 leading-snug">
+              <p className="text-[11.5px] text-pending leading-snug">
                 ⚠ No 10-hour rest break since the last shift — this shift is paid at 200%
                 until a full break is taken.
               </p>
@@ -238,7 +238,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
           <button
             type="button"
             onClick={confirm}
-            className="w-full py-3.5 rounded-xl bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition shadow-lg shadow-red-500/25"
+            className="w-full py-3.5 rounded-xl bg-urgent text-on-accent text-sm font-bold flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition shadow-hardware"
           >
             <LogOut size={16} /> Log Off &amp; Stop Tracking
           </button>
@@ -261,7 +261,7 @@ function StpRow({ label, value }: { label: string; value: number }) {
           ${value.toFixed(2)}
         </span>
       ) : (
-        <span className="flex items-center text-slate-600">
+        <span className="flex items-center text-ink-low">
           <Check size={11} className="mr-0.5" /> nil
         </span>
       )}

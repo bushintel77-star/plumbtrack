@@ -37,9 +37,13 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
   const { logOn, currentStaffName } = usePlumbTrackCtx();
   const [workType, setWorkType] = useState<ShiftWorkType>("standard");
   const [noticeAck, setNoticeAck] = useState(false);
+  const [starting, setStarting] = useState(false);
 
-  const confirm = () => {
-    logOn(workType);
+  const confirm = async () => {
+    if (starting) return;
+    setStarting(true);
+    await logOn(workType);
+    setStarting(false);
     setWorkType("standard");
     setNoticeAck(false);
     onClose();
@@ -61,6 +65,8 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
             title={wt.title}
             hint={wt.hint}
             onClick={() => setWorkType(wt.key)}
+            active={workType === wt.key}
+            className="shift-type-tile"
             disabled={false}
           />
         ))}
@@ -72,7 +78,7 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
         <label
           className="flex items-start gap-3 p-3.5 rounded-2xl cursor-pointer"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--app-border)" }}
+          style={{ background: "var(--surface-hover-subtle)", border: "1px solid var(--app-border)" }}
         >
           <input
             type="checkbox"
@@ -90,11 +96,11 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
         <button
           type="button"
-          onClick={confirm}
-          disabled={!noticeAck}
-          className="w-full py-3.5 rounded-xl bg-accent text-white text-sm font-bold flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-accent/25"
+          onClick={() => { void confirm(); }}
+          disabled={!noticeAck || starting}
+          className="w-full py-3.5 rounded-xl bg-accent text-on-accent text-sm font-bold flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition disabled:opacity-30 disabled:cursor-not-allowed shadow-hardware"
         >
-          Log On &amp; Start Shift
+          {starting ? "Acquiring location…" : "Log On &amp; Start Shift"}
         </button>
       </div>
     </BottomSheet>

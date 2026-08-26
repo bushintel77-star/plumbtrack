@@ -5,6 +5,7 @@
  */
 
 import type { Job, PlumbDocument, Rfi, SlackChannel, SlackMember, SlackMessage } from "@/types";
+import { formatSerial } from "./display";
 
 /** Category labels mirror the vault's catalogue (kept local to stay dependency-free). */
 const CATEGORY_LABELS: Record<string, string> = {
@@ -121,7 +122,7 @@ export function searchAll(index: SearchIndex, query: string): SearchResults {
         jobs.push({
           jobId: job.id,
           field: field.label,
-          title: `${job.id} · ${job.client}`,
+          title: `${formatSerial(job.id)} · ${job.client}`,
           snippet: makeSnippet(field.text, q),
         });
       }
@@ -134,7 +135,7 @@ export function searchAll(index: SearchIndex, query: string): SearchResults {
         jobs.push({
           jobId: job.id,
           field: "RFI",
-          title: `${job.id} · ${job.client}`,
+          title: `${formatSerial(job.id)} · ${job.client}`,
           snippet: makeSnippet(text, q),
         });
       }
@@ -151,7 +152,7 @@ export function searchAll(index: SearchIndex, query: string): SearchResults {
     documents.push({
       documentId: doc.id,
       title: doc.name,
-      subtitle: linkedJob ? `${doc.jobId} · ${categoryLabel}` : `Company · ${categoryLabel}`,
+      subtitle: linkedJob ? `${formatSerial(doc.jobId!)} · ${categoryLabel}` : `Company · ${categoryLabel}`,
       snippet: makeSnippet(`${doc.notes || doc.name} ${doc.tags.join(" ")}`, q),
     });
   }
