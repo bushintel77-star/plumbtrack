@@ -78,15 +78,16 @@ export function TodayStream() {
       )}
 
       {/* Search & Filters */}
-      <div className="widget-chassis">
+      <div className="rounded-xl border border-line bg-fill px-4 py-3">
         <button
           type="button"
           onClick={() => setSearchOpen((open) => !open)}
-          className="w-full text-left"
+          className="w-full text-left flex items-center gap-2"
         >
-          <div className="label-micro">
-            {searchOpen ? "▼" : "▶"} {counts.all} JOBS
-          </div>
+          <span className="text-ink-low text-xs">{searchOpen ? "▼" : "▶"}</span>
+          <span className="label-micro">
+            {counts.all} JOBS
+          </span>
         </button>
 
         {searchOpen && (
@@ -183,8 +184,7 @@ export function TodayStream() {
         </div>
       )}
     </div>
-  );
-}
+  );  }
 
 /**
  * Day Brief — Hardware chassis with telemetry
@@ -260,7 +260,7 @@ function JobRow({
 
   // Timeline node status
   const nodeClass = status === "in_progress"
-    ? "active"
+    ? isPrimaryActive ? "active" : "pending"
     : status === "completed"
     ? "complete"
     : "";
@@ -286,7 +286,7 @@ function JobRow({
           <div className="status-indicator">
             <span className={`status-dot ${nodeClass || ""}`} />
             <span className="label-micro">
-              {status === "in_progress" ? "ACTIVE" : status === "scheduled" ? "SCHED" : "DONE"}
+              {status === "in_progress" ? (isPrimaryActive ? "ACTIVE" : "IN PROGRESS") : status === "scheduled" ? "SCHED" : "DONE"}
             </span>
           </div>
         </div>

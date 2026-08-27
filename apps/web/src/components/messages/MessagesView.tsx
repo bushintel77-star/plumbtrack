@@ -506,7 +506,7 @@ function MessageRow({
           <span className={`font-extrabold text-ink leading-snug ${isReply ? "text-[13px]" : "text-[15px]"}`}>{member.name}</span>
           {isBot && (
             <span
-              className="text-[9px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-on-accent"
+              className="text-[10px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-on-accent"
               style={{ backgroundColor: ACTIVE }}
             >
               APP
@@ -865,7 +865,7 @@ function AvatarStack({ members, max = 4 }: { members: SlackMember[]; max?: numbe
       ))}
       {rest > 0 && (
         <div
-          className="-ml-1.5 flex items-center justify-center rounded-md text-[9px] font-bold"
+          className="-ml-1.5 flex items-center justify-center rounded-md text-[10px] font-bold"
           style={{ width: 20, height: 20, backgroundColor: "var(--surface-hover-strong)", border: `2px solid ${PANE}`, color: MUTED }}
         >
           +{rest}

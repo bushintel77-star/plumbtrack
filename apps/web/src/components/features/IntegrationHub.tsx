@@ -74,7 +74,7 @@ export function IntegrationHub() {
               <p className="text-[11px] text-ink-low mt-0.5 leading-relaxed">{int.description}</p>
             </div>
             <span
-              className={`shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full mt-0.5 ${
+              className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-0.5 ${
                 int.status === "connected"
                   ? "bg-accent/15 text-accent border border-accent/30"
                   : "bg-fill-strong text-ink-low border border-line"

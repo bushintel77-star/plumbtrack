@@ -281,13 +281,13 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5"><TypeBadge job={job} /><span className="text-[10px] text-ink-low font-mono">{formatSerial(job.id)}</span></div>
-            <p className="text-lg font-bold text-ink truncate">{job.client}</p>
+            <p className="text-2xl font-black tracking-tight text-ink truncate">{job.client}</p>
             <p className="text-xs text-ink-low flex items-center gap-1 mt-1"><MapPin size={12} /> {job.address}</p>
             <p className="text-xs text-ink-low mt-1.5 line-clamp-2">{job.scope}</p>
           </div>
           <button type="button" onClick={onSwitchStaff} className="shrink-0 flex flex-col items-center gap-1" aria-label={`Working as ${currentStaffName} — tap to switch`}>
             <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-on-accent" style={{ backgroundColor: currentStaff?.color ?? "var(--bg-fallback-member)" }}>{currentStaffName.slice(0, 2).toUpperCase()}</span>
-            <span className="text-[9px] text-ink-low font-bold uppercase">{currentStaffName}</span>
+            <span className="text-[10px] text-ink-low font-bold uppercase">{currentStaffName}</span>
           </button>
         </div>
         <section className="comms-tray mt-3" aria-labelledby="comms-tray-title">
@@ -298,7 +298,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
               <p id="comms-tray-title" className="text-[10px] uppercase tracking-widest text-ink-low font-bold">Comms tray</p>
               <p className="text-[11px] text-ink-low mt-0.5">Read-only site details — available before billable time starts</p>
             </div>
-            <span className="text-[9px] uppercase tracking-wider text-ink-low">Pre-flight</span>
+            <span className="text-[10px] uppercase tracking-wider text-ink-low">Pre-flight</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
           <a href={job.phone ? `tel:${job.phone}` : undefined} aria-disabled={!job.phone} className={`min-h-[48px] rounded-xl flex items-center justify-center gap-2 border text-sm font-semibold transition haptic ${job.phone ? "bg-fill-strong text-ink border-line" : "bg-fill text-ink-low border-line pointer-events-none"}`}><Phone size={16} /> Call client</a>
@@ -332,7 +332,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
           {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} disabled={!billableActive} aria-label={!billableActive ? `${label} photo — clock on required` : `${label} photo`} className="min-h-[92px] rounded-xl border border-dashed border-line-strong bg-fill text-ink-mid flex flex-col items-center justify-center gap-1.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"><IconCameraField size={21} className="text-accent" /><span className="text-xs font-semibold">{label}</span><span className="text-[10px] text-ink-low">Open camera</span></button>)}
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
-          {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-scrim text-[8px] text-center text-on-accent">{photo.label}</span></div>)}
+          {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-scrim text-[10px] text-center text-on-accent">{photo.label}</span></div>)}
         </div>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onCameraCapture} className="hidden" />
       </GlassCard>

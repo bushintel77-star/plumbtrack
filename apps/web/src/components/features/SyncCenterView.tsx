@@ -90,7 +90,7 @@ export function SyncCenterView() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-ink truncate">{operationLabel(operation)}</p>
-                    <span className={`text-[9px] uppercase tracking-wider font-bold shrink-0 ${failed ? "text-urgent" : operation.status === "processing" ? "text-accent" : "text-pending"}`}>
+                    <span className={`text-[10px] uppercase tracking-wider font-bold shrink-0 ${failed ? "text-urgent" : operation.status === "processing" ? "text-accent" : "text-pending"}`}>
                       {failed ? "Needs attention" : operation.status}
                     </span>
                   </div>

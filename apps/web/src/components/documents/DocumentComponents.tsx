@@ -69,7 +69,7 @@ export function ExpiryBadge({ expiresOn }: { expiresOn: string | null }) {
       ? "bg-urgent-dim text-urgent border-urgent-line"
       : "bg-pending-dim text-pending border-pending-line";
   return (
-    <span className={`shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
+    <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
       {label}
     </span>
   );
@@ -83,7 +83,7 @@ export function RfiStatusChip({ status }: { status: RfiStatus }) {
         ? "bg-complete-dim text-complete border-complete-line"
         : "bg-fill-strong text-ink-low border-line";
   return (
-    <span className={`shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
+    <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
       {status}
     </span>
   );
@@ -431,7 +431,7 @@ export function DocumentDetailSheet({
                         <Download size={14} />
                       </a>
                     ) : (
-                      <span className="text-[9px] text-ink-low font-medium shrink-0">Demo record</span>
+                      <span className="text-[10px] text-ink-low font-medium shrink-0">Demo record</span>
                     )}
                   </div>
                 ))}

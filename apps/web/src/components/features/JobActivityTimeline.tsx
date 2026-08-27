@@ -97,7 +97,7 @@ function staffColor(staffId: string | undefined, members: SlackMember[]): string
 function Tag({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold tracking-wide ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${className}`}
     >
       {children}
     </span>
@@ -206,7 +206,7 @@ function IntegrationStatus({ label, detail, state, icon: Icon }: { label: string
         <p className="text-xs text-ink-mid font-semibold">{label}</p>
         <p className="text-[10px] text-ink-low truncate">{detail}</p>
       </div>
-      <span className={`inline-flex items-center gap-1.5 text-[9px] uppercase tracking-wider font-bold ${stateClass}`}>
+      <span className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold ${stateClass}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
         {stateLabel}
       </span>
@@ -263,7 +263,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
             <p className="text-[11px] text-ink-low mt-0.5">One record for field, customer and HQ updates</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-mono uppercase tracking-wider text-accent">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-accent">
               <Activity size={11} /> {totalCount} event
             </span>
           </div>
@@ -273,7 +273,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         {kindCounts.size > 1 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {[...kindCounts.entries()].map(([kind, count]) => (
-              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-mono tabular-nums tracking-wide text-ink-low border-line bg-fill`}>
+              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums tracking-wide text-ink-low border-line bg-fill`}>
                 {KIND_LABEL[kind]} × {count}
               </span>
             ))}
@@ -292,9 +292,9 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
               <div key={group.date}>
                 {gi > 0 && <div className="my-1.5 border-t border-line" />}
                 <div className="flex items-center gap-2 pb-1 pt-0.5">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-ink-low">{group.label}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-ink-low">{group.label}</p>
                   <p className="h-px flex-1 bg-gradient-to-r from-fill to-transparent" aria-hidden />
-                  <p className="text-[9px] font-mono tabular-nums text-ink-low">{group.events.length}</p>
+                  <p className="text-[10px] font-mono tabular-nums text-ink-low">{group.events.length}</p>
                 </div>
                 {group.events.map((event, ei) => (
                   <ActivityRow
@@ -330,7 +330,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         )}
 
         {/* Console strip */}
-        <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[9px] font-mono uppercase tracking-wider">
+        <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
           <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-active animate-pulse" : "bg-pending animate-pulse"}`} aria-hidden />
           <span className={online ? "text-ink-low" : "text-pending"}>{online ? "Live" : "Offline"}</span>
           <span className="text-ink-low">·</span>

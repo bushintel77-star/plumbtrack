@@ -91,7 +91,7 @@ export function StaffClockInSheet({
                   {member.name}
                   {isCurrent && (
                     <span
-                      className="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                      className="ml-2 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                       style={{
                         backgroundColor: "var(--accent-dim)",
                         color: "var(--accent)",

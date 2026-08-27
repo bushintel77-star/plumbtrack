@@ -14,11 +14,14 @@ import {
 // ── Status tokens ───────────────────────────────────────────────────────────
 // One semantic status system for job state, used everywhere: color + bespoke
 // icon + label together, never color alone (colorblind-safe, glare-legible).
-// Aligned to site convention: red = urgent, amber = pending, emerald = done.
+// Color is spent on exceptions only: red = urgent, amber = attention needed,
+// emerald = done. Default states stay neutral so warning colors keep their
+// scarcity — when everything is amber, nothing is. "On site" reads as active
+// work (accent), not a caution state.
 
 const STATUS_TOKENS = {
-  scheduled: { icon: IconClockWait, label: "Scheduled", color: "var(--status-pending)", bg: "var(--status-pending-dim)", border: "var(--status-pending-border)" },
-  in_progress: { icon: IconTapFlow, label: "On site", color: "var(--status-pending)", bg: "var(--status-pending-dim)", border: "var(--status-pending-border)" },
+  scheduled: { icon: IconClockWait, label: "Scheduled", color: "var(--text-muted)", bg: "var(--surface-hover-subtle)", border: "var(--surface-border)" },
+  in_progress: { icon: IconTapFlow, label: "On site", color: "var(--accent)", bg: "var(--accent-dim)", border: "var(--accent-border)" },
   completed: { icon: IconSealCheck, label: "Complete", color: "var(--status-complete)", bg: "var(--status-complete-dim)", border: "var(--status-complete-border)" },
   emergency: { icon: IconDropAlert, label: "Emergency", color: "var(--status-urgent)", bg: "var(--status-urgent-dim)", border: "var(--status-urgent-border)" },
 } as const;
@@ -55,7 +58,7 @@ export function SyncBadge({ state, count, size = 12 }: { state: SyncBadgeState; 
   const Icon = token.icon;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
       style={{ color: token.color, background: "var(--surface-hover-subtle)", border: `1px solid var(--divider-etch)` }}
       aria-label={`${token.label}${count && count > 1 ? ` (${count})` : ""}`}
     >

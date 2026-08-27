@@ -78,9 +78,12 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-/** YYYY-MM-DD `days` from today — keeps seeded expiry alerts always live. */
+/** YYYY-MM-DD `days` from today — keeps seeded expiry alerts always live.
+ *  Local timezone: expiry "days left" must match the day the tech sees. */
 function daysFromNow(days: number): string {
-  return new Date(Date.now() + days * DAY).toISOString().slice(0, 10);
+  const d = new Date(Date.now() + days * DAY);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // ── Documents (vault) ───────────────────────────────────────────────────────

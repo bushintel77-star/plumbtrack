@@ -118,7 +118,7 @@ export function IntegrationHealthView() {
                   {delivery.status === "delivered" ? <CheckCircle2 size={16} /> : canRetry ? <AlertTriangle size={16} /> : <Clock3 size={16} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink">{delivery.provider}</p><span className={`text-[9px] uppercase font-bold px-2 py-1 rounded-full border ${statusClass(delivery.status)}`}>{statusLabel(delivery.status)}</span></div>
+                  <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink">{delivery.provider}</p><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border ${statusClass(delivery.status)}`}>{statusLabel(delivery.status)}</span></div>
                   <p className="text-[11px] text-ink-low mt-1">Created {formatDate(delivery.createdAt)} · {delivery.attempts} attempt{delivery.attempts === 1 ? "" : "s"}</p>
                   {delivery.lastError && <p className="text-xs text-urgent mt-2 line-clamp-2">{delivery.lastError}</p>}
                   {delivery.providerMessageId && <p className="text-[10px] text-ink-low mt-2 flex items-center gap-1"><ExternalLink size={11} /> Provider ID {delivery.providerMessageId}</p>}

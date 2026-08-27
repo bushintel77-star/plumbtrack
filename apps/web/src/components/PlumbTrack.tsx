@@ -201,7 +201,7 @@ function PlumbTrackInner() {
           <p className="text-[10px] uppercase tracking-[0.15em] text-accent font-bold leading-none mb-1">
             {config.orgName}
           </p>
-          <p className="text-base font-semibold text-ink truncate">{headerLabel()}</p>
+          <p className="text-lg font-bold text-ink truncate">{headerLabel()}</p>
         </div>
 
         {/* Global search */}
@@ -217,7 +217,7 @@ function PlumbTrackInner() {
         {/* Persistent tracking transparency chip */}
         {(s.activeShift || s.openBreak) && (
           <span
-            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
             style={{
               background: s.trackingActive ? "var(--status-complete-dim)" : "var(--status-pending-dim)",
               border: `1px solid ${s.trackingActive ? "var(--status-complete-border)" : "var(--status-pending-border)"}`,
@@ -563,6 +563,13 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
         )}
         <button
           type="button"
+          onClick={resetDemo}
+          className="w-full py-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line hover:bg-fill-strong transition min-h-[48px]"
+        >
+          Log Out
+        </button>
+        <button
+          type="button"
           onClick={() => setResetOpen(true)}
           className="w-full py-3 rounded-xl bg-urgent-dim text-urgent text-xs font-semibold border border-urgent-line hover:bg-urgent-dim transition min-h-[48px]"
         >
@@ -587,7 +594,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
                 <p className="text-[13px] font-semibold text-ink">{svc.name}</p>
                 <p className="text-[11px] text-ink-low leading-relaxed">{svc.detail}</p>
               </div>
-              <span className="shrink-0 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-complete-dim text-complete border border-complete-line">
+              <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-complete-dim text-complete border border-complete-line">
                 {svc.live}
               </span>
             </div>
@@ -634,7 +641,7 @@ function JobSignoffView({ job }: { job: Job }) {
               ) : (
                 <>
                   <Camera size={14} />
-                  <span className="text-[9px] mt-1">{p.label}</span>
+                  <span className="text-[10px] mt-1">{p.label}</span>
                 </>
               )}
             </div>
@@ -786,7 +793,7 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-ink-low uppercase tracking-wider">Payment</p>
           {payLink && (
-            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${payLink.mode === "live" ? "bg-complete-dim text-complete border-complete-line" : "bg-pending-dim text-pending border-pending-line"}`}>
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${payLink.mode === "live" ? "bg-complete-dim text-complete border-complete-line" : "bg-pending-dim text-pending border-pending-line"}`}>
               {payLink.mode === "live" ? "LIVE CHECKOUT" : "TEST MODE — NO CHARGE"}
             </span>
           )}
@@ -860,21 +867,21 @@ function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
             <div key={l.id} className="flex items-center gap-1.5">
               <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-description`}>Description for line item {l.id}</label>
               <input id={`quote-${quote.id}-${l.id}-description`} value={l.desc} onChange={(e) => updateLine(l.id, "desc", e.target.value)}
-                className="flex-1 text-xs app-input border rounded px-2 py-1.5 text-ink" />
+                className="flex-1 text-sm app-input border rounded px-2.5 py-2.5 min-h-[44px] text-ink" />
               <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-quantity`}>Quantity for {l.desc}</label>
               <input id={`quote-${quote.id}-${l.id}-quantity`} type="number" min="0.01" step="0.01" value={l.qty} onChange={(e) => updateLine(l.id, "qty", Number(e.target.value))}
-                className="w-12 text-xs app-input border rounded px-1.5 py-1.5 text-center text-ink" />
-              <span className="text-[10px] text-ink-low w-6">{l.unit}</span>
-              <span className="text-xs text-ink-low">$</span>
+                className="w-16 text-sm app-input border rounded px-2 py-2.5 min-h-[44px] text-center text-ink" />
+              <span className="text-xs text-ink-low w-6">{l.unit}</span>
+              <span className="text-sm text-ink-low">$</span>
               <label className="sr-only" htmlFor={`quote-${quote.id}-${l.id}-rate`}>Rate for {l.desc}</label>
               <input id={`quote-${quote.id}-${l.id}-rate`} type="number" min="0" value={l.rate} onChange={(e) => updateLine(l.id, "rate", Number(e.target.value))}
-                className="w-14 text-xs app-input border rounded px-1.5 py-1.5 text-center text-ink" />
-              <button type="button" onClick={() => removeLine(l.id)} aria-label={`Remove line item ${l.desc}`} className="w-9 h-9 flex items-center justify-center rounded-md text-ink-low hover:text-urgent"><Trash2 size={13} /></button>
+                className="w-16 text-sm app-input border rounded px-2 py-2.5 min-h-[44px] text-center text-ink" />
+              <button type="button" onClick={() => removeLine(l.id)} aria-label={`Remove line item ${l.desc}`} className="w-11 h-11 min-h-[44px] flex items-center justify-center rounded-md text-ink-low hover:text-urgent"><Trash2 size={16} /></button>
             </div>
           ))}
         </div>
         <button type="button" onClick={addLine} className="mt-3 min-h-[44px] text-xs flex items-center gap-1 text-accent font-medium">
-          <Plus size={13} /> Add line item
+          <Plus size={15} /> Add line item
         </button>
         <div className="border-t border-line mt-3 pt-3 text-sm space-y-1">
           <div className="flex justify-between text-ink-low"><span>Subtotal (ex. GST)</span><span>${sub.toFixed(2)}</span></div>

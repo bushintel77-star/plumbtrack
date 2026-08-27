@@ -55,12 +55,22 @@ export function reducer(state: AppState, action: Action): AppState {
           ...state.jobs.filter((j) => !remoteJobIds.has(j.id)),
         ],
         quotes: [
-          ...action.quotes.map((q) => ({
-            ...q,
-            // Same lean-row treatment as jobs: the builder renders `lines`
-            // unconditionally, so materialise it for remote rows.
-            lines: Array.isArray(q.lines) ? q.lines : [],
-          })),
+          ...action.quotes.map((q) => {
+            // Conflict policy: an entity with a pending outbox operation keeps
+            // its local version (last-write-wins by queue time) until the op
+            // flushes — otherwise a server refresh visibly reverts an edit the
+            // technician just made offline while it is still queued.
+            if (action.protectedQuoteIds?.includes(q.id)) {
+              const local = state.quotes.find((lq) => lq.id === q.id);
+              if (local) return local;
+            }
+            return {
+              ...q,
+              // Same lean-row treatment as jobs: the builder renders `lines`
+              // unconditionally, so materialise it for remote rows.
+              lines: Array.isArray(q.lines) ? q.lines : [],
+            };
+          }),
           ...state.quotes.filter((q) => !remoteQuoteIds.has(q.id)),
         ],
       };

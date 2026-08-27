@@ -134,7 +134,7 @@ export function CaptureBar({
             label="Part"
             badge={
               (job.serviceItems?.length ?? 0) > 0 ? (
-                <span className="text-[9px] font-mono font-bold text-accent bg-accent/15 rounded-full px-1.5 leading-4">
+                <span className="text-[10px] font-mono font-bold text-accent bg-accent/15 rounded-full px-1.5 leading-4">
                   {job.serviceItems!.length}
                 </span>
               ) : undefined
@@ -249,7 +249,7 @@ function CaptureSlot({
       className="relative w-[54px] min-h-[58px] rounded-xl bg-fill-strong border border-line text-ink-mid flex flex-col items-center justify-center gap-0.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"
     >
       {icon}
-      <span className="text-[9px] font-bold uppercase tracking-wide">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wide">{label}</span>
       {badge && <span className="absolute -top-1.5 -right-1.5">{badge}</span>}
     </button>
   );

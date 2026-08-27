@@ -53,14 +53,14 @@ export function BottomNav({
                     className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full animate-fade-in"
                     style={{
                       backgroundColor: "var(--chrome-200)",
-                      boxShadow: "0 0 12px 2px var(--chrome-400), 0 1px 6px var(--chrome-400)",
+                      boxShadow: "0 0 4px 1px var(--chrome-400)",
                     }}
                   />
                 )}
                 <span className="relative">
                   <Icon size={20} strokeWidth={active ? 2.5 : 1.5} />
                   {key === "messages" && unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-on-accent text-[9px] font-bold flex items-center justify-center leading-none animate-scale-in">
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-on-accent text-[10px] font-bold flex items-center justify-center leading-none animate-scale-in">
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
@@ -89,7 +89,7 @@ export function BottomNav({
                 style={{
                   backgroundColor: "var(--chrome-200)",
                   boxShadow:
-                    "0 0 12px 2px var(--chrome-400), 0 1px 6px var(--chrome-400)",
+                    "0 0 4px 1px var(--chrome-400)",
                 }}
               />
             )}

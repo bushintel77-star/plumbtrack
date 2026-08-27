@@ -9,7 +9,6 @@ import {
   categoryInfo,
   DocumentDetailSheet,
   DocumentUploadSheet,
-  ExpiryAlertBanner,
   ExpiryBadge,
 } from "@/components/documents/DocumentComponents";
 import { expiryState, formatBytes, relativeTime } from "@/lib/documents";
@@ -80,28 +79,36 @@ export function DocumentsView({
     })),
   ];
 
+  const nearestSoonDays = useMemo(() => {
+    const days = documents
+      .filter((d) => expiryState(d.expiresOn) === "soon")
+      .map((d) => Math.ceil((new Date(d.expiresOn ?? 0).getTime() - Date.now()) / 86_400_000));
+    return days.length ? Math.min(...days) : null;
+  }, [documents]);
+
   return (
     <div className="p-3 space-y-2">
-      {/* Stats row */}
+      {/* Stats row — expiry warning lives on the tile (exception styling),
+          not in a separate banner competing with the CTA. */}
       <div className="grid grid-cols-3 gap-2">
         <GlassCard className="text-center p-3">
           <FolderOpen size={16} className="text-accent mx-auto mb-1" />
           <p className="text-lg font-bold text-ink">{stats.total}</p>
           <p className="text-[10px] text-ink-low uppercase tracking-wide">Documents</p>
         </GlassCard>
-        <GlassCard className="text-center p-3">
-          <ShieldAlert size={16} className="text-pending mx-auto mb-1" />
+        <GlassCard className={`text-center p-3 ${stats.soon > 0 ? "border-pending-line" : ""}`}>
+          <ShieldAlert size={16} className={`mx-auto mb-1 ${stats.soon > 0 ? "text-pending" : "text-ink-low"}`} />
           <p className="text-lg font-bold text-ink">{stats.soon}</p>
-          <p className="text-[10px] text-ink-low uppercase tracking-wide">Expiring soon</p>
+          <p className="text-[10px] text-ink-low uppercase tracking-wide">
+            Expiring{nearestSoonDays !== null ? ` · ${nearestSoonDays}d` : ""}
+          </p>
         </GlassCard>
-        <GlassCard className="text-center p-3">
-          <AlertCircle size={16} className="text-urgent mx-auto mb-1" />
+        <GlassCard className={`text-center p-3 ${stats.expired > 0 ? "border-urgent-line" : ""}`}>
+          <AlertCircle size={16} className={`mx-auto mb-1 ${stats.expired > 0 ? "text-urgent" : "text-ink-low"}`} />
           <p className="text-lg font-bold text-ink">{stats.expired}</p>
           <p className="text-[10px] text-ink-low uppercase tracking-wide">Expired</p>
         </GlassCard>
       </div>
-
-      <ExpiryAlertBanner documents={documents} />
 
       {/* Upload — primary CTA, reserved glow surface (chrome-200) */}
       <button

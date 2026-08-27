@@ -422,7 +422,7 @@ function DailyReportForm({ job }: { job: Job }) {
           {crewIds.map((id) => {
             const member = memberMap.get(id);
             const seconds = job.timeEntries.filter((entry) => entry.staffId === id && (entry.end === null || localDate(entry.start) === report.date)).reduce((sum, entry) => sum + (entry.end ? (new Date(entry.end).getTime() - new Date(entry.start).getTime()) / 1000 : (Date.now() - new Date(entry.start).getTime()) / 1000), 0);
-            return <span key={id} className="inline-flex items-center gap-1.5 min-h-[36px] rounded-full bg-accent/10 border border-accent/25 px-3 text-xs text-accent font-semibold"><span className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[9px]">{(member?.name ?? id).slice(0, 2).toUpperCase()}</span>{member?.name.split(" ")[0] ?? id} · {formatDuration(Math.max(0, Math.floor(seconds)))}</span>;
+            return <span key={id} className="inline-flex items-center gap-1.5 min-h-[36px] rounded-full bg-accent/10 border border-accent/25 px-3 text-xs text-accent font-semibold"><span className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px]">{(member?.name ?? id).slice(0, 2).toUpperCase()}</span>{member?.name.split(" ")[0] ?? id} · {formatDuration(Math.max(0, Math.floor(seconds)))}</span>;
           })}
           {crewIds.length === 0 && <span className="text-xs text-ink-low">No one clocked on yet. Crew appears automatically from this job’s time entries.</span>}
         </div>

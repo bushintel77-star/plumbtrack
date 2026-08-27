@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { enrollDeviceSession, getAuthSession } from "@/lib/auth";
 import { HttpError } from "@/lib/errors";
 import { dispatchNotification } from "@/lib/notifications";
-import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, mediaToBlob, mediaToDataUrl, migrateLegacyOperations, putOutboxMedia, removeOutboxMedia, retryFailedOutboxOperations, retryOutboxOperation } from "@/lib/outbox";
+import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, listOutboxOperations, mediaToBlob, mediaToDataUrl, migrateLegacyOperations, putOutboxMedia, removeOutboxMedia, retryFailedOutboxOperations, retryOutboxOperation } from "@/lib/outbox";
 import { createSyncManager, DeferredSyncError, TerminalSyncError } from "@/lib/syncManager";
 import { useOutboxStatus } from "@/hooks/useOutboxStatus";
 import { useShiftTracking } from "@/hooks/useShiftTracking";
@@ -224,14 +224,25 @@ function usePlumbTrackImpl() {
 
   // Merge remote data on mount — after ensuring a signed device session,
   // because production API calls are rejected without a bearer token.
+  // Quotes with a pending outbox operation are protected from the merge
+  // (last-write-wins by queue time) so a refresh can't visibly revert an
+  // offline edit that is still queued for upload.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!getAuthSession()) await enrollDeviceSession();
       if (cancelled) return;
       try {
-        const [rj, rq] = await Promise.all([api.listJobs(), api.listQuotes()]);
-        if (!cancelled) dispatch({ type: "MERGE_REMOTE", jobs: rj, quotes: rq });
+        const [rj, rq, ops] = await Promise.all([api.listJobs(), api.listQuotes(), listOutboxOperations()]);
+        if (cancelled) return;
+        const protectedQuoteIds = [
+          ...new Set(
+            ops
+              .filter((op) => op.kind === "sync-quote")
+              .map((op) => String((op.payload as { quoteId?: unknown }).quoteId ?? "")),
+          ),
+        ].filter(Boolean);
+        dispatch({ type: "MERGE_REMOTE", jobs: rj, quotes: rq, protectedQuoteIds });
       } catch {
         /* API unreachable — keep local state */
       }
@@ -640,6 +651,8 @@ function usePlumbTrackImpl() {
 
   const sendQuote = useCallback(() => {
     if (!quote) return;
+    // Block empty templates from transitioning to sent.
+    if (!quote.client.trim() || quote.lines.length === 0 || quote.lines.reduce((sum, l) => sum + l.qty * l.rate, 0) === 0) return;
     dispatch({ type: "UPDATE_QUOTE_STATUS", quoteId: quote.id, status: "sent" });
     setView("quoteSignoff");
     // Slack integration: announce the quote was sent in #quotes.
@@ -871,6 +884,22 @@ function usePlumbTrackImpl() {
     setClientName("");
     setXeroDone(false);
   }, [view]);
+
+  // Hardware / browser back gesture exits views instead of leaving the PWA.
+  // A history entry is pushed so the first back press pops it and routes to
+  // handleBack; when we're already home the next back leaves the app, which
+  // is the expected standalone-PWA behaviour.
+  useEffect(() => {
+    history.pushState({ plumbtrack: true }, "");
+    const onPopState = () => {
+      if (view !== "list") {
+        handleBack();
+        history.pushState({ plumbtrack: true }, "");
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [view, handleBack]);
 
   const closeInvoice = useCallback(() => {
     setActiveId(null);

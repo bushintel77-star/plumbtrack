@@ -117,7 +117,7 @@ function FilterChip({
       {label}
       {count > 0 && (
         <span
-          className={`text-[9px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
+          className={`text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
             active ? "bg-accent/25 text-accent" : "bg-fill-strong text-ink-low"
           }`}
         >
@@ -336,7 +336,7 @@ export function NotificationFeedView() {
           <Send size={14} className="text-accent" />
           <p className="text-sm font-semibold text-ink">Notification Feed</p>
           {status === "ready" && (
-            <span className="flex items-center gap-1 text-[9px] text-ink-low">
+            <span className="flex items-center gap-1 text-[10px] text-ink-low">
               <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
               LIVE
             </span>
