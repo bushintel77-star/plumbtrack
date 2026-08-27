@@ -36,7 +36,7 @@ export function OnTheWayButton({ jobId }: { jobId: string }) {
             : "bg-fill-strong text-ink border-line"
         }`}
       >
-        <IconVanRoute size={17} />
+        <IconVanRoute size={16} />
         {sent !== null ? `Customer told — ETA ${sent} min` : "On the way — ping the customer"}
       </button>
 

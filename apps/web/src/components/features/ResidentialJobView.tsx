@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { CaptureBar } from "@/components/field/CaptureBar";
 import { OnTheWayButton } from "@/components/field/OnTheWayButton";
 import { IconCameraField } from "@/components/icons/FieldIcons";
@@ -185,9 +186,9 @@ function VoiceCaptureButton({ onTranscript, disabled = false }: { onTranscript: 
         aria-busy={listening}
         aria-describedby={statusId}
         title={supported ? "Record voice note" : "Voice notes are not supported on this browser; type the note instead"}
-        className={`job-diary-voice-button w-12 h-12 shrink-0 rounded-xl border flex items-center justify-center transition haptic disabled:opacity-45 disabled:cursor-not-allowed ${listening ? "is-listening bg-accent/20 border-accent/40 text-accent" : "bg-fill border-line text-ink-mid"}`}
+        className={`job-diary-voice-button w-12 h-12 shrink-0 rounded-xl border flex items-center justify-center transition haptic disabled:opacity-45 disabled:cursor-not-allowed ${listening ? "is-listening bg-accent-dim border-accent text-accent" : "bg-fill border-line text-ink-mid"}`}
       >
-        {listening ? <VoiceMatrix /> : <Mic size={19} />}
+        {listening ? <VoiceMatrix /> : <Mic size={20} />}
       </button>
       <span id={statusId} className="sr-only" aria-live="polite">{statusMessage}</span>
     </>
@@ -197,13 +198,13 @@ function VoiceCaptureButton({ onTranscript, disabled = false }: { onTranscript: 
 function TypeBadge({ job }: { job: Job }) {
   const label = jobTypeLabel(job);
   const emergency = label === "Emergency";
-  return <span className={`inline-flex items-center min-h-[28px] rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider border ${emergency ? "bg-urgent-dim text-urgent border-urgent-line" : "bg-accent/12 text-accent border-accent/25"}`}>{label}</span>;
+  return <span className={`inline-flex items-center min-h-[28px] rounded-full px-2.5 text-2xs font-bold uppercase tracking-wider border ${emergency ? "bg-urgent-dim text-urgent border-urgent-line" : "bg-accent-dim text-accent border-accent-line"}`}>{label}</span>;
 }
 
 function ItemRow({ item, onQty, onRemove }: { item: ServiceItem; onQty: (qty: number) => void; onRemove: () => void }) {
   return (
     <div className="flex items-center gap-2 min-h-[44px] border-b border-line last:border-0">
-      <div className="flex-1 min-w-0"><p className="text-sm text-ink-mid truncate">{item.description}</p><p className="text-[10px] text-ink-low">${item.rate.toFixed(2)} / {item.unit}</p></div>
+      <div className="flex-1 min-w-0"><p className="text-sm text-ink-mid truncate">{item.description}</p><p className="text-2xs text-ink-low">${item.rate.toFixed(2)} / {item.unit}</p></div>
       <button type="button" onClick={() => onQty(item.qty - 1)} className="w-9 h-9 rounded-lg bg-fill-strong text-ink-mid active:bg-fill-strong transition" aria-label={`Decrease ${item.description}`}>−</button>
       <span className="w-5 text-center text-xs font-mono text-ink">{item.qty}</span>
       <button type="button" onClick={() => onQty(item.qty + 1)} className="w-9 h-9 rounded-lg bg-fill-strong text-ink-mid active:bg-fill-strong transition" aria-label={`Increase ${item.description}`}>+</button>
@@ -280,14 +281,14 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       <GlassCard className="!p-3">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5"><TypeBadge job={job} /><span className="text-[10px] text-ink-low font-mono">{formatSerial(job.id)}</span></div>
+            <div className="flex items-center gap-2 mb-1.5"><TypeBadge job={job} /><span className="text-2xs text-ink-low font-mono">{formatSerial(job.id)}</span></div>
             <p className="text-2xl font-black tracking-tight text-ink truncate">{job.client}</p>
             <p className="text-xs text-ink-low flex items-center gap-1 mt-1"><MapPin size={12} /> {job.address}</p>
             <p className="text-xs text-ink-low mt-1.5 line-clamp-2">{job.scope}</p>
           </div>
           <button type="button" onClick={onSwitchStaff} className="shrink-0 flex flex-col items-center gap-1" aria-label={`Working as ${currentStaffName} — tap to switch`}>
-            <span className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-on-accent" style={{ backgroundColor: currentStaff?.color ?? "var(--bg-fallback-member)" }}>{currentStaffName.slice(0, 2).toUpperCase()}</span>
-            <span className="text-[10px] text-ink-low font-bold uppercase">{currentStaffName}</span>
+            <Avatar name={currentStaff?.name ?? currentStaffName} color={currentStaff?.color} size={36} />
+            <span className="text-2xs text-ink-low font-bold uppercase">{currentStaffName}</span>
           </button>
         </div>
         <section className="comms-tray mt-3" aria-labelledby="comms-tray-title">
@@ -295,17 +296,17 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
               outside the billable capture controls below. */}
           <div className="flex items-center justify-between gap-2 mb-2">
             <div>
-              <p id="comms-tray-title" className="text-[10px] uppercase tracking-widest text-ink-low font-bold">Comms tray</p>
-              <p className="text-[11px] text-ink-low mt-0.5">Read-only site details — available before billable time starts</p>
+              <p id="comms-tray-title" className="text-2xs uppercase tracking-widest text-ink-low font-bold">Comms tray</p>
+              <p className="text-xs text-ink-low mt-0.5">Read-only site details — available before billable time starts</p>
             </div>
-            <span className="text-[10px] uppercase tracking-wider text-ink-low">Pre-flight</span>
+            <span className="text-2xs uppercase tracking-wider text-ink-low">Pre-flight</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
           <a href={job.phone ? `tel:${job.phone}` : undefined} aria-disabled={!job.phone} className={`min-h-[48px] rounded-xl flex items-center justify-center gap-2 border text-sm font-semibold transition haptic ${job.phone ? "bg-fill-strong text-ink border-line" : "bg-fill text-ink-low border-line pointer-events-none"}`}><Phone size={16} /> Call client</a>
           <a href={destinationUrl(job.address)} target="_blank" rel="noreferrer" className="min-h-[48px] rounded-xl flex items-center justify-center gap-2 bg-accent text-on-accent text-sm font-semibold transition haptic"><Navigation size={16} /> Navigate</a>
           </div>
           {job.accessCode && <div className="mt-2 flex items-center gap-2 text-xs text-ink-low"><span className="text-accent font-semibold">Access</span><span>{job.accessCode}</span></div>}
-          <div className="mt-2 pt-2 border-t border-line grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-ink-low">
+          <div className="mt-2 pt-2 border-t border-line grid grid-cols-2 gap-x-3 gap-y-1 text-2xs text-ink-low">
             <span>Site history <strong className="text-ink-mid">{completedVisits} visit{completedVisits === 1 ? "" : "s"}</strong></span>
             <span>Field notes <strong className="text-ink-mid">{job.logEntries.length + (job.voiceNotes?.length ?? 0)}</strong></span>
             {relatedDocs.slice(0, 2).map((document) => <span key={document.id} className="truncate" title={document.name}>Spec / cert <strong className="text-ink-mid">{document.name}</strong></span>)}
@@ -320,33 +321,33 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       </GlassCard>
 
       <div className="surface-card p-4">
-        <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-active animate-pulse" /><span className="text-[10px] uppercase tracking-widest text-ink-low font-bold">On site timer</span></div><span className="text-xs text-active">GPS check-in</span></div>
-        <div className="flex items-center justify-between gap-3"><p className="text-4xl font-mono tabular-nums text-ink">{formatClock(billedSeconds)}</p><button type="button" onClick={onClockPress} className="min-h-[52px] px-4 rounded-xl bg-accent text-on-accent text-sm font-bold flex items-center gap-2 haptic"><Clock size={17} /> Clock {job.timeEntries.some((entry) => entry.staffId === currentStaff?.id && entry.end === null) ? "off" : "on"}</button></div>
+        <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-active animate-pulse" /><span className="text-2xs uppercase tracking-widest text-ink-low font-bold">On site timer</span></div><span className="text-xs text-active">GPS check-in</span></div>
+        <div className="flex items-center justify-between gap-3"><p className="text-4xl font-mono tabular-nums text-ink">{formatClock(billedSeconds)}</p><button type="button" onClick={onClockPress} className="min-h-[52px] px-4 rounded-xl bg-accent text-on-accent text-sm font-bold flex items-center gap-2 haptic"><Clock size={16} /> Clock {job.timeEntries.some((entry) => entry.staffId === currentStaff?.id && entry.end === null) ? "off" : "on"}</button></div>
       </div>
 
       <JobActivityTimeline job={job} members={members} online={online} syncStatus={syncStatus} />
 
       <GlassCard>
-        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Photo proof</p><p className="text-[11px] text-ink-low mt-0.5">Timestamped before and after evidence</p></div><span className="text-xs text-ink-low">{job.photos.length} saved</span></div>
+        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Photo proof</p><p className="text-xs text-ink-low mt-0.5">Timestamped before and after evidence</p></div><span className="text-xs text-ink-low">{job.photos.length} saved</span></div>
         <div className="grid grid-cols-2 gap-2 mb-2">
-          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} disabled={!billableActive} aria-label={!billableActive ? `${label} photo — clock on required` : `${label} photo`} className="min-h-[92px] rounded-xl border border-dashed border-line-strong bg-fill text-ink-mid flex flex-col items-center justify-center gap-1.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"><IconCameraField size={21} className="text-accent" /><span className="text-xs font-semibold">{label}</span><span className="text-[10px] text-ink-low">Open camera</span></button>)}
+          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} disabled={!billableActive} aria-label={!billableActive ? `${label} photo — clock on required` : `${label} photo`} className="min-h-[92px] rounded-xl border border-dashed border-line-strong bg-fill text-ink-mid flex flex-col items-center justify-center gap-1.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"><IconCameraField size={20} className="text-accent" /><span className="text-xs font-semibold">{label}</span><span className="text-2xs text-ink-low">Open camera</span></button>)}
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
-          {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-scrim text-[10px] text-center text-on-accent">{photo.label}</span></div>)}
+          {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-scrim text-2xs text-center text-on-accent">{photo.label}</span></div>)}
         </div>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onCameraCapture} className="hidden" />
       </GlassCard>
 
       <GlassCard>
-        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Job diary</p><p className="text-[11px] text-ink-low mt-0.5">Quick note or dictate while your hands are busy</p></div><Volume2 size={16} className="text-accent" /></div>
-        <div className="flex gap-2"><VoiceCaptureButton disabled={!billableActive} onTranscript={(text) => setVoiceText((current) => `${current}${current ? " " : ""}${text}`)} /><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} disabled={!billableActive} placeholder="Add a job note" className="min-w-0 flex-1 min-h-[48px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low disabled:opacity-45" /><button type="button" onClick={saveVoiceNote} disabled={!billableActive || !voiceText.trim()} className="w-12 h-12 rounded-xl bg-accent text-on-accent flex items-center justify-center disabled:opacity-30" aria-label="Save voice note"><Check size={18} /></button></div>
+        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Job diary</p><p className="text-xs text-ink-low mt-0.5">Quick note or dictate while your hands are busy</p></div><Volume2 size={16} className="text-accent" /></div>
+        <div className="flex gap-2"><VoiceCaptureButton disabled={!billableActive} onTranscript={(text) => setVoiceText((current) => `${current}${current ? " " : ""}${text}`)} /><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} disabled={!billableActive} placeholder="Add a job note" className="min-w-0 flex-1 min-h-[48px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low disabled:opacity-45" /><button type="button" onClick={saveVoiceNote} disabled={!billableActive || !voiceText.trim()} className="w-12 h-12 rounded-xl bg-accent text-on-accent flex items-center justify-center disabled:opacity-30" aria-label="Save voice note"><Check size={20} /></button></div>
         <div className="flex gap-1.5 overflow-x-auto mt-2 pb-1">{QUICK_NOTES.map((note) => <button key={note} type="button" onClick={() => addQuickNote(note)} className="shrink-0 min-h-[34px] rounded-full px-3 border border-line bg-fill text-xs text-ink-low active:scale-[0.97]">+ {note}</button>)}</div>
-        {voiceNotes.slice(-3).map((note) => <div key={note.id} className="mt-2 flex gap-2 text-xs text-ink-low"><Mic size={13} className="text-accent shrink-0 mt-0.5" /><span>{note.transcript}</span></div>)}
+        {voiceNotes.slice(-3).map((note) => <div key={note.id} className="mt-2 flex gap-2 text-xs text-ink-low"><Mic size={14} className="text-accent shrink-0 mt-0.5" /><span>{note.transcript}</span></div>)}
       </GlassCard>
 
       <div style={{ scrollMarginBottom: "128px" }}>
       <GlassCard>
-        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Pricing & materials</p><p className="text-[11px] text-ink-low mt-0.5">Use the Part slot in the capture bar to add a preset kit</p></div><ShoppingCart size={17} className="text-accent" /></div>
+        <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Pricing & materials</p><p className="text-xs text-ink-low mt-0.5">Use the Part slot in the capture bar to add a preset kit</p></div><ShoppingCart size={16} className="text-accent" /></div>
         {items.length === 0 ? <div className="min-h-[48px] rounded-xl border border-dashed border-line flex items-center justify-center text-xs text-ink-low">No items added yet</div> : <div>{items.map((item) => <ItemRow key={item.id} item={item} onQty={(qty) => dispatch({ type: "UPDATE_SERVICE_ITEM_QTY", jobId: job.id, itemId: item.id, qty })} onRemove={() => dispatch({ type: "REMOVE_SERVICE_ITEM", jobId: job.id, itemId: item.id })} />)}</div>}
         <div className="flex justify-between pt-2 mt-1 border-t border-line text-sm font-bold text-ink"><span>Items total</span><span>${itemTotal.toFixed(2)}</span></div>
       </GlassCard>
@@ -355,11 +356,11 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       <JobDocumentsCard job={job} />
 
       <BottomSheet open={kitOpen} onClose={() => setKitOpen(false)} title="Add service item" subtitle="Preset rates and repair kits for fast driveway pricing" label="Service item picker">
-        <div className="space-y-2">{KITS.map((kit) => <button key={kit.id} type="button" onClick={() => addKit(kit)} className="w-full min-h-[72px] rounded-xl border border-line bg-fill p-3 text-left flex items-center gap-3 haptic"><span className="w-10 h-10 shrink-0 rounded-xl bg-accent/15 text-accent flex items-center justify-center"><ShoppingCart size={18} /></span><span className="flex-1 min-w-0"><span className="block text-sm font-bold text-ink">{kit.title}</span><span className="block text-xs text-ink-low mt-0.5">{kit.hint}</span></span><span className="text-sm font-bold text-accent">${kit.rate}</span><ChevronRight size={16} className="text-ink-low" /></button>)}</div>
+        <div className="space-y-2">{KITS.map((kit) => <button key={kit.id} type="button" onClick={() => addKit(kit)} className="w-full min-h-[72px] rounded-xl border border-line bg-fill p-3 text-left flex items-center gap-3 haptic"><span className="w-10 h-10 shrink-0 rounded-xl bg-accent-dim text-accent flex items-center justify-center"><ShoppingCart size={20} /></span><span className="flex-1 min-w-0"><span className="block text-sm font-bold text-ink">{kit.title}</span><span className="block text-xs text-ink-low mt-0.5">{kit.hint}</span></span><span className="text-sm font-bold text-accent">${kit.rate}</span><ChevronRight size={16} className="text-ink-low" /></button>)}</div>
       </BottomSheet>
 
       <BottomSheet open={safetySheet} onClose={() => setSafetySheet(false)} title="Safety confirmation" subtitle="Record the checks relevant to this repair" label="Safety confirmation">
-        <div className="space-y-1.5">{([{ key: "waterIsolated", label: "Water isolated before work" }, { key: "gasChecked", label: "Gas appliance / line checked" }, { key: "pressureTested", label: "Pressure or function tested" }] as const).map((check) => <button key={check.key} type="button" onClick={() => { void updateSafety(check.key); }} className="w-full min-h-[52px] flex items-center gap-2.5 text-left text-sm text-ink-mid"><span className={`w-6 h-6 rounded-md border flex items-center justify-center ${safety[check.key] ? "bg-accent border-accent text-on-accent" : "border-line-strong"}`}>{safety[check.key] && <Check size={15} />}</span>{check.label}</button>)}</div>
+        <div className="space-y-1.5">{([{ key: "waterIsolated", label: "Water isolated before work" }, { key: "gasChecked", label: "Gas appliance / line checked" }, { key: "pressureTested", label: "Pressure or function tested" }] as const).map((check) => <button key={check.key} type="button" onClick={() => { void updateSafety(check.key); }} className="w-full min-h-[52px] flex items-center gap-2.5 text-left text-sm text-ink-mid"><span className={`w-6 h-6 rounded-md border flex items-center justify-center ${safety[check.key] ? "bg-accent border-accent text-on-accent" : "border-line-strong"}`}>{safety[check.key] && <Check size={16} />}</span>{check.label}</button>)}</div>
       </BottomSheet>
 
       <CaptureBar

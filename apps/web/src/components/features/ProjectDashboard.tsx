@@ -4,15 +4,12 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, ShieldAlert, Wrench, CalendarClock } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { expiryState } from "@/lib/documents";
 import { formatSerial, localDateStr } from "@/lib/display";
 import type { Job } from "@/types";
 
 type Scope = "today" | "week" | "all";
-
-function initials(name: string): string {
-  return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-}
 
 /** Overlapping seconds of every time entry inside [fromMs, toMs). Open
  *  entries count their elapsed time to now when includeOpen is set. */
@@ -63,16 +60,21 @@ export function ProjectDashboard() {
   const hoursPrevWeek = secsRange(jobs, Date.now() - 14 * DAY_MS, Date.now() - 7 * DAY_MS) / 3600;
   const deltaPct = hoursPrevWeek > 0.1 ? Math.round(((hoursWeek - hoursPrevWeek) / hoursPrevWeek) * 100) : null;
 
-  // Hours per day for the trailing week — today renders as the hot bar.
+  // Hours per day for the trailing week. Height AND colour carry the value:
+  // worked days rise against the max, empty days sit as hairlines, today is
+  // the accent bar with its weekday letter called out.
   const weekBars = useMemo(() => {
-    const bars: number[] = [];
+    const days: { hours: number; letter: string }[] = [];
     for (let d = 6; d >= 0; d--) {
       const dayStart = startOfToday - d * DAY_MS;
-      bars.push(secsRange(jobs, dayStart, dayStart + DAY_MS, true) / 3600);
+      days.push({
+        hours: secsRange(jobs, dayStart, dayStart + DAY_MS, true) / 3600,
+        letter: new Date(dayStart).toLocaleDateString("en-AU", { weekday: "narrow" }),
+      });
     }
-    return bars;
+    return days;
   }, [jobs, startOfToday]);
-  const barMax = Math.max(...weekBars, 0.1);
+  const barMax = Math.max(...weekBars.map((b) => b.hours), 0.1);
 
   const reportsSubmitted = activeJobs.filter((j) => j.dailyReports.some((r) => r.date === today && r.submittedAt)).length;
   const reportsDueJobs = activeJobs.filter((j) => !j.dailyReports.some((r) => r.date === today && r.submittedAt));
@@ -106,7 +108,7 @@ export function ProjectDashboard() {
             role="tab"
             aria-selected={scope === key}
             onClick={() => setScope(key)}
-            className={`flex-1 min-h-[36px] rounded-[10px] text-[11px] font-black uppercase tracking-wider transition haptic ${
+            className={`flex-1 min-h-[36px] rounded-[10px] text-xs font-black uppercase tracking-wider transition haptic ${
               scope === key ? "text-accent" : "text-ink-low"
             }`}
             style={scope === key ? { background: "var(--app-surface-solid)", boxShadow: "0 2px 8px -2px rgba(0,0,0,0.35)" } : undefined}
@@ -121,12 +123,12 @@ export function ProjectDashboard() {
         {/* Hours — big number, honest delta, trailing-week micro chart */}
         <GlassCard className="col-span-2 p-3.5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.13em] text-ink-low">
+            <span className="text-2xs font-black uppercase tracking-[0.13em] text-ink-low">
               Hours {scope === "today" ? "today" : scope === "week" ? "this week" : "all time"}
             </span>
             {scope === "week" && deltaPct !== null && (
               <span
-                className={`text-[10px] font-black rounded-full px-1.5 py-0.5 ${
+                className={`text-2xs font-black rounded-full px-1.5 py-0.5 ${
                   deltaPct >= 0 ? "text-complete bg-complete-dim" : "text-urgent bg-urgent-dim"
                 }`}
               >
@@ -138,14 +140,30 @@ export function ProjectDashboard() {
             {hours < 10 ? hours.toFixed(1) : Math.round(hours)}
             <span className="text-xs font-bold text-ink-low ml-1">{hoursLabel}</span>
           </div>
-          <div className="flex items-end gap-1 h-9 mt-2.5" aria-hidden="true">
-            {weekBars.map((h, i) => (
-              <span
-                key={i}
-                className={`flex-1 rounded-t-[3px] min-h-[3px] ${i === weekBars.length - 1 ? "bg-accent" : "bg-fill-strong"}`}
-                style={{ height: `${Math.max(6, (h / barMax) * 100)}%` }}
-              />
-            ))}
+          <div className="mt-2.5" aria-hidden="true">
+            <div className="flex items-end gap-1 h-9">
+              {weekBars.map((b, i) => (
+                <span
+                  key={i}
+                  className={`flex-1 rounded-t-[3px] ${
+                    b.hours === 0 ? "bg-line" : i === weekBars.length - 1 ? "bg-accent" : "bg-fill-strong"
+                  }`}
+                  style={{ height: b.hours === 0 ? 3 : `${Math.max(10, (b.hours / barMax) * 100)}%` }}
+                />
+              ))}
+            </div>
+            <div className="flex gap-1 mt-1">
+              {weekBars.map((b, i) => (
+                <span
+                  key={i}
+                  className={`flex-1 text-center text-2xs leading-none ${
+                    i === weekBars.length - 1 ? "text-accent font-black" : "text-ink-low font-bold"
+                  }`}
+                >
+                  {b.letter}
+                </span>
+              ))}
+            </div>
           </div>
         </GlassCard>
 
@@ -162,17 +180,22 @@ export function ProjectDashboard() {
           ariaLabel="Open the daily report for the first active job"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.13em] text-ink-low">Daily reports</span>
-            <CheckCircle2 size={13} className={reportsDueJobs.length === 0 ? "text-complete" : "text-pending"} />
+            <span className="text-2xs font-black uppercase tracking-[0.13em] text-ink-low">Daily reports</span>
+            <CheckCircle2 size={14} className={reportsDueJobs.length === 0 ? "text-complete" : "text-pending"} />
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-2xl font-black tracking-tight text-ink tabular-nums">
-              {reportsSubmitted}
-              <span className="text-xs font-bold text-ink-low">/{activeJobs.length}</span>
+            <div>
+              <div className="text-2xl font-black tracking-tight text-ink tabular-nums">
+                {reportsSubmitted}
+                <span className="text-xs font-bold text-ink-low">/{activeJobs.length}</span>
+              </div>
+              <div className="text-2xs text-ink-low mt-0.5">
+                {reportsDueJobs.length === 0 ? "all reports in" : `${reportsDueJobs.length} due today`}
+              </div>
             </div>
-            <div className="relative w-[54px] h-[54px] ml-auto text-accent">
+            <div className={`relative w-[54px] h-[54px] ml-auto ${reportPct >= 1 ? "text-complete" : "text-pending"}`}>
               <svg width="54" height="54" viewBox="0 0 54 54" style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
-                <circle cx="27" cy="27" r="23" fill="none" stroke="var(--surface-border)" strokeWidth="6" />
+                <circle cx="27" cy="27" r="23" fill="none" stroke="var(--fill-strong)" strokeWidth="6" />
                 <circle
                   cx="27"
                   cy="27"
@@ -186,7 +209,7 @@ export function ProjectDashboard() {
                   style={{ transition: "stroke-dashoffset 400ms ease" }}
                 />
               </svg>
-              <span className="absolute inset-0 grid place-items-center text-[11px] font-black text-ink tabular-nums">
+              <span className="absolute inset-0 grid place-items-center text-xs font-black text-ink tabular-nums">
                 {Math.round(reportPct * 100)}%
               </span>
             </div>
@@ -196,8 +219,8 @@ export function ProjectDashboard() {
         {/* Crew — presence-aware avatar stack */}
         <GlassCard className="col-span-2 p-3.5">
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[10px] font-black uppercase tracking-[0.13em] text-ink-low">Crew</span>
-            <span className="text-[10px] font-black rounded-full px-1.5 py-0.5 text-complete bg-complete-dim">
+            <span className="text-2xs font-black uppercase tracking-[0.13em] text-ink-low">Crew</span>
+            <span className="text-2xs font-black rounded-full px-1.5 py-0.5 text-complete bg-complete-dim">
               {onSiteIds.size} on
             </span>
           </div>
@@ -207,17 +230,10 @@ export function ProjectDashboard() {
               return (
                 <span
                   key={m.id}
-                  className="relative w-8 h-8 rounded-full grid place-items-center text-[11px] font-black text-white -ml-2 first:ml-0 border-2"
-                  style={{ backgroundColor: on ? m.color : "var(--bg-fallback-member)", borderColor: "var(--app-surface-solid)" }}
-                  title={`${m.name}${on ? " — on site" : ""}`}
+                  className="-ml-2 first:ml-0 inline-block rounded-full"
+                  style={{ boxShadow: "0 0 0 2px var(--app-surface-solid)" }}
                 >
-                  {initials(m.name)}
-                  {on && (
-                    <span
-                      className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-complete"
-                      style={{ boxShadow: "0 0 0 2px var(--app-surface-solid)" }}
-                    />
-                  )}
+                  <Avatar name={m.name} color={m.color} size={32} dot={on} title={`${m.name}${on ? " — on site" : ""}`} />
                 </span>
               );
             })}
@@ -227,13 +243,13 @@ export function ProjectDashboard() {
         {/* Quotes — open count + honest pipeline value */}
         <GlassCard interactive className="col-span-2 p-3.5" onClick={() => setActiveTab("quotes")} ariaLabel="Open quotes">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.13em] text-ink-low">Quotes pending</span>
-            <span className="text-[10px] font-black rounded-full px-1.5 py-0.5 text-pending bg-pending-dim">{openQuotes.length} open</span>
+            <span className="text-2xs font-black uppercase tracking-[0.13em] text-ink-low">Quotes pending</span>
+            <span className="text-2xs font-black rounded-full px-1.5 py-0.5 text-pending bg-pending-dim">{openQuotes.length} open</span>
           </div>
           <div className="text-2xl font-black tracking-tight text-ink tabular-nums">
             {quotesPotential > 0 ? `$${Math.round(quotesPotential).toLocaleString()}` : "—"}
           </div>
-          <div className="text-[10.5px] text-ink-low mt-1">
+          <div className="text-2xs text-ink-low mt-1">
             {quotesPotential > 0 ? "potential across open quotes" : "awaiting line items on open quotes"}
           </div>
         </GlassCard>
@@ -241,8 +257,8 @@ export function ProjectDashboard() {
 
       {/* Job health */}
       <div className="flex items-center justify-between px-1 pt-1">
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-ink-low">Job health</span>
-        <button type="button" onClick={() => setActiveTab("jobs")} className="text-[11.5px] font-bold text-accent">
+        <span className="text-2xs font-black uppercase tracking-[0.16em] text-ink-low">Job health</span>
+        <button type="button" onClick={() => setActiveTab("jobs")} className="text-xs font-bold text-accent">
           All jobs ›
         </button>
       </div>
@@ -250,7 +266,7 @@ export function ProjectDashboard() {
         <GlassCard className="p-5 text-center">
           <Wrench size={20} className="text-ink-low mx-auto mb-2" />
           <p className="text-sm font-bold text-ink">No active jobs</p>
-          <p className="text-[11px] text-ink-low mt-1">A quiet day — new jobs appear here the moment they're scheduled.</p>
+          <p className="text-xs text-ink-low mt-1">A quiet day — new jobs appear here the moment they&apos;re scheduled.</p>
         </GlassCard>
       )}
       <div className="space-y-1.5">
@@ -259,12 +275,12 @@ export function ProjectDashboard() {
             <div className="flex items-center gap-3">
               <Wrench size={16} className="text-accent shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-bold text-ink truncate">{j.client}</span>
-                <span className="block text-[10.5px] text-ink-low truncate">
+                <span className="block text-sm font-bold text-ink truncate">{j.client}</span>
+                <span className="block text-2xs text-ink-low truncate">
                   On site now · {j.timeEntries.filter((e) => e.end === null).length} on job
                 </span>
               </div>
-              <span className="text-[10px] font-black uppercase rounded-full px-2 py-1 text-accent bg-accent-dim">Live</span>
+              <span className="text-2xs font-black uppercase rounded-full px-2 py-1 text-accent bg-accent-dim">Live</span>
             </div>
           </GlassCard>
         ))}
@@ -273,10 +289,10 @@ export function ProjectDashboard() {
             <div className="flex items-center gap-3">
               <CalendarClock size={16} className="text-ink-low shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-bold text-ink truncate">{j.client}</span>
-                <span className="block text-[10.5px] text-ink-low truncate">{j.scope}</span>
+                <span className="block text-sm font-bold text-ink truncate">{j.client}</span>
+                <span className="block text-2xs text-ink-low truncate">{j.scope}</span>
               </div>
-              <span className="text-[10px] font-black uppercase rounded-full px-2 py-1 text-ink-low bg-fill border border-line">Sched</span>
+              <span className="text-2xs font-black uppercase rounded-full px-2 py-1 text-ink-low bg-fill border border-line">Sched</span>
             </div>
           </GlassCard>
         ))}
@@ -285,10 +301,10 @@ export function ProjectDashboard() {
             <div className="flex items-center gap-3">
               <CheckCircle2 size={16} className="text-complete shrink-0" />
               <div className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-bold text-ink truncate">{j.client}</span>
-                <span className="block text-[10.5px] text-ink-low truncate">Completed today</span>
+                <span className="block text-sm font-bold text-ink truncate">{j.client}</span>
+                <span className="block text-2xs text-ink-low truncate">Completed today</span>
               </div>
-              <span className="text-[10px] font-black uppercase rounded-full px-2 py-1 text-complete bg-complete-dim">Done</span>
+              <span className="text-2xs font-black uppercase rounded-full px-2 py-1 text-complete bg-complete-dim">Done</span>
             </div>
           </GlassCard>
         ))}
@@ -300,14 +316,14 @@ export function ProjectDashboard() {
           <div className="flex items-center gap-3">
             <ShieldAlert size={16} className="text-pending shrink-0" />
             <div className="flex-1 min-w-0">
-              <span className="block text-[13px] font-bold text-ink">
+              <span className="block text-sm font-bold text-ink">
                 {expired.length > 0 ? `${expired.length} expired` : `${soon.length} expiring`}
               </span>
-              <span className="block text-[10.5px] text-ink-low truncate">
+              <span className="block text-2xs text-ink-low truncate">
                 {atRiskDocs.slice(0, 3).map((d) => `${d.name}${d.jobId ? ` (${formatSerial(d.jobId)})` : ""}`).join(" · ")}
               </span>
             </div>
-            <span className="text-[12px] font-black text-pending shrink-0">
+            <span className="text-xs font-black text-pending shrink-0">
               {expired.length > 0
                 ? "action"
                 : `${Math.min(...soon.map((d) => Math.ceil((new Date(d.expiresOn!).getTime() - Date.now()) / DAY_MS)))}d`}

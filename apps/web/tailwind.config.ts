@@ -9,6 +9,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontSize: {
+        // Field legibility floor — the smallest step any text may use.
+        "2xs": ["10px", { lineHeight: "14px" }],
+      },
       colors: {
         // Semantic tokens — every utility class resolves to a CSS variable
         // defined in globals.css, so a theme/colourway change is a token-file

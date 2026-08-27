@@ -56,7 +56,7 @@ export function ShiftCard() {
                   Start shift tracking
                 </div>
               </div>
-              <span className="text-[var(--text-secondary)] text-[18px]">→</span>
+              <span className="text-[var(--text-secondary)] text-lg">→</span>
             </div>
           </button>
         </div>

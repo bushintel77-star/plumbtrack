@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { useToast } from "@/components/ui/Toast";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { daysUntilExpiry, expiryState, formatBytes, formatDate, relativeTime } from "@/lib/documents";
 import type { DocumentCategory, Job, PlumbDocument, Rfi, RfiStatus } from "@/types";
@@ -52,7 +53,7 @@ export function CategoryIcon({ category, size = 16 }: { category: DocumentCatego
   const info = categoryInfo(category);
   const Icon = info.icon;
   return (
-    <span className="w-8 h-8 shrink-0 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+    <span className="icon-socket icon-socket--accent" style={{ width: "32px", height: "32px" }}>
       <Icon size={size} />
     </span>
   );
@@ -69,7 +70,7 @@ export function ExpiryBadge({ expiresOn }: { expiresOn: string | null }) {
       ? "bg-urgent-dim text-urgent border-urgent-line"
       : "bg-pending-dim text-pending border-pending-line";
   return (
-    <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
+    <span className={`shrink-0 text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full border ${classes}`}>
       {label}
     </span>
   );
@@ -83,7 +84,7 @@ export function RfiStatusChip({ status }: { status: RfiStatus }) {
         ? "bg-complete-dim text-complete border-complete-line"
         : "bg-fill-strong text-ink-low border-line";
   return (
-    <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${classes}`}>
+    <span className={`shrink-0 text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full border ${classes}`}>
       {status}
     </span>
   );
@@ -175,7 +176,7 @@ export function DocumentUploadSheet({
             <>
               <FileText size={16} className="text-accent" />
               <span className="truncate max-w-[70%]">{file.name}</span>
-              <span className="text-[10px] text-ink-low font-normal">{formatBytes(file.size)}</span>
+              <span className="text-2xs text-ink-low font-normal">{formatBytes(file.size)}</span>
             </>
           ) : (
             <>
@@ -187,7 +188,7 @@ export function DocumentUploadSheet({
         <input ref={inputRef} type="file" className="hidden" onChange={onPick} aria-label="Choose document file" />
 
         <label className="block">
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Name</span>
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -197,7 +198,7 @@ export function DocumentUploadSheet({
         </label>
 
         <div>
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1.5">Category</span>
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1.5">Category</span>
           <div className="flex flex-wrap gap-1.5">
             {DOCUMENT_CATEGORIES.map((c) => (
               <button
@@ -206,7 +207,7 @@ export function DocumentUploadSheet({
                 onClick={() => setCategory(c.id)}
                 className={`min-h-[34px] px-3 rounded-full text-xs font-semibold border transition haptic ${
                   category === c.id
-                    ? "bg-accent/15 text-accent border-accent/30"
+                    ? "bg-accent-dim text-accent border-accent-line"
                     : "bg-fill text-ink-low border-line"
                 }`}
               >
@@ -217,7 +218,7 @@ export function DocumentUploadSheet({
         </div>
 
         <label className="block">
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Linked to</span>
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Linked to</span>
           <select
             value={jobId ?? ""}
             onChange={(event) => setJobId(event.target.value || null)}
@@ -233,7 +234,7 @@ export function DocumentUploadSheet({
         </label>
 
         <label className="block">
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">
             Expires on <span className="text-ink-low normal-case">(compliance / insurance only)</span>
           </span>
           <input
@@ -245,7 +246,7 @@ export function DocumentUploadSheet({
         </label>
 
         <label className="block">
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Notes</span>
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Notes</span>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
@@ -279,7 +280,8 @@ export function DocumentDetailSheet({
   onClose: () => void;
   document: PlumbDocument | null;
 }) {
-  const { updateDocument, addDocumentVersion, deleteDocument, openJob, jobs, documents } = usePlumbTrackCtx();
+  const { updateDocument, addDocumentVersion, deleteDocument, openJob, jobs, documents, dispatch } = usePlumbTrackCtx();
+  const { toast } = useToast();
   // Re-read the live record so version additions and edits reflect instantly
   // while the sheet stays open (the prop is a snapshot from open time).
   const live = documents.find((d) => d.id === document?.id) ?? document;
@@ -336,9 +338,9 @@ export function DocumentDetailSheet({
         <div className="flex items-start gap-3">
           <CategoryIcon category={live.category} size={20} />
           <div className="flex-1 min-w-0">
-            <p className="text-ink font-bold text-[15px] leading-snug">{live.name}</p>
+            <p className="text-ink font-bold text-base leading-snug">{live.name}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-[10px] text-ink-low">{live.versions.length} version{live.versions.length === 1 ? "" : "s"} · added {relativeTime(live.createdAt)}</span>
+              <span className="text-2xs text-ink-low">{live.versions.length} version{live.versions.length === 1 ? "" : "s"} · added {relativeTime(live.createdAt)}</span>
               <ExpiryBadge expiresOn={live.expiresOn} />
             </div>
           </div>
@@ -379,11 +381,11 @@ export function DocumentDetailSheet({
         {editing ? (
           <div className="space-y-3">
             <label className="block">
-              <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Name</span>
+              <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Name</span>
               <input value={name} onChange={(event) => setName(event.target.value)} className="w-full app-input border rounded-lg px-3 py-2.5 text-sm text-ink" />
             </label>
             <div>
-              <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1.5">Category</span>
+              <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1.5">Category</span>
               <div className="flex flex-wrap gap-1.5">
                 {DOCUMENT_CATEGORIES.map((c) => (
                   <button
@@ -391,7 +393,7 @@ export function DocumentDetailSheet({
                     type="button"
                     onClick={() => setCategory(c.id)}
                     className={`min-h-[34px] px-3 rounded-full text-xs font-semibold border transition haptic ${
-                      category === c.id ? "bg-accent/15 text-accent border-accent/30" : "bg-fill text-ink-low border-line"
+                      category === c.id ? "bg-accent-dim text-accent border-accent-line" : "bg-fill text-ink-low border-line"
                     }`}
                   >
                     {c.label}
@@ -400,11 +402,11 @@ export function DocumentDetailSheet({
               </div>
             </div>
             <label className="block">
-              <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Expires on</span>
+              <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Expires on</span>
               <input type="date" value={expiresOn} onChange={(event) => setExpiresOn(event.target.value)} className="w-full app-input border rounded-lg px-3 py-2.5 text-sm text-ink [color-scheme:dark]" />
             </label>
             <label className="block">
-              <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Notes</span>
+              <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Notes</span>
               <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} className="w-full app-input border rounded-lg px-3 py-2 text-sm text-ink resize-y" />
             </label>
             <div className="flex gap-2">
@@ -417,21 +419,21 @@ export function DocumentDetailSheet({
             {live.notes && <p className="text-xs text-ink-low leading-relaxed">{live.notes}</p>}
 
             <div>
-              <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider mb-2 flex items-center gap-1.5"><History size={12} /> Version history</p>
+              <p className="text-2xs font-bold text-ink-low uppercase tracking-wider mb-2 flex items-center gap-1.5"><History size={12} /> Version history</p>
               <div className="space-y-1.5">
                 {[...live.versions].reverse().map((version, index) => (
                   <div key={version.id} className="flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 min-h-[44px]">
-                    <span className="w-7 h-7 shrink-0 rounded-md bg-fill-strong text-ink-low flex items-center justify-center text-[10px] font-mono font-bold">v{live.versions.length - index}</span>
+                    <span className="w-7 h-7 shrink-0 rounded-md bg-fill-strong text-ink-low flex items-center justify-center text-2xs font-mono font-bold">v{live.versions.length - index}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-ink-mid truncate">{version.fileName}</p>
-                      <p className="text-[10px] text-ink-low">{formatBytes(version.size)} · {relativeTime(version.uploadedAt)}</p>
+                      <p className="text-2xs text-ink-low">{formatBytes(version.size)} · {relativeTime(version.uploadedAt)}</p>
                     </div>
                     {version.url ? (
                       <a href={version.url} download={version.fileName} className="w-8 h-8 shrink-0 rounded-lg bg-fill-strong text-ink-mid flex items-center justify-center haptic" aria-label={`Download ${version.fileName}`}>
                         <Download size={14} />
                       </a>
                     ) : (
-                      <span className="text-[10px] text-ink-low font-medium shrink-0">Demo record</span>
+                      <span className="text-2xs text-ink-low font-medium shrink-0">Demo record</span>
                     )}
                   </div>
                 ))}
@@ -454,8 +456,16 @@ export function DocumentDetailSheet({
                 <button
                   type="button"
                   onClick={() => {
-                    deleteDocument(live.id);
+                    // Undo escape hatch: gloved thumbs mis-tap. The snapshot
+                    // re-adds the exact record (same id) for six seconds.
+                    const snapshot = live;
+                    if (!snapshot) return;
+                    deleteDocument(snapshot.id);
                     onClose();
+                    toast("info", `“${snapshot.name}” deleted`, {
+                      label: "Undo",
+                      onClick: () => dispatch({ type: "ADD_DOCUMENT", document: snapshot }),
+                    });
                   }}
                   className="flex-1 min-h-[44px] rounded-xl bg-urgent text-on-accent text-sm font-bold haptic"
                 >
@@ -494,7 +504,7 @@ export function RaiseRfiSheet({ open, onClose, jobId }: { open: boolean; onClose
     <BottomSheet open={open} onClose={onClose} title="Raise RFI" subtitle={`Request information from the office on ${formatSerial(jobId)}`} label="Raise request for information">
       <div className="space-y-3">
         <label className="block">
-          <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Question</span>
+          <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Question</span>
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
@@ -507,7 +517,7 @@ export function RaiseRfiSheet({ open, onClose, jobId }: { open: boolean; onClose
 
         {jobDocs.length > 0 && (
           <label className="block">
-            <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider block mb-1">Attach a document (optional)</span>
+            <span className="text-2xs font-bold text-ink-low uppercase tracking-wider block mb-1">Attach a document (optional)</span>
             <select
               value={attachmentId ?? ""}
               onChange={(event) => setAttachmentId(event.target.value || null)}
@@ -569,14 +579,14 @@ export function RfiDetailSheet({
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <RfiStatusChip status={live.status} />
-            <span className="text-[10px] text-ink-low">{raisedByName} · {relativeTime(live.raisedAt)}</span>
+            <span className="text-2xs text-ink-low">{raisedByName} · {relativeTime(live.raisedAt)}</span>
           </div>
-          <p className="text-ink font-semibold text-[15px] leading-snug">{live.question}</p>
+          <p className="text-ink font-semibold text-base leading-snug">{live.question}</p>
         </div>
 
         {attachment && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-fill px-3 py-2.5 text-xs text-ink-mid">
-            <Link2 size={13} className="text-accent shrink-0" />
+            <Link2 size={14} className="text-accent shrink-0" />
             <span className="truncate">Attached: {attachment.name}</span>
           </div>
         )}
@@ -605,8 +615,8 @@ export function RfiDetailSheet({
         ) : (
           <div className="rounded-xl border border-line bg-fill p-3 space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-ink-low uppercase tracking-wider">Answer</span>
-              <span className="text-[10px] text-ink-low">{answeredByName} · {live.answeredAt ? relativeTime(live.answeredAt) : ""}</span>
+              <span className="text-2xs font-bold text-ink-low uppercase tracking-wider">Answer</span>
+              <span className="text-2xs text-ink-low">{answeredByName} · {live.answeredAt ? relativeTime(live.answeredAt) : ""}</span>
             </div>
             <p className="text-sm text-ink-mid leading-relaxed">{live.answer}</p>
             {live.status === "answered" && (
@@ -619,7 +629,7 @@ export function RfiDetailSheet({
               </button>
             )}
             {live.status === "closed" && (
-              <p className="flex items-center gap-1.5 text-[10px] font-bold text-complete uppercase tracking-wider pt-1">
+              <p className="flex items-center gap-1.5 text-2xs font-bold text-complete uppercase tracking-wider pt-1">
                 <Check size={12} /> Closed
               </p>
             )}
@@ -648,14 +658,14 @@ export function JobDocumentsCard({ job }: { job: Job }) {
       <div className="flex items-center justify-between mb-2">
         <div>
           <p className="text-xs font-bold text-ink-low uppercase tracking-wider">Docs & RFIs</p>
-          <p className="text-[11px] text-ink-low mt-0.5">Specs, certs, permits · questions to the office</p>
+          <p className="text-xs text-ink-low mt-0.5">Specs, certs, permits · questions to the office</p>
         </div>
         <button
           type="button"
           onClick={() => setUploadOpen(true)}
-          className="shrink-0 min-h-[36px] px-3 rounded-full bg-accent/15 text-accent border border-accent/25 text-xs font-bold flex items-center gap-1.5 haptic"
+          className="shrink-0 min-h-[36px] px-3 rounded-full bg-accent-dim text-accent border border-accent-line text-xs font-bold flex items-center gap-1.5 haptic"
         >
-          <Upload size={13} /> Upload
+          <Upload size={14} /> Upload
         </button>
       </div>
 
@@ -681,8 +691,8 @@ export function JobDocumentsCard({ job }: { job: Job }) {
                 >
                   <CategoryIcon category={doc.category} />
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] font-semibold text-ink truncate">{doc.name}</span>
-                    <span className="block text-[10px] text-ink-low">
+                    <span className="block text-sm font-semibold text-ink truncate">{doc.name}</span>
+                    <span className="block text-2xs text-ink-low">
                       {categoryInfo(doc.category).label} · v{doc.versions.length} · {formatBytes(latest?.size ?? 0)}
                     </span>
                   </span>
@@ -694,20 +704,20 @@ export function JobDocumentsCard({ job }: { job: Job }) {
           </div>
 
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider">
+            <p className="text-2xs font-bold text-ink-low uppercase tracking-wider">
               RFIs{openRfis > 0 && <span className="text-pending"> · {openRfis} open</span>}
             </p>
             <button
               type="button"
               onClick={() => setRaiseOpen(true)}
-              className="shrink-0 min-h-[32px] px-3 rounded-full border border-line bg-fill text-ink-mid text-[11px] font-semibold flex items-center gap-1.5 haptic"
+              className="shrink-0 min-h-[32px] px-3 rounded-full border border-line bg-fill text-ink-mid text-xs font-semibold flex items-center gap-1.5 haptic"
             >
               <MessageCircleQuestion size={12} /> Raise RFI
             </button>
           </div>
 
           {jobRfis.length === 0 ? (
-            <p className="text-[11px] text-ink-low py-1">No RFIs on this job yet.</p>
+            <p className="text-xs text-ink-low py-1">No RFIs on this job yet.</p>
           ) : (
             <div className="space-y-1.5">
               {jobRfis.map((rfi) => (
@@ -718,11 +728,11 @@ export function JobDocumentsCard({ job }: { job: Job }) {
                   className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                 >
                   <span className="w-8 h-8 shrink-0 rounded-lg bg-fill text-ink-low flex items-center justify-center">
-                    <MessageCircleQuestion size={15} />
+                    <MessageCircleQuestion size={16} />
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[12.5px] text-ink-mid truncate">{rfi.question}</span>
-                    <span className="block text-[10px] text-ink-low">{relativeTime(rfi.raisedAt)}</span>
+                    <span className="block text-xs text-ink-mid truncate">{rfi.question}</span>
+                    <span className="block text-2xs text-ink-low">{relativeTime(rfi.raisedAt)}</span>
                   </span>
                   <RfiStatusChip status={rfi.status} />
                   <ChevronRight size={14} className="text-ink-low shrink-0" />
@@ -757,7 +767,7 @@ export function ExpiryAlertBanner({ documents }: { documents: PlumbDocument[] })
   return (
     <div className="rounded-xl border border-pending-line bg-pending-dim p-3.5">
       <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle size={15} className="text-pending shrink-0" />
+        <AlertTriangle size={16} className="text-pending shrink-0" />
         <p className="text-xs font-bold text-pending uppercase tracking-wider">
           {expiredCount > 0 ? `${expiredCount} expired` : ""}
           {expiredCount > 0 && soonCount > 0 ? " · " : ""}
@@ -769,7 +779,7 @@ export function ExpiryAlertBanner({ documents }: { documents: PlumbDocument[] })
           <div key={doc.id} className="flex items-center gap-2 text-xs text-ink-mid">
             <ExpiryBadge expiresOn={doc.expiresOn} />
             <span className="truncate flex-1">{doc.name}</span>
-            {doc.jobId && <span className="text-[10px] font-mono text-ink-low shrink-0">{formatSerial(doc.jobId)}</span>}
+            {doc.jobId && <span className="text-2xs font-mono text-ink-low shrink-0">{formatSerial(doc.jobId)}</span>}
           </div>
         ))}
       </div>

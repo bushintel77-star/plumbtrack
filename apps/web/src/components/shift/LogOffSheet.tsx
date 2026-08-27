@@ -83,15 +83,15 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
             className="flex items-center gap-2.5 p-3 rounded-xl"
             style={{ background: "var(--status-complete-dim)", border: "1px solid var(--status-complete-border)" }}
           >
-            <ShieldCheck size={18} className="text-complete shrink-0" />
-            <p className="text-[12px] text-complete font-semibold">
+            <ShieldCheck size={20} className="text-complete shrink-0" />
+            <p className="text-xs text-complete font-semibold">
               GPS tracking stopped — you are off duty and no longer monitored.
             </p>
           </div>
 
           <div className="space-y-1.5">
             {done.breakdown.components.map((c) => (
-              <div key={c.code} className="flex justify-between text-[13px]">
+              <div key={c.code} className="flex justify-between text-sm">
                 <span style={{ color: "var(--sheet-muted)" }}>
                   {c.label} · {c.hours.toFixed(2)} hrs
                 </span>
@@ -111,11 +111,11 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
 
           {done.breakdown.notes.length > 0 && (
             <div className="p-3 rounded-xl space-y-1" style={{ background: "var(--surface-hover-subtle)" }}>
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--sheet-muted)" }}>
+              <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: "var(--sheet-muted)" }}>
                 Award rules applied
               </p>
               {done.breakdown.notes.map((n) => (
-                <p key={n} className="text-[11.5px] leading-snug" style={{ color: "var(--sheet-muted)" }}>
+                <p key={n} className="text-xs leading-snug" style={{ color: "var(--sheet-muted)" }}>
                   • {n}
                 </p>
               ))}
@@ -123,7 +123,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
           )}
 
           <div className="p-3 rounded-xl space-y-1.5" style={{ background: "var(--surface-hover-subtle)" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
+            <p className="text-2xs font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
               STP Phase 2 reporting categories
             </p>
             <StpRow label="Ordinary time earnings (OTE)" value={done.stp.ordinaryTimeEarnings} />
@@ -131,7 +131,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
             <StpRow label="Public holiday penalty" value={done.stp.publicHolidayPenalty} />
             <StpRow label={`Allowance — cents per km (${done.stp.kmClaimed} km)`} value={done.stp.centsPerKmAllowance} />
             {done.stp.toilAccruedHours > 0 && (
-              <p className="text-[11.5px]" style={{ color: "var(--accent)" }}>
+              <p className="text-xs" style={{ color: "var(--accent)" }}>
                 TOIL accrued: {done.stp.toilAccruedHours.toFixed(2)} hrs at 1:1 — overtime paid $0.00
               </p>
             )}
@@ -148,7 +148,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
       ) : activeShift && preview ? (
         <div className="space-y-3">
           <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--sheet-muted)" }}>
+            <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: "var(--sheet-muted)" }}>
               Work type at log-off
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -157,7 +157,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
                   key={wt}
                   type="button"
                   onClick={() => setWorkTypeOverride(wt)}
-                  className="py-2.5 px-2 rounded-xl text-[11.5px] font-bold transition min-h-[44px]"
+                  className="py-2.5 px-2 rounded-xl text-xs font-bold transition min-h-[44px]"
                   style={{
                     border: `1px solid ${workTypeOverride === wt ? "var(--edge-highlight)" : "var(--app-border)"}`,
                     background: workTypeOverride === wt
@@ -175,7 +175,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
           </div>
 
           <label className="block">
-            <span className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--sheet-muted)" }}>
+            <span className="text-2xs font-bold uppercase tracking-wider block mb-1" style={{ color: "var(--sheet-muted)" }}>
               Personal-vehicle travel (allowance at {CENTS_PER_KM}c/km)
             </span>
             <input
@@ -203,18 +203,18 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
               className="w-4 h-4 accent-[var(--accent)]"
               aria-label="Bank overtime as Time Off In Lieu"
             />
-            <span className="text-[12px] leading-snug" style={{ color: "var(--sheet-muted)" }}>
+            <span className="text-xs leading-snug" style={{ color: "var(--sheet-muted)" }}>
               Bank overtime as Time Off In Lieu (1:1) instead of pay — accrued hours are
               reported to payroll, not paid out.
             </span>
           </label>
 
           <div className="p-3 rounded-xl space-y-1.5" style={{ background: "var(--surface-hover-subtle)" }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
+            <p className="text-2xs font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--sheet-muted)" }}>
               Live pay interpretation
             </p>
             {preview.components.map((c) => (
-              <div key={c.code} className="flex justify-between text-[13px]">
+              <div key={c.code} className="flex justify-between text-sm">
                 <span style={{ color: "var(--sheet-muted)" }}>
                   {c.label} · {c.hours.toFixed(2)} hrs
                 </span>
@@ -228,7 +228,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
               <span className="font-mono">${preview.grossPay.toFixed(2)}</span>
             </div>
             {preview.tenHourBreach && (
-              <p className="text-[11.5px] text-pending leading-snug">
+              <p className="text-xs text-pending leading-snug">
                 ⚠ No 10-hour rest break since the last shift — this shift is paid at 200%
                 until a full break is taken.
               </p>
@@ -254,7 +254,7 @@ export function LogOffSheet({ open, onClose }: { open: boolean; onClose: () => v
 
 function StpRow({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex justify-between text-[12.5px]">
+    <div className="flex justify-between text-xs">
       <span style={{ color: "var(--sheet-muted)" }}>{label}</span>
       {value > 0 ? (
         <span className="font-mono" style={{ color: "var(--app-text)" }}>
@@ -262,7 +262,7 @@ function StpRow({ label, value }: { label: string; value: number }) {
         </span>
       ) : (
         <span className="flex items-center text-ink-low">
-          <Check size={11} className="mr-0.5" /> nil
+          <Check size={12} className="mr-0.5" /> nil
         </span>
       )}
     </div>

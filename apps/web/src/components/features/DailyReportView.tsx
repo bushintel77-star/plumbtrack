@@ -5,6 +5,7 @@ import { AlertTriangle, Check, Cloud, LoaderCircle, MapPin, Mic, Package, Plus, 
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Avatar } from "@/components/ui/Avatar";
 import { formatDuration } from "@/lib/billing";
 import { formatSerial } from "@/lib/display";
 import { captureEvidenceCoordinates } from "@/lib/geolocation";
@@ -185,10 +186,10 @@ function VoiceButton({ onText, label, modulator = false }: { onText: (text: stri
         aria-describedby={statusId}
         title={supported ? `Dictate ${label}` : "Voice input is not supported on this browser; type your note instead"}
         className={`daily-report-voice-button inline-flex items-center justify-center w-9 h-9 rounded-lg border transition haptic ${
-          listening ? "bg-accent/20 text-accent border-accent/40" : "bg-fill text-ink-low border-line"
+          listening ? "bg-accent-dim text-accent border-accent" : "bg-fill text-ink-low border-line"
         } ${modulator ? "is-modulator" : ""} ${listening ? "is-listening" : ""}`}
       >
-        {modulator && listening ? <VoiceMatrix /> : <Mic size={15} />}
+        {modulator && listening ? <VoiceMatrix /> : <Mic size={16} />}
       </button>
       <span id={statusId} className="sr-only" aria-live="polite">{statusMessage}</span>
     </>
@@ -230,7 +231,7 @@ function MaterialPicker({
             className="text-left min-h-[56px] rounded-xl border border-line bg-fill px-3 py-2.5 text-ink text-sm font-semibold active:scale-[0.97] transition"
           >
             <span className="block truncate">{option.description}</span>
-            <span className="block text-[11px] text-ink-low mt-0.5">per {option.unit}{option.rate ? ` · $${option.rate}` : ""}</span>
+            <span className="block text-xs text-ink-low mt-0.5">per {option.unit}{option.rate ? ` · $${option.rate}` : ""}</span>
           </button>
         ))}
       </div>
@@ -381,7 +382,7 @@ function DailyReportForm({ job }: { job: Job }) {
     return (
       <div className="p-3">
         <GlassCard className="text-center">
-          <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center mx-auto mb-2"><Check size={20} /></div>
+          <div className="w-10 h-10 rounded-full bg-accent-dim text-accent flex items-center justify-center mx-auto mb-2"><Check size={20} /></div>
           <p className="font-semibold text-ink">Quick service job</p>
           <p className="text-xs text-ink-low mt-1">Use Clock, Photos, and Sign-off for this callout. A full daily report is reserved for project work.</p>
           <button type="button" onClick={() => setView("job")} className="mt-4 w-full min-h-[48px] rounded-xl bg-accent text-on-accent font-semibold text-sm">Back to job</button>
@@ -394,7 +395,7 @@ function DailyReportForm({ job }: { job: Job }) {
     return (
       <div className="p-3 space-y-2">
         <GlassCard className="text-center">
-          <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center mx-auto mb-1.5"><Check size={20} /></div>
+          <div className="w-10 h-10 rounded-full bg-accent-dim text-accent flex items-center justify-center mx-auto mb-1.5"><Check size={20} /></div>
           <p className="font-semibold text-ink">Daily Report Submitted</p>
           <p className="text-xs text-ink-low mt-0.5">{report.date} · posted to #field-updates</p>
           <button type="button" onClick={() => setView("job")} className="mt-4 w-full min-h-[48px] rounded-xl surface-card text-ink-mid text-sm font-semibold border border-line">Back to job</button>
@@ -408,39 +409,39 @@ function DailyReportForm({ job }: { job: Job }) {
       <GlassCard className="!p-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-accent">Field log · {report.date}</p>
+            <p className="text-2xs uppercase tracking-wider font-bold text-accent">Field log · {report.date}</p>
             <p className="text-sm font-semibold text-ink truncate">{job.client}</p>
-            <p className="text-xs text-ink-low flex items-center gap-1 mt-0.5"><MapPin size={11} /> {job.address}</p>
+            <p className="text-xs text-ink-low flex items-center gap-1.5 mt-0.5"><span className="icon-socket icon-socket--xs"><MapPin size={12} /></span> {job.address}</p>
           </div>
-          <span className="shrink-0 text-[10px] font-bold uppercase text-ink-low border border-line rounded-full px-2 py-1">Project mode</span>
+          <span className="shrink-0 text-2xs font-bold uppercase text-ink-low border border-line rounded-full px-2 py-1">Project mode</span>
         </div>
       </GlassCard>
 
       <GlassCard>
-        <FieldLabel icon={<Users size={13} />}>Crew on site</FieldLabel>
+        <FieldLabel icon={<Users size={14} />}>Crew on site</FieldLabel>
         <div className="flex flex-wrap gap-1.5">
           {crewIds.map((id) => {
             const member = memberMap.get(id);
             const seconds = job.timeEntries.filter((entry) => entry.staffId === id && (entry.end === null || localDate(entry.start) === report.date)).reduce((sum, entry) => sum + (entry.end ? (new Date(entry.end).getTime() - new Date(entry.start).getTime()) / 1000 : (Date.now() - new Date(entry.start).getTime()) / 1000), 0);
-            return <span key={id} className="inline-flex items-center gap-1.5 min-h-[36px] rounded-full bg-accent/10 border border-accent/25 px-3 text-xs text-accent font-semibold"><span className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px]">{(member?.name ?? id).slice(0, 2).toUpperCase()}</span>{member?.name.split(" ")[0] ?? id} · {formatDuration(Math.max(0, Math.floor(seconds)))}</span>;
+            return <span key={id} className="inline-flex items-center gap-1.5 min-h-[36px] rounded-full bg-accent-dim border border-accent-line px-3 text-xs text-accent font-semibold"><Avatar name={member?.name ?? id} color={member?.color} size={20} />{member?.name.split(" ")[0] ?? id} · {formatDuration(Math.max(0, Math.floor(seconds)))}</span>;
           })}
           {crewIds.length === 0 && <span className="text-xs text-ink-low">No one clocked on yet. Crew appears automatically from this job’s time entries.</span>}
         </div>
       </GlassCard>
 
       <GlassCard>
-        <FieldLabel icon={<Cloud size={13} />}>Weather</FieldLabel>
+        <FieldLabel icon={<Cloud size={14} />}>Weather</FieldLabel>
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <input value={weather} onChange={(event) => { setWeatherEdited(true); setWeather(event.target.value); }} placeholder={weatherState === "loading" ? "Reading local weather…" : "Weather unavailable — tap to add"} className="daily-report-input w-full min-h-[44px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low" />
             {weatherState === "loading" && <LoaderCircle size={14} className="absolute right-3 top-3.5 text-ink-low animate-spin" />}
           </div>
-          <span className="text-[10px] text-ink-low whitespace-nowrap">GPS / live</span>
+          <span className="text-2xs text-ink-low whitespace-nowrap">GPS / live</span>
         </div>
       </GlassCard>
 
       <GlassCard>
-        <FieldLabel icon={<Wrench size={13} />} voice={<VoiceButton modulator label="work completed" onText={(text) => updateText(setWorkDone, text)} />}>
+        <FieldLabel icon={<Wrench size={14} />} voice={<VoiceButton modulator label="work completed" onText={(text) => updateText(setWorkDone, text)} />}>
           Work completed
         </FieldLabel>
         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -455,22 +456,22 @@ function DailyReportForm({ job }: { job: Job }) {
 
       <GlassCard>
         <div className="flex items-center justify-between mb-1.5">
-          <FieldLabel icon={<Package size={13} />}>Materials used</FieldLabel>
-          <button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-1 min-h-[36px] rounded-lg bg-accent/15 text-accent border border-accent/25 px-2.5 text-xs font-bold"><Plus size={13} /> Add item</button>
+          <FieldLabel icon={<Package size={14} />}>Materials used</FieldLabel>
+          <button type="button" onClick={() => setPickerOpen(true)} className="inline-flex items-center gap-1 min-h-[36px] rounded-lg bg-accent-dim text-accent border border-accent-line px-2.5 text-xs font-bold"><Plus size={14} /> Add item</button>
         </div>
         {materials.length === 0 ? <p className="text-xs text-ink-low py-2">No materials logged. Add quoted items or choose a common field item.</p> : <div className="space-y-1.5">
           {materials.map((item) => <div key={item.id} className="flex items-center gap-2 min-h-[40px] rounded-lg bg-fill border border-line px-2.5"><span className="flex-1 min-w-0 text-sm text-ink-mid truncate">{item.description}</span><button type="button" onClick={() => setMaterials((current) => current.map((entry) => entry.id === item.id ? { ...entry, qty: Math.max(1, entry.qty - 1) } : entry))} className="w-7 h-7 rounded-md bg-fill-strong text-ink-mid">−</button><span className="w-5 text-center text-xs font-mono text-ink">{item.qty}</span><button type="button" onClick={() => setMaterials((current) => current.map((entry) => entry.id === item.id ? { ...entry, qty: entry.qty + 1 } : entry))} className="w-7 h-7 rounded-md bg-fill-strong text-ink-mid">+</button><button type="button" onClick={() => setMaterials((current) => current.filter((entry) => entry.id !== item.id))} aria-label={`Remove ${item.description}`} className="w-7 h-7 rounded-md text-ink-low hover:text-urgent"><X size={14} /></button></div>)}
-          {materialTotal > 0 && <p className="text-[11px] text-ink-low text-right pt-1">Quoted value logged · ${materialTotal.toFixed(2)}</p>}
+          {materialTotal > 0 && <p className="text-xs text-ink-low text-right pt-1">Quoted value logged · ${materialTotal.toFixed(2)}</p>}
         </div>}
       </GlassCard>
 
       <GlassCard>
-        <FieldLabel icon={<AlertTriangle size={13} />} voice={<VoiceButton label="delays and issues" onText={(text) => updateText(setDelays, text)} />}>Issues / delays <span className="font-normal normal-case tracking-normal text-ink-low">optional</span></FieldLabel>
+        <FieldLabel icon={<AlertTriangle size={14} />} voice={<VoiceButton label="delays and issues" onText={(text) => updateText(setDelays, text)} />}>Issues / delays <span className="font-normal normal-case tracking-normal text-ink-low">optional</span></FieldLabel>
         <textarea value={delays} onChange={(event) => setDelays(event.target.value)} placeholder="Only add something if it needs follow-up" rows={2} className="daily-report-input w-full app-input border rounded-xl px-3 py-2.5 text-sm text-ink placeholder-ink-low resize-none" />
       </GlassCard>
 
       <GlassCard className="!p-3">
-        <div className="flex items-center justify-between gap-2 text-xs text-ink-low"><span>Visitors are optional for this log</span><button type="button" onClick={() => setVisitors((current) => current ? "" : "Visitor recorded") } className={`min-h-[36px] px-3 rounded-full border font-semibold ${visitors ? "bg-accent/10 border-accent/25 text-accent" : "border-line text-ink-low"}`}>{visitors ? "Visitor added" : "Add visitor"}</button></div>
+        <div className="flex items-center justify-between gap-2 text-xs text-ink-low"><span>Visitors are optional for this log</span><button type="button" onClick={() => setVisitors((current) => current ? "" : "Visitor recorded") } className={`min-h-[36px] px-3 rounded-full border font-semibold ${visitors ? "bg-accent-dim border-accent-line text-accent" : "border-line text-ink-low"}`}>{visitors ? "Visitor added" : "Add visitor"}</button></div>
         {visitors && <input autoFocus value={visitors} onChange={(event) => setVisitors(event.target.value)} placeholder="Name or company" className="daily-report-input mt-2 w-full min-h-[44px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low" />}
       </GlassCard>
 
@@ -479,7 +480,7 @@ function DailyReportForm({ job }: { job: Job }) {
       <div className="daily-report-action-bar app-fixed-footer fixed bottom-0 z-20 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer border-t">
         <div className="flex gap-2">
           <button type="button" onClick={() => { void saveReport(false); }} disabled={saving} className="daily-report-save flex-1 min-h-[56px] rounded-xl border text-ink-mid text-sm font-semibold active:scale-[0.98] transition disabled:opacity-50">{saving && !submitted ? "Saving…" : saved ? "Draft saved" : "Save draft"}</button>
-          <button type="button" onClick={() => { void saveReport(true); }} disabled={saving || !workSummary.trim()} className="daily-report-submit flex-[1.35] min-h-[56px] rounded-xl text-on-accent text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-35 active:scale-[0.98] transition"><Send size={15} /> Submit log</button>
+          <button type="button" onClick={() => { void saveReport(true); }} disabled={saving || !workSummary.trim()} className="daily-report-submit flex-[1.35] min-h-[56px] rounded-xl text-on-accent text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-35 active:scale-[0.98] transition"><Send size={16} /> Submit log</button>
         </div>
       </div>
     </div>

@@ -67,16 +67,16 @@ export function IntegrationHub() {
             className="flex items-start gap-3 p-3 rounded-xl border border-line bg-fill"
           >
             <div className="w-8 h-8 rounded-lg bg-fill-strong flex items-center justify-center shrink-0 mt-0.5">
-              <int.icon size={15} className="text-ink-low" />
+              <int.icon size={16} className="text-ink-low" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-ink">{int.name}</p>
-              <p className="text-[11px] text-ink-low mt-0.5 leading-relaxed">{int.description}</p>
+              <p className="text-xs text-ink-low mt-0.5 leading-relaxed">{int.description}</p>
             </div>
             <span
-              className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full mt-0.5 ${
+              className={`shrink-0 text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full mt-0.5 ${
                 int.status === "connected"
-                  ? "bg-accent/15 text-accent border border-accent/30"
+                  ? "bg-accent-dim text-accent border border-accent-line"
                   : "bg-fill-strong text-ink-low border border-line"
               }`}
             >

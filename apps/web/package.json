@@ -9,7 +9,8 @@
     "icons:gen": "node scripts/gen-icons.mjs",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
@@ -18,6 +19,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@plumbtrack/eslint-config": "workspace:*",
     "@plumbtrack/tsconfig": "workspace:*",
     "@types/node": "^22.10.2",

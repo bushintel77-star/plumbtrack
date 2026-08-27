@@ -42,6 +42,7 @@ export function CaptureBar({
   onSafety,
   onClockOn,
   billableActive,
+  inline = false,
 }: {
   job: Job;
   onComplete: () => void;
@@ -51,6 +52,8 @@ export function CaptureBar({
   onSafety: () => void;
   onClockOn: () => void;
   billableActive: boolean;
+  /** Render as an embedded block (e.g. home hero) instead of the fixed footer. */
+  inline?: boolean;
 }) {
   const [photoSheet, setPhotoSheet] = useState(false);
   const [noteSheet, setNoteSheet] = useState(false);
@@ -103,7 +106,13 @@ export function CaptureBar({
 
   return (
     <>
-      <div className="app-fixed-footer fixed bottom-0 z-20 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer backdrop-blur-md border-t">
+      <div
+        className={
+          inline
+            ? "rounded-xl border border-line bg-fill-strong p-2"
+            : "app-fixed-footer fixed bottom-0 z-20 px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] app-footer backdrop-blur-md border-t"
+        }
+      >
         <div className="flex items-stretch gap-1.5">
           <button
             type="button"
@@ -112,14 +121,14 @@ export function CaptureBar({
             aria-busy={completionState === "uploading"}
             className={`capture-complete-button flex-[1.25] min-h-[58px] rounded-xl text-on-accent text-sm font-bold flex flex-col items-center justify-center gap-0.5 disabled:opacity-35 haptic ${completionState !== "idle" ? "is-processing" : ""}`}
           >
-            {completionState === "idle" ? <IconSealCheck size={19} /> : <CompletionMatrix state={completionState} />}
+            {completionState === "idle" ? <IconSealCheck size={20} /> : <CompletionMatrix state={completionState} />}
             {primaryLabel}
           </button>
 
           <CaptureSlot
             icon={<IconCameraField size={20} />}
             label="Photo"
-            badge={job.photos.length === 0 ? undefined : <SyncBadge state={photoSync.state} count={photoSync.count} />}
+            badge={job.photos.length === 0 ? undefined : <SyncBadge state={photoSync.state} count={photoSync.count} compact />}
             onClick={() => setPhotoSheet(true)}
             disabled={!billableActive}
           />
@@ -134,7 +143,10 @@ export function CaptureBar({
             label="Part"
             badge={
               (job.serviceItems?.length ?? 0) > 0 ? (
-                <span className="text-[10px] font-mono font-bold text-accent bg-accent/15 rounded-full px-1.5 leading-4">
+                <span
+                  className="text-2xs font-mono font-bold text-accent bg-accent-dim border border-accent-line rounded-full px-1.5 leading-4"
+                  aria-label={`${job.serviceItems!.length} parts recorded`}
+                >
                   {job.serviceItems!.length}
                 </span>
               ) : undefined
@@ -148,7 +160,7 @@ export function CaptureBar({
             badge={
               job.safetyConfirmation &&
               (job.safetyConfirmation.waterIsolated || job.safetyConfirmation.gasChecked || job.safetyConfirmation.pressureTested) ? (
-                <IconHat size={11} className="text-complete" />
+                <IconHat size={12} className="text-complete" />
               ) : undefined
             }
             onClick={onSafety}
@@ -156,7 +168,7 @@ export function CaptureBar({
           />
         </div>
         {helperLine && (
-          <p className="text-[10px] text-center text-ink-low mt-1">{helperLine}</p>
+          <p className="text-2xs text-center text-ink-low mt-1">{helperLine}</p>
         )}
       </div>
 
@@ -246,10 +258,18 @@ function CaptureSlot({
       onClick={onClick}
       disabled={disabled}
       aria-label={disabled ? `${label} — clock on required` : label}
-      className="relative w-[54px] min-h-[58px] rounded-xl bg-fill-strong border border-line text-ink-mid flex flex-col items-center justify-center gap-0.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"
+      // Activated vs idle is a static property of scope: clocked on, the
+      // slot reads powered (accent tint + family border + machined inset
+      // edge); off shift, it stays flat. Label sits on one tight line —
+      // the slot is sized so the longest word (SAFETY) fits without wrap.
+      className={`relative w-[58px] min-h-[58px] rounded-xl border flex flex-col items-center justify-center gap-1 haptic disabled:opacity-35 disabled:cursor-not-allowed ${
+        disabled
+          ? "bg-fill-strong border-line text-ink-mid"
+          : "bg-accent-dim border-accent-line text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]"
+      }`}
     >
       {icon}
-      <span className="text-[10px] font-bold uppercase tracking-wide">{label}</span>
+      <span className="text-2xs font-bold uppercase tracking-normal leading-none whitespace-nowrap px-0.5">{label}</span>
       {badge && <span className="absolute -top-1.5 -right-1.5">{badge}</span>}
     </button>
   );

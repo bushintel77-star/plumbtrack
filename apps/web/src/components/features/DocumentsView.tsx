@@ -94,19 +94,19 @@ export function DocumentsView({
         <GlassCard className="text-center p-3">
           <FolderOpen size={16} className="text-accent mx-auto mb-1" />
           <p className="text-lg font-bold text-ink">{stats.total}</p>
-          <p className="text-[10px] text-ink-low uppercase tracking-wide">Documents</p>
+          <p className="text-2xs text-ink-low uppercase tracking-wide">Documents</p>
         </GlassCard>
         <GlassCard className={`text-center p-3 ${stats.soon > 0 ? "border-pending-line" : ""}`}>
           <ShieldAlert size={16} className={`mx-auto mb-1 ${stats.soon > 0 ? "text-pending" : "text-ink-low"}`} />
           <p className="text-lg font-bold text-ink">{stats.soon}</p>
-          <p className="text-[10px] text-ink-low uppercase tracking-wide">
+          <p className="text-2xs text-ink-low uppercase tracking-wide">
             Expiring{nearestSoonDays !== null ? ` · ${nearestSoonDays}d` : ""}
           </p>
         </GlassCard>
         <GlassCard className={`text-center p-3 ${stats.expired > 0 ? "border-urgent-line" : ""}`}>
           <AlertCircle size={16} className={`mx-auto mb-1 ${stats.expired > 0 ? "text-urgent" : "text-ink-low"}`} />
           <p className="text-lg font-bold text-ink">{stats.expired}</p>
-          <p className="text-[10px] text-ink-low uppercase tracking-wide">Expired</p>
+          <p className="text-2xs text-ink-low uppercase tracking-wide">Expired</p>
         </GlassCard>
       </div>
 
@@ -121,7 +121,7 @@ export function DocumentsView({
 
       {/* Search */}
       <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-low" />
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-low" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -138,8 +138,8 @@ export function DocumentsView({
             key={s}
             type="button"
             onClick={() => setScope(s)}
-            className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-bold uppercase tracking-wider border transition haptic ${
-              scope === s ? "bg-accent/15 text-accent border-accent/30" : "bg-fill text-ink-low border-line"
+            className={`shrink-0 min-h-[32px] px-3 rounded-full text-xs font-bold uppercase tracking-wider border transition haptic ${
+              scope === s ? "bg-accent-dim text-accent border-accent-line" : "bg-fill text-ink-low border-line"
             }`}
           >
             {s === "all" ? "All" : s === "company" ? "Company" : "Jobs"}
@@ -152,7 +152,7 @@ export function DocumentsView({
             key={c.id}
             type="button"
             onClick={() => setCategory(c.id)}
-            className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-semibold border transition haptic ${
+            className={`shrink-0 min-h-[32px] px-3 rounded-full text-xs font-semibold border transition haptic ${
               category === c.id ? "bg-fill-strong text-ink border-line-strong" : "bg-fill text-ink-low border-line"
             }`}
           >
@@ -178,10 +178,10 @@ export function DocumentsView({
                 onClick={() => setDetailDoc(doc)}
                 className="w-full flex items-center gap-3 rounded-xl border border-line bg-fill p-3 text-left min-h-[60px] haptic"
               >
-                <CategoryIcon category={doc.category} size={18} />
+                <CategoryIcon category={doc.category} size={20} />
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[13.5px] font-semibold text-ink truncate">{doc.name}</span>
-                  <span className="block text-[10.5px] text-ink-low mt-0.5">
+                  <span className="block text-sm font-semibold text-ink truncate">{doc.name}</span>
+                  <span className="block text-2xs text-ink-low mt-0.5">
                     {categoryInfo(doc.category).label}
                     {doc.jobId ? ` · ${formatSerial(doc.jobId)}` : " · Company"}
                     {linkedJob ? ` · ${linkedJob.client.split(" ")[0]}` : ""}
@@ -191,7 +191,7 @@ export function DocumentsView({
                   </span>
                 </span>
                 <ExpiryBadge expiresOn={doc.expiresOn} />
-                <ChevronRight size={15} className="text-ink-low shrink-0" />
+                <ChevronRight size={16} className="text-ink-low shrink-0" />
               </button>
             );
           })}

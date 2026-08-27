@@ -283,11 +283,11 @@ export function BottomSheet({
           ref={scrollRef}
           className="px-5 pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-h-[82vh] overflow-y-auto"
         >
-          <p id={titleId} className="text-[17px] font-extrabold tracking-tight" style={{ color: "var(--app-text)" }}>
+          <p id={titleId} className="text-lg font-bold tracking-tight" style={{ color: "var(--app-text)" }}>
             {title}
           </p>
           {subtitle && (
-            <p className="text-[13px] mt-0.5 mb-5" style={{ color: MUTED }}>
+            <p className="text-sm mt-0.5 mb-5" style={{ color: MUTED }}>
               {subtitle}
             </p>
           )}
@@ -334,12 +334,12 @@ export function SheetActionCard({
         className="inline-flex items-center justify-center w-9 h-9 rounded-xl mb-2.5"
         style={{ backgroundColor: "var(--accent-dim)", border: `1px solid ${BORDER}`, color: "var(--accent)" }}
       >
-        <Icon size={18} aria-hidden="true" />
+        <Icon size={20} aria-hidden="true" />
       </span>
-      <span className="block text-[14px] font-bold tracking-tight leading-tight" style={{ color: "var(--app-text)" }}>
+      <span className="block text-sm font-bold tracking-tight leading-tight" style={{ color: "var(--app-text)" }}>
         {title}
       </span>
-      <span className="block text-[11.5px] mt-0.5 leading-snug" style={{ color: MUTED }}>
+      <span className="block text-xs mt-0.5 leading-snug" style={{ color: MUTED }}>
         {hint}
       </span>
     </button>

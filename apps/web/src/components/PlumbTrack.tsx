@@ -193,12 +193,12 @@ function PlumbTrackInner() {
             <Map size={20} className="text-ink-low" />
           </button>
         ) : (
-          <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-accent-dim flex items-center justify-center">
             <Droplet size={20} className="text-accent" />
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.15em] text-accent font-bold leading-none mb-1">
+          <p className="text-2xs uppercase tracking-[0.15em] text-accent font-bold leading-none mb-1">
             {config.orgName}
           </p>
           <p className="text-lg font-bold text-ink truncate">{headerLabel()}</p>
@@ -217,7 +217,7 @@ function PlumbTrackInner() {
         {/* Persistent tracking transparency chip */}
         {(s.activeShift || s.openBreak) && (
           <span
-            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-2xs font-bold uppercase tracking-wider"
             style={{
               background: s.trackingActive ? "var(--status-complete-dim)" : "var(--status-pending-dim)",
               border: `1px solid ${s.trackingActive ? "var(--status-complete-border)" : "var(--status-pending-border)"}`,
@@ -387,14 +387,14 @@ function QuoteListView() {
                        className="surface-card surface-card--interactive w-full text-left p-3.5 min-h-[80px]"
         >
           <div className="flex justify-between items-start mb-2">
-            <span className="text-[11px] font-mono tracking-wide text-ink-low bg-fill border border-line rounded-md px-1.5 py-0.5">
+            <span className="text-xs font-mono tracking-wide text-ink-low bg-fill border border-line rounded-md px-1.5 py-0.5">
               {formatSerialWithHash(q.id)}
             </span>
             <QuoteStatusBadge status={q.status} />
           </div>
-          <p className="font-semibold text-ink text-[15px] tracking-tight mb-0.5">{q.client}</p>
-          <p className="text-xs text-ink-low flex items-center gap-1">
-            <MapPin size={11} /> {q.address}
+          <p className="font-semibold text-ink text-base tracking-tight mb-0.5">{q.client}</p>
+          <p className="text-xs text-ink-low flex items-center gap-1.5">
+            <span className="icon-socket icon-socket--xs"><MapPin size={12} /></span> {q.address}
           </p>
           <p className="text-sm text-ink-low mt-2 line-clamp-2 leading-relaxed">{q.description}</p>
           <p className="text-sm font-bold text-accent mt-2">${incGst(sub).toFixed(2)} inc. GST</p>
@@ -411,6 +411,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     setAuthSession(getAuthSession());
@@ -478,9 +479,9 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
             <MessageSquare size={16} className="text-ink-low" />
             <p className="text-ink text-sm font-medium">Slack</p>
           </div>
-          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+          <span className={`text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full ${
             slackStatus === "checking" ? "bg-fill-strong text-ink-low" :
-            slackStatus === "connected" ? "bg-accent/15 text-accent" : "bg-fill-strong text-ink-low"
+            slackStatus === "connected" ? "bg-accent-dim text-accent" : "bg-fill-strong text-ink-low"
           }`}>
             {slackStatus === "checking" ? "Checking…" : slackStatus === "connected" ? "Connected" : "Offline"}
           </span>
@@ -494,28 +495,28 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
           onClick={() => setView("notificationFeed")}
           className="w-full mt-4 py-3 rounded-xl bg-fill text-ink-mid text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-fill-strong transition border border-line"
         >
-          <Send size={13} /> View Notification Feed
+          <Send size={14} /> View Notification Feed
         </button>
         <button
           type="button"
           onClick={() => setView("timesheet")}
           className="w-full mt-3 py-3 rounded-xl bg-fill text-ink-mid text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-fill-strong transition border border-line"
         >
-          <Clock size={13} /> View Staff Timesheets
+          <Clock size={14} /> View Staff Timesheets
         </button>
         <button
           type="button"
           onClick={() => setView("syncCenter")}
           className="w-full mt-3 py-3 rounded-xl bg-fill text-ink-mid text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-fill-strong transition border border-line"
         >
-          <Cloud size={13} /> Open Sync Centre
+          <Cloud size={14} /> Open Sync Centre
         </button>
         <button
           type="button"
           onClick={() => setView("integrationHealth")}
-          className="w-full mt-3 py-3 rounded-xl bg-accent/10 text-accent text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-accent/20 transition border border-accent/20"
+          className="w-full mt-3 py-3 rounded-xl bg-accent-dim text-accent text-xs font-semibold flex items-center justify-center gap-1.5 min-h-[48px] active:bg-accent-dim transition border border-accent-line"
         >
-          <Wifi size={13} /> Integration Health
+          <Wifi size={14} /> Integration Health
         </button>
       </GlassCard>
 
@@ -527,25 +528,25 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
           Field actions save locally first and sync automatically when connectivity returns.
         </p>
         <div className="flex items-center gap-2 mb-4">
-          <span className={`w-2 h-2 rounded-full ${pendingSyncCount > 0 ? "bg-accent animate-pulse" : "bg-accent/30"}`} />
+          <span className={`w-2 h-2 rounded-full ${pendingSyncCount > 0 ? "bg-accent animate-pulse" : "bg-fill-strong"}`} />
           <p className="text-xs text-ink-low">
             {syncStatus.label}
           </p>
         </div>
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs text-ink-low">API endpoint</span>
-          <span className="text-[11px] font-mono text-ink-low truncate max-w-[55%]">{config.apiUrl}</span>
+          <span className="text-xs font-mono text-ink-low truncate max-w-[55%]">{config.apiUrl}</span>
         </div>
         <div className="flex items-center justify-between mb-4 gap-2">
           <span className="text-xs text-ink-low">Device session</span>
           <span className="flex items-center gap-1.5 min-w-0">
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${authSession ? "bg-complete" : "bg-fill-strong"}`} />
-            <span className="text-[11px] text-ink-low truncate">{describeSession(authSession)}</span>
+            <span className="text-xs text-ink-low truncate">{describeSession(authSession)}</span>
             <button
               type="button"
               onClick={() => { void reEnroll(); }}
               disabled={enrolling}
-              className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-accent disabled:opacity-50 min-h-[32px] px-2 rounded-lg border border-accent/25 haptic"
+              className="shrink-0 text-2xs font-bold uppercase tracking-wider text-accent disabled:opacity-50 min-h-[32px] px-2 rounded-lg border border-accent-line haptic"
             >
               {enrolling ? "Enrolling…" : "Re-enroll"}
             </button>
@@ -563,7 +564,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
         )}
         <button
           type="button"
-          onClick={resetDemo}
+          onClick={() => setLogoutOpen(true)}
           className="w-full py-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line hover:bg-fill-strong transition min-h-[48px]"
         >
           Log Out
@@ -588,19 +589,35 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
             { name: "Payroll export", detail: "STP Phase 2 CSV from the timesheet", live: "Free" },
             { name: "CI (GitHub Actions)", detail: "Lint, typecheck, test and build on every push", live: "Free minutes" },
           ].map((svc) => (
-            <div key={svc.name} className="flex items-start gap-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-complete mt-1.5 shrink-0" />
+            <div key={svc.name} className="flex items-center gap-3">
+              <span className="icon-socket icon-socket--xs icon-socket--complete shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-ink">{svc.name}</p>
-                <p className="text-[11px] text-ink-low leading-relaxed">{svc.detail}</p>
+                <p className="text-sm font-semibold text-ink">{svc.name}</p>
+                <p className="text-xs text-ink-low leading-relaxed">{svc.detail}</p>
               </div>
-              <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-complete-dim text-complete border border-complete-line">
+              <span className="shrink-0 text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full bg-complete-dim text-complete border border-complete-line">
                 {svc.live}
               </span>
             </div>
           ))}
         </div>
       </GlassCard>
+
+      <BottomSheet open={logoutOpen} onClose={() => setLogoutOpen(false)} title="Log out?" subtitle="This clears your local session" label="Confirm log out">
+        <div className="space-y-3">
+          <p className="text-sm text-ink-mid leading-relaxed">
+            All locally saved shifts, job progress, and sync state will be cleared. The app will reload with fresh demo data.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={() => setLogoutOpen(false)} className="flex-1 min-h-[48px] rounded-xl border border-line-strong bg-fill text-sm font-semibold text-ink-mid active:bg-fill-strong transition haptic">
+              Cancel
+            </button>
+            <button type="button" onClick={resetDemo} className="flex-1 min-h-[48px] rounded-xl bg-urgent text-on-accent text-sm font-bold active:bg-urgent transition haptic">
+              Log out
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
 
       <BottomSheet open={resetOpen} onClose={() => setResetOpen(false)} title="Reset demo data?" subtitle="This clears everything stored on this device" label="Confirm reset">
         <div className="space-y-3">
@@ -641,7 +658,7 @@ function JobSignoffView({ job }: { job: Job }) {
               ) : (
                 <>
                   <Camera size={14} />
-                  <span className="text-[10px] mt-1">{p.label}</span>
+                  <span className="text-2xs mt-1">{p.label}</span>
                 </>
               )}
             </div>
@@ -711,7 +728,7 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
   return (
     <div className="p-3 space-y-2">
       <GlassCard className="text-center">
-        <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center mx-auto mb-1.5">
+        <div className="w-10 h-10 rounded-full bg-accent-dim text-accent flex items-center justify-center mx-auto mb-1.5">
           <Check size={20} />
         </div>
         <p className="font-semibold text-ink">Job Signed Off</p>
@@ -750,7 +767,7 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
         </div>
         {job.signature && (
           <div className="mt-3 pt-3 border-t border-line">
-            <p className="text-[10px] text-ink-low mb-1">Client signature</p>
+            <p className="text-2xs text-ink-low mb-1">Client signature</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={job.signature} alt="Client signature" className="h-12 rounded-lg border border-line bg-fill" />
           </div>
@@ -775,13 +792,13 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
 
       <button type="button" onClick={startXeroSync} disabled={xeroSyncing || synced}      className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition ${
           synced
-            ? "bg-accent/15 text-accent border border-accent/30"
+            ? "bg-accent-dim text-accent border border-accent-line"
             : "surface-card text-ink disabled:opacity-50"
         }`}
       >
         {xeroSyncing ? (<><div className="w-4 h-4 border-2 border-edge border-t-edge rounded-full animate-spin" />Syncing to Xero…</>)
-        : synced ? (<><Check size={15} /> Invoice created in Xero</>)
-        : (<><Send size={15} /> Sync to Xero &amp; Close</>)}
+        : synced ? (<><Check size={16} /> Invoice created in Xero</>)
+        : (<><Send size={16} /> Sync to Xero &amp; Close</>)}
       </button>
       {synced && (
         <button type="button" onClick={closeInvoice}
@@ -793,12 +810,12 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-ink-low uppercase tracking-wider">Payment</p>
           {payLink && (
-            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${payLink.mode === "live" ? "bg-complete-dim text-complete border-complete-line" : "bg-pending-dim text-pending border-pending-line"}`}>
+            <span className={`text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full border ${payLink.mode === "live" ? "bg-complete-dim text-complete border-complete-line" : "bg-pending-dim text-pending border-pending-line"}`}>
               {payLink.mode === "live" ? "LIVE CHECKOUT" : "TEST MODE — NO CHARGE"}
             </span>
           )}
         </div>
-        <p className="text-[11px] text-ink-low mb-2.5">Stripe Checkout is free to use — no subscription; Stripe only takes a cut when the client pays.</p>
+        <p className="text-xs text-ink-low mb-2.5">Stripe Checkout is free to use — no subscription; Stripe only takes a cut when the client pays.</p>
         {!payLink ? (
           <button
             type="button"
@@ -810,7 +827,7 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
           </button>
         ) : (
           <div className="space-y-2">
-            <p className="text-[11px] text-ink-low break-all font-mono">{payLink.url}</p>
+            <p className="text-xs text-ink-low break-all font-mono">{payLink.url}</p>
             <div className="flex gap-2">
               <a
                 href={payLink.url}
@@ -818,14 +835,14 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
                 rel="noreferrer"
                 className="flex-1 min-h-[44px] rounded-xl bg-accent text-on-accent text-sm font-semibold flex items-center justify-center gap-2 haptic"
               >
-                <ExternalLink size={15} /> Open checkout
+                <ExternalLink size={16} /> Open checkout
               </a>
               <button
                 type="button"
                 onClick={copyPayLink}
                 className="min-h-[44px] px-4 rounded-xl bg-fill-strong border border-line text-ink text-sm font-semibold flex items-center justify-center gap-2 haptic"
               >
-                <Copy size={15} /> {copiedLink ? "Copied" : "Copy"}
+                <Copy size={16} /> {copiedLink ? "Copied" : "Copy"}
               </button>
             </div>
           </div>
@@ -881,7 +898,7 @@ function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
           ))}
         </div>
         <button type="button" onClick={addLine} className="mt-3 min-h-[44px] text-xs flex items-center gap-1 text-accent font-medium">
-          <Plus size={15} /> Add line item
+          <Plus size={16} /> Add line item
         </button>
         <div className="border-t border-line mt-3 pt-3 text-sm space-y-1">
           <div className="flex justify-between text-ink-low"><span>Subtotal (ex. GST)</span><span>${sub.toFixed(2)}</span></div>
@@ -891,7 +908,7 @@ function QuoteBuilderView({ quote }: { quote: import("@/types").Quote }) {
       </GlassCard>
       <button type="button" onClick={sendQuote} disabled={quote.lines.length === 0 || !quote.client.trim() || !quote.address.trim() || !quote.description.trim()}
         className="w-full py-3.5 rounded-xl bg-accent text-on-accent font-semibold text-sm disabled:opacity-40 flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition shadow-hardware"
-      ><Send size={15} /> Send quote for client approval</button>
+      ><Send size={16} /> Send quote for client approval</button>
     </div>
   );
 }
@@ -935,7 +952,7 @@ function QuoteSignoffView({ quote }: { quote: import("@/types").Quote }) {
 function GpsLockOverlay() {
   return (
     <div className="absolute inset-0 z-20 app-overlay flex flex-col items-center justify-center gap-4">
-      <div className="w-16 h-16 rounded-full border-4 border-accent/30 border-t-accent animate-spin" />
+      <div className="w-16 h-16 rounded-full border-4 border-accent-line border-t-accent animate-spin" />
       <p className="text-ink font-semibold text-lg">Acquiring GPS…</p>
       <p className="text-ink-low text-sm">Locking your position at the job address</p>
     </div>
@@ -1031,7 +1048,7 @@ function TimesheetView() {
         {(["week", "month"] as const).map((p) => (
           <button key={p} type="button" onClick={() => setPeriod(p)}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider min-h-[44px] transition ${
-              period === p ? "bg-accent/15 text-accent border border-accent/30" : "surface-card text-ink-low border border-line"
+              period === p ? "bg-accent-dim text-accent border border-accent-line" : "surface-card text-ink-low border border-line"
             }`}
           >{p === "week" ? "This Week" : "This Month"}</button>
         ))}
@@ -1042,13 +1059,13 @@ function TimesheetView() {
           <div className="flex justify-between items-center mb-3">
             <div>
               <p className="font-semibold text-ink text-sm">{s.name}</p>
-              <p className="text-[10px] text-ink-low mt-0.5">MA000036 · shifts: {s.interpreted.length}</p>
+              <p className="text-2xs text-ink-low mt-0.5">MA000036 · shifts: {s.interpreted.length}</p>
             </div>
             <div className="text-right">
-              <span className="block text-xs font-mono text-accent bg-accent/10 rounded-lg px-2 py-0.5">
+              <span className="block text-xs font-mono text-accent bg-accent-dim rounded-lg px-2 py-0.5">
                 {s.totalHours.toFixed(2)} hrs
               </span>
-              <span className="block text-[10px] text-ink-low mt-1 font-mono">
+              <span className="block text-2xs text-ink-low mt-1 font-mono">
                 gross ${s.grossPay.toFixed(2)}
               </span>
             </div>
@@ -1064,17 +1081,17 @@ function TimesheetView() {
           </div>
 
           <div className="pt-2.5 space-y-1" style={{ borderTop: "1px solid var(--surface-border-subtle)" }}>
-            <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider mb-1">STP Phase 2</p>
-            <div className="flex justify-between text-[11.5px] text-ink-low"><span>Ordinary time earnings</span><span className="font-mono">${s.stpTotals.ote.toFixed(2)}</span></div>
-            <div className="flex justify-between text-[11.5px] text-ink-low"><span>Overtime (separate)</span><span className="font-mono">${s.stpTotals.overtime.toFixed(2)}</span></div>
+            <p className="text-2xs font-bold text-ink-low uppercase tracking-wider mb-1">STP Phase 2</p>
+            <div className="flex justify-between text-xs text-ink-low"><span>Ordinary time earnings</span><span className="font-mono">${s.stpTotals.ote.toFixed(2)}</span></div>
+            <div className="flex justify-between text-xs text-ink-low"><span>Overtime (separate)</span><span className="font-mono">${s.stpTotals.overtime.toFixed(2)}</span></div>
             {s.stpTotals.ph > 0 && (
-              <div className="flex justify-between text-[11.5px] text-ink-low"><span>Public holiday penalty</span><span className="font-mono">${s.stpTotals.ph.toFixed(2)}</span></div>
+              <div className="flex justify-between text-xs text-ink-low"><span>Public holiday penalty</span><span className="font-mono">${s.stpTotals.ph.toFixed(2)}</span></div>
             )}
             {s.stpTotals.allowance > 0 && (
-              <div className="flex justify-between text-[11.5px] text-ink-low"><span>Allowance — cents per km</span><span className="font-mono">${s.stpTotals.allowance.toFixed(2)}</span></div>
+              <div className="flex justify-between text-xs text-ink-low"><span>Allowance — cents per km</span><span className="font-mono">${s.stpTotals.allowance.toFixed(2)}</span></div>
             )}
             {s.stpTotals.toilHours > 0 && (
-              <div className="flex justify-between text-[11.5px] text-accent"><span>TOIL accrued</span><span className="font-mono">{s.stpTotals.toilHours.toFixed(2)} hrs</span></div>
+              <div className="flex justify-between text-xs text-accent"><span>TOIL accrued</span><span className="font-mono">{s.stpTotals.toilHours.toFixed(2)} hrs</span></div>
             )}
           </div>
         </GlassCard>
@@ -1086,12 +1103,12 @@ function TimesheetView() {
 
       {staffHours.length > 0 && (
         <>
-          <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider px-1 pt-1">Job time entries</p>
+          <p className="text-2xs font-bold text-ink-low uppercase tracking-wider px-1 pt-1">Job time entries</p>
           {staffHours.map((s) => (
             <GlassCard key={s.name}>
               <div className="flex justify-between items-center mb-3">
                 <p className="font-semibold text-ink text-sm">{s.name}</p>
-                <span className="text-xs font-mono text-accent bg-accent/10 rounded-lg px-2 py-0.5">{formatDuration(Math.floor(s.totalSec))}</span>
+                <span className="text-xs font-mono text-accent bg-accent-dim rounded-lg px-2 py-0.5">{formatDuration(Math.floor(s.totalSec))}</span>
               </div>
               <div className="space-y-1.5">
                 {s.entries.map((e, i) => (
@@ -1122,7 +1139,7 @@ function QuoteStatusBadge({ status }: { status: string }) {
   };
   const token = map[status] ?? map.draft;
   return (
-    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full" style={{ color: token.color, backgroundColor: token.bg }}>
+    <span className="text-2xs font-black uppercase tracking-normal px-2 py-1 rounded-full" style={{ color: token.color, backgroundColor: token.bg }}>
       {token.label}
     </span>
   );

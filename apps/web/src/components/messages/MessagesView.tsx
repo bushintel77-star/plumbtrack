@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
+import { Avatar } from "@/components/ui/Avatar";
 import { config } from "@/lib/config";
 import type { SlackMember, SlackMessage } from "@/types";
 
@@ -48,15 +49,6 @@ function fmtDayDivider(iso: string): string {
   if (d.toDateString() === today.toDateString()) return "Today";
   if (d.toDateString() === yest.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -113,7 +105,7 @@ function RichText({
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <strong key={i} className="font-extrabold text-ink">
+          <strong key={i} className="font-bold text-ink">
             {part}
           </strong>
         ) : (
@@ -159,7 +151,7 @@ function MessageBody({
         b.type === "quote" ? (
           <span
             key={i}
-            className="block border-l-2 pl-2.5 my-0.5 italic opacity-80 text-[13px]"
+            className="block border-l-2 pl-2.5 my-0.5 italic opacity-80 text-sm"
             style={{ borderColor: "var(--color-offline)" }}
           >
             <RichText text={b.content} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
@@ -171,18 +163,6 @@ function MessageBody({
         ),
       )}
     </>
-  );
-}
-
-function Avatar({ member, size = 28 }: { member: SlackMember; size?: number }) {
-  return (
-    <div
-      className="rounded-md flex items-center justify-center font-bold text-on-accent shrink-0 select-none"
-      style={{ width: size, height: size, backgroundColor: member.color, fontSize: size * 0.4 }}
-      aria-hidden
-    >
-      {initials(member.name)}
-    </div>
   );
 }
 
@@ -250,14 +230,14 @@ function ChannelDrawer({
       >
         {/* Workspace header */}
         <div className="px-4 pt-4 pb-3 flex items-center gap-2 border-b" style={{ borderColor: BORDER }}>
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-on-accent font-bold text-[13px]" style={{ backgroundColor: "var(--bg-workspace-badge)" }}>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-on-accent font-bold text-sm" style={{ backgroundColor: "var(--bg-workspace-badge)" }}>
             {config.orgName.split(/\s+/).map((word) => word[0]?.toUpperCase()).filter(Boolean).slice(0, 3).join("")}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-ink text-[15px] font-extrabold leading-tight truncate">
+            <p className="text-ink text-base font-bold leading-tight truncate">
               {config.orgName}
             </p>
-            <p className="text-[11px] font-medium" style={{ color: MUTED }}>
+            <p className="text-xs font-medium" style={{ color: MUTED }}>
               4 members
             </p>
           </div>
@@ -267,7 +247,7 @@ function ChannelDrawer({
             className="p-1.5 rounded hover:bg-fill-strong transition text-ink-mid"
             aria-label="Close channel list"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -284,12 +264,12 @@ function ChannelDrawer({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Jump to…"
               aria-label="Jump to a channel or conversation"
-              className="bg-transparent outline-none text-[14px] flex-1"
+              className="bg-transparent outline-none text-sm flex-1"
               style={{ color: "var(--text-channel)", ["--tw-placeholder-color" as string]: "var(--text-subtle)" }}
             />
             {query && (
               <button type="button" onClick={() => setQuery("")} aria-label="Clear search">
-                <X size={13} />
+                <X size={14} />
               </button>
             )}
           </div>
@@ -302,7 +282,7 @@ function ChannelDrawer({
             onClose();
             onOpenChannel("general");
           }}
-          className="mx-3 mt-3 flex items-center gap-2 rounded-lg px-3 py-2.5 text-on-accent font-bold text-[14px] transition active:scale-[0.98]"
+          className="mx-3 mt-3 flex items-center gap-2 rounded-lg px-3 py-2.5 text-on-accent font-bold text-sm transition active:scale-[0.98]"
           style={{ backgroundColor: ACTIVE }}
         >
           <MessageSquarePlus size={16} /> Compose message
@@ -310,7 +290,7 @@ function ChannelDrawer({
 
         {/* Channel list */}
         <nav className="flex-1 overflow-y-auto px-2 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] space-y-0.5" aria-label="Channels and direct messages">
-          <p className="px-2 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
+          <p className="px-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
             Channels
           </p>
           {filteredChannels.map((c) => {
@@ -336,11 +316,11 @@ function ChannelDrawer({
                   if (!active) e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
-                <Hash size={15} className="shrink-0 opacity-80" />
-                <span className="flex-1 text-[15px] font-semibold truncate">{c.name}</span>
+                <span className="icon-socket icon-socket--xs"><Hash size={12} /></span>
+                <span className="flex-1 text-base font-semibold truncate">{c.name}</span>
                 {unread > 0 && (
                   <span
-                    className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md"
+                    className="text-xs font-bold px-1.5 py-0.5 rounded-md"
                     style={{ backgroundColor: ACTIVE, color: "var(--text-inverse)" }}
                   >
                     {unread}
@@ -350,7 +330,7 @@ function ChannelDrawer({
             );
           })}
 
-          <p className="px-2 pt-4 pb-1 text-[12px] font-extrabold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
+          <p className="px-2 pt-4 pb-1 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--text-label)" }}>
             Direct messages
           </p>
           {filteredDms.map((dm) => {
@@ -379,10 +359,10 @@ function ChannelDrawer({
               >
                 <span className="relative shrink-0">
                   {member ? (
-                    <Avatar member={member} size={22} />
+                    <Avatar name={member.name} color={member.color} size={22} />
                   ) : (
                     <span
-                      className="w-[22px] h-[22px] rounded-md flex items-center justify-center text-[10px] font-bold text-on-accent"
+                      className="w-[22px] h-[22px] rounded-md flex items-center justify-center text-2xs font-bold text-on-accent"
                       style={{ backgroundColor: "var(--chassis-glass)" }}
                     >
                       ?
@@ -396,10 +376,10 @@ function ChannelDrawer({
                     }}
                   />
                 </span>
-                <span className="flex-1 text-[15px] font-semibold truncate">{dm.name}</span>
+                <span className="flex-1 text-base font-semibold truncate">{dm.name}</span>
                 {unread > 0 && (
                   <span
-                    className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-md"
+                    className="text-xs font-bold px-1.5 py-0.5 rounded-md"
                     style={{ backgroundColor: ACTIVE, color: "var(--text-inverse)" }}
                   >
                     {unread}
@@ -409,7 +389,7 @@ function ChannelDrawer({
             );
           })}
           {filteredChannels.length === 0 && filteredDms.length === 0 && (
-            <p className="px-2 py-3 text-[13px]" style={{ color: MUTED }}>
+            <p className="px-2 py-3 text-sm" style={{ color: MUTED }}>
               No matches for &quot;{query}&quot;
             </p>
           )}
@@ -422,12 +402,16 @@ function ChannelDrawer({
             onClick={() => { /* stays in messages */ }}
             className="w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-fill transition"
           >
-            <Avatar member={members.find((m) => m.id === "tim")!} size={28} />
+            <Avatar
+              name={members.find((m) => m.id === "tim")?.name ?? "Tim Bennett"}
+              color={members.find((m) => m.id === "tim")?.color}
+              size={28}
+            />
             <span className="flex-1 text-left leading-tight">
-              <span className="block text-[14px] font-extrabold text-ink">
+              <span className="block text-sm font-bold text-ink">
                 {members.find((m) => m.id === "tim")?.name}
               </span>
-              <span className="block text-[11px]" style={{ color: MUTED }}>
+              <span className="block text-xs" style={{ color: MUTED }}>
                 Active
               </span>
             </span>
@@ -450,6 +434,8 @@ function MessageRow({
   onOpenJob,
   onOpenQuote,
   isReply = false,
+  continuation = false,
+  lead = false,
   threadCount = 0,
   threadOpen = false,
   threadUnread = false,
@@ -461,6 +447,10 @@ function MessageRow({
   onOpenJob: (id: string) => void;
   onOpenQuote: (id: string) => void;
   isReply?: boolean;
+  /** Same speaker continuing a run — tight spacing, no repeated identity. */
+  continuation?: boolean;
+  /** First row of a new turn — earns breathing room above. */
+  lead?: boolean;
   threadCount?: number;
   threadOpen?: boolean;
   threadUnread?: boolean;
@@ -482,7 +472,7 @@ function MessageRow({
 
   return (
     <div
-      className="group relative flex gap-2.5 px-4 py-1 rounded-md transition-colors select-none"
+      className={`group relative flex gap-2.5 px-4 rounded-md transition-colors select-none ${continuation ? "py-0.5" : lead ? "py-1 mt-2" : "py-1"}`}
       style={{ cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-hover)")}
       onMouseLeave={(e) => {
@@ -498,26 +488,34 @@ function MessageRow({
         onContextMenu(message);
       }}
     >
-      <div className="shrink-0 mt-0.5">
-        <Avatar member={member} size={isReply ? 22 : 28} />
-      </div>
+      {continuation ? (
+        <span className="shrink-0 w-7 pt-1 text-right text-2xs tabular-nums" style={{ color: MUTED }}>
+          {fmtTime(message.ts)}
+        </span>
+      ) : (
+        <div className="shrink-0 mt-0.5">
+          <Avatar name={member.name} color={member.color} size={isReply ? 22 : 28} />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
+        {!continuation && (
         <div className="flex items-baseline gap-1.5 flex-wrap">
-          <span className={`font-extrabold text-ink leading-snug ${isReply ? "text-[13px]" : "text-[15px]"}`}>{member.name}</span>
+          <span className={`font-bold text-ink leading-snug ${isReply ? "text-sm" : "text-base"}`}>{member.name}</span>
           {isBot && (
             <span
-              className="text-[10px] font-extrabold uppercase tracking-wide px-1.5 py-px rounded text-on-accent"
+              className="text-2xs font-bold uppercase tracking-wide px-1.5 py-px rounded text-on-accent"
               style={{ backgroundColor: ACTIVE }}
             >
               APP
             </span>
           )}
-          <span className="text-[11px] mt-px" style={{ color: MUTED }}>
+          <span className="text-xs mt-px" style={{ color: MUTED }}>
             {fmtTime(message.ts)}
           </span>
         </div>
+        )}
         <p
-          className={`leading-[1.45] whitespace-pre-wrap break-words ${isReply ? "text-[14px]" : "text-[15px]"}`}
+          className={`leading-[1.45] whitespace-pre-wrap break-words ${isReply ? "text-sm" : "text-base"}`}
           style={{ color: TEXT }}
         >
           <MessageBody text={message.text} onOpenJob={onOpenJob} onOpenQuote={onOpenQuote} />
@@ -535,11 +533,11 @@ function MessageRow({
                   key={emoji}
                   type="button"
                   onClick={() => toggleReaction(message.id, emoji)}
-                  className={`flex items-center gap-1 text-[12px] px-1.5 py-0 rounded-full border font-semibold transition hover:brightness-125 ${mine ? "bg-accent/20" : ""}`}
+                  className={`flex items-center gap-1 text-xs px-1.5 py-0 rounded-full border font-semibold transition hover:brightness-125 ${mine ? "bg-accent-dim" : ""}`}
                   style={{ borderColor: mine ? "var(--accent)" : "var(--surface-border-strong)", color: TEXT }}
                 >
-                  <span className="text-[13px] leading-none">{emoji}</span>
-                  <span className="text-[11px]">{ids.length}</span>
+                  <span className="text-sm leading-none">{emoji}</span>
+                  <span className="text-xs">{ids.length}</span>
                 </button>
                 );
               })}
@@ -554,7 +552,7 @@ function MessageRow({
               e.stopPropagation();
               onToggleThread();
             }}
-            className="mt-1 flex items-center gap-1.5 text-[12px] font-semibold transition hover:brightness-125"
+            className="mt-1 flex items-center gap-1.5 text-xs font-semibold transition hover:brightness-125"
             style={{ color: "var(--color-link-job)" }}
             aria-expanded={threadOpen}
           >
@@ -631,12 +629,21 @@ function MessageList({
 
   let lastDay = "";
 
-  const renderMessage = (m: SlackMessage, idx: number, isFirstUnread: boolean) => (
+  const renderMessage = (m: SlackMessage, idx: number, isFirstUnread: boolean) => {
+    // Turn grammar: a new speaker (or a 5-minute gap) starts a conversational
+    // turn — full identity row with breathing room above. Same speaker within
+    // the gap is a continuation — tight, no repeated avatar/name.
+    const prev = topLevel[idx - 1];
+    const continuation = !!prev
+      && prev.authorId === m.authorId
+      && new Date(m.ts).getTime() - new Date(prev.ts).getTime() < 5 * 60_000;
+    const lead = !continuation && idx > 0;
+    return (
     <div key={m.id} className="relative">
       {isFirstUnread && (
         <div className="flex items-center gap-3 px-4 mb-1">
           <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-unread)" }} />
-          <span className="text-[11px] font-extrabold uppercase tracking-wide shrink-0" style={{ color: "var(--color-unread)" }}>New</span>
+          <span className="text-xs font-bold uppercase tracking-wide shrink-0" style={{ color: "var(--color-unread)" }}>New</span>
           <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-unread)" }} />
         </div>
       )}
@@ -644,6 +651,8 @@ function MessageList({
         {...rowProps}
         message={m}
         member={memberById.get(m.authorId) ?? fallbackMember}
+        continuation={continuation}
+        lead={lead}
         threadCount={byParent.get(m.id)?.length ?? 0}
         threadOpen={openThreads.has(m.id)}
         threadUnread={(byParent.get(m.id) ?? []).some((r) => new Date(r.ts).getTime() > lastRead)}
@@ -664,15 +673,16 @@ function MessageList({
       )}
     </div>
   );
+  };
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0" style={{ backgroundColor: PANE }}>
       {topLevel.length === 0 ? (
         <div className="flex-1 flex items-center justify-center p-8">
-          <p className="text-[14px] text-center" style={{ color: MUTED }}>
+          <p className="text-sm text-center" style={{ color: MUTED }}>
             No messages yet in #{channel?.name}.
             <br />
-            <span className="text-[13px]">Say hello 👋</span>
+            <span className="text-sm">Say hello 👋</span>
           </p>
         </div>
       ) : (
@@ -686,7 +696,7 @@ function MessageList({
               {showDay && (
                 <div className="flex items-center gap-3 px-4 my-2">
                   <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
-                  <span className="text-[11px] font-extrabold uppercase tracking-wide shrink-0" style={{ color: MUTED }}>
+                  <span className="text-xs font-bold uppercase tracking-wide shrink-0" style={{ color: MUTED }}>
                     {day}
                   </span>
                   <div className="flex-1 h-px" style={{ backgroundColor: BORDER }} />
@@ -772,10 +782,10 @@ function Composer({
           className="flex items-center gap-2 rounded-t-lg px-3 py-1.5"
           style={{ backgroundColor: "var(--sheet-tile)", borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
         >
-          <span className="text-[12px] font-bold text-ink truncate max-w-[80px]">Replying in thread · {replyTo.name}</span>
-          <span className="flex-1 text-[12px] truncate" style={{ color: "var(--text-muted)" }}>&quot;{replyTo.text}&quot;</span>
+          <span className="text-xs font-bold text-ink truncate max-w-[80px]">Replying in thread · {replyTo.name}</span>
+          <span className="flex-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>&quot;{replyTo.text}&quot;</span>
           <button type="button" onClick={onCancelReply} className="p-0.5 rounded hover:bg-fill-strong transition" style={{ color: "var(--text-subtle)" }} aria-label="Cancel reply">
-            <X size={13} />
+            <X size={14} />
           </button>
         </div>
       )}
@@ -790,7 +800,7 @@ function Composer({
           style={{ color: "var(--text-subtle)" }}
           aria-label="Quick updates"
         >
-          <Plus size={18} />
+          <Plus size={20} />
         </button>
         <input
           value={text}
@@ -798,7 +808,7 @@ function Composer({
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
           placeholder={`Message #${activeChannel?.name ?? "general"}`}
           aria-label={`Message #${activeChannel?.name ?? "general"}`}
-          className="flex-1 bg-transparent outline-none text-[14px] py-1"
+          className="flex-1 bg-transparent outline-none text-sm py-1"
           style={{ color: "var(--text-primary)", ["--tw-placeholder-color" as string]: "var(--composer-placeholder)" }}
         />
         <button
@@ -809,7 +819,7 @@ function Composer({
           style={{ color: "var(--text-secondary)" }}
           aria-label="Send message"
         >
-          <Send size={17} />
+          <Send size={16} />
         </button>
       </div>
     </div>
@@ -859,13 +869,13 @@ function AvatarStack({ members, max = 4 }: { members: SlackMember[]; max?: numbe
   return (
     <div className="flex items-center">
       {shown.map((m) => (
-        <div key={m.id} className="-ml-1.5 first:ml-0 rounded-md" style={{ border: `2px solid ${PANE}` }}>
-          <Avatar member={m} size={20} />
+        <div key={m.id} className="-ml-1.5 first:ml-0 inline-block rounded-full" style={{ boxShadow: `0 0 0 2px ${PANE}` }}>
+          <Avatar name={m.name} color={m.color} size={20} />
         </div>
       ))}
       {rest > 0 && (
         <div
-          className="-ml-1.5 flex items-center justify-center rounded-md text-[10px] font-bold"
+          className="-ml-1.5 flex items-center justify-center rounded-md text-2xs font-bold"
           style={{ width: 20, height: 20, backgroundColor: "var(--surface-hover-strong)", border: `2px solid ${PANE}`, color: MUTED }}
         >
           +{rest}
@@ -880,17 +890,17 @@ function ChannelInfoBar() {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0" style={{ backgroundColor: PANE, borderColor: BORDER }}>
       <Hash size={14} style={{ color: "var(--text-secondary)" }} />
-      <span className="text-ink text-[15px] font-extrabold">{activeChannel?.name}</span>
+      <span className="text-ink text-base font-bold">{activeChannel?.name}</span>
       {activeChannel?.type === "channel" && (
         <>
-          <span className="text-[12px] font-medium" style={{ color: MUTED }}>{members.length} members</span>
+          <span className="text-xs font-medium" style={{ color: MUTED }}>{members.length} members</span>
           <div className="flex-1" />
           <AvatarStack members={members} />
         </>
       )}
       {activeChannel?.type === "dm" && (
         <>
-          <span className="text-[12px] font-medium" style={{ color: MUTED }}>direct message</span>
+          <span className="text-xs font-medium" style={{ color: MUTED }}>direct message</span>
           <div className="flex-1" />
         </>
       )}

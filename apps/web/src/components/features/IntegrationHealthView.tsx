@@ -15,7 +15,7 @@ function statusLabel(status: IntegrationDelivery["status"]): string {
 }
 
 function statusClass(status: IntegrationDelivery["status"]): string {
-  if (status === "delivered") return "text-accent bg-accent/15 border-accent/25";
+  if (status === "delivered") return "text-accent bg-accent-dim border-accent-line";
   if (status === "failed" || status === "dead_letter") return "text-urgent bg-urgent-dim border-urgent-line";
   if (status === "processing") return "text-pending bg-pending-dim border-pending-line";
   return "text-ink-low bg-fill border-line";
@@ -24,7 +24,7 @@ function statusClass(status: IntegrationDelivery["status"]): string {
 function Stat({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "good" | "warning" }) {
   return (
     <div className="surface-inset p-3 min-h-[76px]">
-      <p className="text-[10px] uppercase tracking-wider text-ink-low font-bold">{label}</p>
+      <p className="text-2xs uppercase tracking-wider text-ink-low font-bold">{label}</p>
       <p className={`text-2xl font-semibold mt-1 ${tone === "good" ? "text-accent" : tone === "warning" ? "text-urgent" : "text-ink"}`}>{value}</p>
     </div>
   );
@@ -81,7 +81,7 @@ export function IntegrationHealthView() {
     <div className="p-3 space-y-3">
       <div className="flex items-center justify-between px-1">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-accent font-bold">HQ operations</p>
+          <p className="text-2xs uppercase tracking-[0.16em] text-accent font-bold">HQ operations</p>
           <h2 className="text-lg font-semibold text-ink mt-0.5">Integration health</h2>
         </div>
         <button type="button" onClick={() => void load(true)} disabled={refreshing} className="min-h-[44px] min-w-[44px] rounded-xl surface-card flex items-center justify-center text-ink-low disabled:opacity-50" aria-label="Refresh integration health">
@@ -89,12 +89,12 @@ export function IntegrationHealthView() {
         </button>
       </div>
 
-      {error && <div className="surface-card border-urgent-line bg-urgent-dim p-3 text-xs text-urgent flex items-center gap-2"><AlertTriangle size={15} />{error}</div>}
+      {error && <div className="surface-card border-urgent-line bg-urgent-dim p-3 text-xs text-urgent flex items-center gap-2"><AlertTriangle size={16} />{error}</div>}
 
       <GlassCard>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2"><Wifi size={16} className={health?.needsAttention ? "text-urgent" : "text-accent"} /><p className="text-sm font-semibold text-ink">Dispatcher status</p></div>
-          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full border ${health?.needsAttention ? "text-urgent bg-urgent-dim border-urgent-line" : "text-accent bg-accent/15 border-accent/25"}`}>{health?.needsAttention ? "Needs attention" : "Healthy"}</span>
+          <span className={`text-2xs font-bold uppercase px-2 py-1 rounded-full border ${health?.needsAttention ? "text-urgent bg-urgent-dim border-urgent-line" : "text-accent bg-accent-dim border-accent-line"}`}>{health?.needsAttention ? "Needs attention" : "Healthy"}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Stat label="Delivered" value={health?.delivered ?? 0} tone="good" />
@@ -104,7 +104,7 @@ export function IntegrationHealthView() {
         </div>
       </GlassCard>
 
-      <div className="flex items-center justify-between px-1 pt-1"><p className="text-[11px] uppercase tracking-wider text-ink-low font-bold">Recent deliveries</p><span className="text-[10px] text-ink-low">Auto-refresh 15s</span></div>
+      <div className="flex items-center justify-between px-1 pt-1"><p className="text-xs uppercase tracking-wider text-ink-low font-bold">Recent deliveries</p><span className="text-2xs text-ink-low">Auto-refresh 15s</span></div>
 
       {deliveries.length === 0 ? (
         <GlassCard><p className="text-sm text-ink-low text-center py-5">No integration deliveries recorded yet.</p></GlassCard>
@@ -118,20 +118,20 @@ export function IntegrationHealthView() {
                   {delivery.status === "delivered" ? <CheckCircle2 size={16} /> : canRetry ? <AlertTriangle size={16} /> : <Clock3 size={16} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink">{delivery.provider}</p><span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full border ${statusClass(delivery.status)}`}>{statusLabel(delivery.status)}</span></div>
-                  <p className="text-[11px] text-ink-low mt-1">Created {formatDate(delivery.createdAt)} · {delivery.attempts} attempt{delivery.attempts === 1 ? "" : "s"}</p>
+                  <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-ink">{delivery.provider}</p><span className={`text-2xs uppercase font-bold px-2 py-1 rounded-full border ${statusClass(delivery.status)}`}>{statusLabel(delivery.status)}</span></div>
+                  <p className="text-xs text-ink-low mt-1">Created {formatDate(delivery.createdAt)} · {delivery.attempts} attempt{delivery.attempts === 1 ? "" : "s"}</p>
                   {delivery.lastError && <p className="text-xs text-urgent mt-2 line-clamp-2">{delivery.lastError}</p>}
-                  {delivery.providerMessageId && <p className="text-[10px] text-ink-low mt-2 flex items-center gap-1"><ExternalLink size={11} /> Provider ID {delivery.providerMessageId}</p>}
-                  {canRetry && <button type="button" onClick={() => void retry(delivery.id)} disabled={retrying === delivery.id} className="mt-3 min-h-[44px] rounded-xl px-3 bg-accent/15 text-accent border border-accent/25 text-xs font-bold flex items-center gap-2 disabled:opacity-50"><RotateCcw size={14} className={retrying === delivery.id ? "animate-spin" : ""} />{retrying === delivery.id ? "Queueing…" : "Retry delivery"}</button>}
+                  {delivery.providerMessageId && <p className="text-2xs text-ink-low mt-2 flex items-center gap-1"><ExternalLink size={12} /> Provider ID {delivery.providerMessageId}</p>}
+                  {canRetry && <button type="button" onClick={() => void retry(delivery.id)} disabled={retrying === delivery.id} className="mt-3 min-h-[44px] rounded-xl px-3 bg-accent-dim text-accent border border-accent-line text-xs font-bold flex items-center gap-2 disabled:opacity-50"><RotateCcw size={14} className={retrying === delivery.id ? "animate-spin" : ""} />{retrying === delivery.id ? "Queueing…" : "Retry delivery"}</button>}
                 </div>
               </div>
-              {delivery.attemptsHistory.length > 0 && <details className="mt-3 pt-3 border-t border-line"><summary className="text-[10px] text-ink-low cursor-pointer">View attempt history ({delivery.attemptsHistory.length})</summary><div className="mt-2 space-y-2">{delivery.attemptsHistory.map((attempt) => <div key={attempt.id} className="flex items-center justify-between text-[10px] text-ink-low"><span>Attempt {attempt.attemptNumber} · {attempt.status}</span><span>{attempt.httpStatus ?? "—"} · {formatDate(attempt.startedAt)}</span></div>)}</div></details>}
+              {delivery.attemptsHistory.length > 0 && <details className="mt-3 pt-3 border-t border-line"><summary className="text-2xs text-ink-low cursor-pointer">View attempt history ({delivery.attemptsHistory.length})</summary><div className="mt-2 space-y-2">{delivery.attemptsHistory.map((attempt) => <div key={attempt.id} className="flex items-center justify-between text-2xs text-ink-low"><span>Attempt {attempt.attemptNumber} · {attempt.status}</span><span>{attempt.httpStatus ?? "—"} · {formatDate(attempt.startedAt)}</span></div>)}</div></details>}
             </GlassCard>
           );
         })
       )}
 
-      {attention.length > 0 && <p className="text-[10px] text-ink-low text-center px-4">Retries are available to authorised HQ roles. Field work continues even when a downstream provider is unavailable.</p>}
+      {attention.length > 0 && <p className="text-2xs text-ink-low text-center px-4">Retries are available to authorised HQ roles. Field work continues even when a downstream provider is unavailable.</p>}
     </div>
   );
 }

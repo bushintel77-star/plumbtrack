@@ -1,45 +1,170 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 
 import type { Job } from "@/types";
 import { derivedJobStatus } from "@/lib/billing";
 import { usePlumbTrackCtx } from "@/state/usePlumbTrack";
 import { useTimer } from "@/hooks/useTimer";
+import { formatSerial, formatSerialWithHash, localDateStr } from "@/lib/display";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { SwipeableCard } from "@/components/ui/SwipeableCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { ShiftCard } from "@/components/shift/ShiftCard";
+import { CaptureBar } from "@/components/field/CaptureBar";
 import {
   IconCameraField,
   IconHexNut,
   IconKeyAccess,
   IconNotePen,
 } from "@/components/icons/FieldIcons";
-import { Clock, MapPin, Phone } from "lucide-react";
-import { formatSerial, formatSerialWithHash } from "@/lib/display";
+import { Camera, CheckCircle2, ClipboardList, Clock, MapPin, MessageSquare, Navigation, Phone, ShieldAlert } from "lucide-react";
+import { expiryState } from "@/lib/documents";
 
 /**
- * TodayStream — Hardware Chassis Design
- * From reference: widget-chassis containers, timeline for jobs, machined buttons
+ * TodayStream — the plumber's role home.
+ *
+ * Structure answers the field question, in order:
+ *   1. Shift state (am I on the clock?)
+ *   2. THE TASK AT HAND — the job I'm on (or next), as a hero with the
+ *      actions and evidence duties for a first-time fix
+ *   3. My responsibilities — exception list, never a wall of green
+ *   4. Team & management comms — unread that concerns me
+ *   5. Up next — compact, swipe to clock in
  */
 export function TodayStream() {
-  const { jobs, openJob, currentStaffId, startClockOn } = usePlumbTrackCtx();
+  const {
+    jobs, messages, channels, members, documents,
+    openJob, openChannel, startClockOn, currentStaffId, currentStaff,
+    setActiveId, setView, setActiveTab,
+    unreadByChannel, totalUnread,
+    addPhoto, dispatch, pendingSyncCount,
+  } = usePlumbTrackCtx();
   const { activeShift } = usePlumbTrackCtx();
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "in_progress" | "scheduled" | "completed">("all");
-  const [doneOpen, setDoneOpen] = useState(false);
+  const [pendingPhotoLabel, setPendingPhotoLabel] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const today = localDateStr();
+
+  const active = useMemo(() => jobs.filter((j) => derivedJobStatus(j) === "in_progress"), [jobs]);
+  const scheduled = useMemo(
+    () => jobs.filter((j) => derivedJobStatus(j) === "scheduled")
+      .sort((a, b) => Number(b.jobType === "emergency") - Number(a.jobType === "emergency")),
+    [jobs],
+  );
+
+  // The task at hand: the job this operator is clocked onto, else the first
+  // active job, else the next scheduled stop.
+  const focusEntry = useMemo(() => {
+    const focus = jobs.find((j) => j.timeEntries.some((e) => e.staffId === currentStaffId && e.end === null));
+    return focus ? (focus.timeEntries.find((e) => e.staffId === currentStaffId && e.end === null) ?? null) : null;
+  }, [jobs, currentStaffId]);
+  const focusJob = useMemo(() => {
+    return jobs.find((j) => j.timeEntries.some((e) => e.staffId === currentStaffId && e.end === null))
+      ?? active[0]
+      ?? scheduled[0]
+      ?? null;
+  }, [jobs, active, scheduled, currentStaffId]);
+
+  const focusIsLive = !!focusJob
+    && focusJob.timeEntries.some((e) => e.staffId === currentStaffId && e.end === null);
+
+  // A forgotten clock-off. Past this age the entry is almost certainly stale
+  // (yesterday's test clock-on, a missed swipe) — surface it as a duty to
+  // review instead of presenting an absurd live timer as the task at hand.
+  const STALE_ENTRY_MS = 12 * 60 * 60 * 1000;
+  const focusEntryStale = !!focusEntry && Date.now() - new Date(focusEntry.start).getTime() > STALE_ENTRY_MS;
+
+  // Quick-capture from the home — same camera pattern as the job view.
+  const openCamera = (label: string) => { setPendingPhotoLabel(label); cameraInputRef.current?.click(); };
+  const onCameraCapture = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !pendingPhotoLabel || !focusJob) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") addPhoto(pendingPhotoLabel, reader.result, focusJob.id);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  // ── Responsibilities — only what's actually owed, derived from state ─────
+  const duties = useMemo(() => {
+    const items: { id: string; icon: typeof Camera; tone: "warn" | "info"; text: string; act: () => void }[] = [];
+    if (focusEntryStale && focusJob) {
+      const since = new Date(focusEntry!.start);
+      items.push({
+        id: "stale-entry", icon: Clock, tone: "warn",
+        text: `Still clocked on since ${since.toLocaleDateString("en-AU", { weekday: "short" })} ${since.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })} — review the time entry`,
+        act: () => openJob(focusJob.id),
+      });
+    }
+    if (focusJob) {
+      const reportDone = focusJob.dailyReports.some((r) => r.date === today && r.submittedAt);
+      if (!reportDone) {
+        items.push({
+          id: "report", icon: ClipboardList, tone: "warn",
+          text: `Daily report due — ${formatSerial(focusJob.id)}`,
+          act: () => { setActiveId(focusJob.id); setView("dailyReport"); },
+        });
+      }
+      if ((focusJob.photos?.length ?? 0) === 0) {
+        items.push({
+          id: "photos", icon: Camera, tone: "warn",
+          text: "No photo evidence on this job yet",
+          act: () => openJob(focusJob.id),
+        });
+      }
+    }
+    // Only genuinely lapsed/expiring docs are owed — documents without an
+    // expiry date ("none") are not attention-seekers, matching the vault tiles.
+    const atRisk = documents.filter((d) => {
+      const state = expiryState(d.expiresOn);
+      return state === "expired" || state === "soon";
+    });
+    if (atRisk.length > 0) {
+      items.push({
+        id: "compliance", icon: ShieldAlert, tone: "warn",
+        text: `${atRisk.length} compliance document${atRisk.length > 1 ? "s" : ""} need attention`,
+        act: () => setActiveTab("documents"),
+      });
+    }
+    return items;
+  }, [focusJob, focusEntry, focusEntryStale, documents, today, openJob, setActiveId, setView, setActiveTab]);
+
+  // ── Team & management comms — unread, humans before bot chatter ─────────
+  const comms = useMemo(() => {
+    return messages
+      .filter((m) => m.authorId !== currentStaffId && (unreadByChannel[m.channelId] ?? 0) > 0)
+      .sort((a, b) => {
+        const aBot = members.find((mem) => mem.id === a.authorId)?.role === "bot";
+        const bBot = members.find((mem) => mem.id === b.authorId)?.role === "bot";
+        if (aBot !== bBot) return aBot ? 1 : -1;
+        return new Date(b.ts).getTime() - new Date(a.ts).getTime();
+      })
+      .slice(0, 3)
+      .map((m) => {
+        const member = members.find((mem) => mem.id === m.authorId);
+        return {
+          ...m,
+          channel: channels.find((c) => c.id === m.channelId),
+          // Display label uses the first name; the avatar gets the full name
+          // so the initials match the Slack surface exactly (MR, TB, SA…).
+          author: member?.name.split(" ")[0] ?? "Team",
+          authorName: member?.name ?? "Team",
+          authorColor: member?.color,
+        };
+      });
+  }, [messages, channels, members, currentStaffId, unreadByChannel]);
 
   const counts = useMemo(() => {
-    let scheduled = 0, inProgress = 0, completed = 0;
-    for (const j of jobs) {
-      const s = derivedJobStatus(j);
-      if (s === "scheduled") scheduled++;
-      else if (s === "in_progress") inProgress++;
-      else completed++;
-    }
-    return { all: jobs.length, scheduled, inProgress, completed };
-  }, [jobs]);
+    let nCompleted = 0;
+    for (const j of jobs) if (derivedJobStatus(j) === "completed") nCompleted++;
+    return { all: jobs.length, active: active.length, scheduled: scheduled.length, completed: nCompleted };
+  }, [jobs, active, scheduled]);
 
   const filtered = useMemo(() => {
     return jobs.filter((j) => {
@@ -47,69 +172,202 @@ export function TodayStream() {
       if (filter !== "all" && status !== filter) return false;
       if (!search.trim()) return true;
       const q = search.toLowerCase();
-      return (
-        j.client.toLowerCase().includes(q) ||
-        j.address.toLowerCase().includes(q) ||
-        j.scope.toLowerCase().includes(q) ||
-        j.id.toLowerCase().includes(q)
-      );
+      return j.client.toLowerCase().includes(q) || j.address.toLowerCase().includes(q) || j.id.toLowerCase().includes(q);
     });
   }, [jobs, search, filter]);
 
-  const now = filtered.filter((j) => derivedJobStatus(j) === "in_progress");
-  // Prefer the job currently clocked on by this operator as the dashboard
-  // focal point. If seeded/demo data has no open entry, keep the first active
-  // job as a stable visual anchor rather than arming every in-progress card.
-  const primaryActiveJobId = jobs.find((j) => j.timeEntries.some((entry) => entry.staffId === currentStaffId && entry.end === null))?.id
-    ?? now[0]?.id;
-  const next = filtered
-    .filter((j) => derivedJobStatus(j) === "scheduled")
-    .sort((a, b) => Number(b.jobType === "emergency") - Number(a.jobType === "emergency"));
-  const done = filtered.filter((j) => derivedJobStatus(j) === "completed");
-
   return (
-    <div className="mobile-page-shell" style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "20px" }}>
-      {/* Shift Card */}
+    <div className="mobile-page-shell" style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "20px" }}>
+
+      {/* 1 · Shift — am I on the clock? */}
       <ShiftCard />
 
-      {/* Day Brief */}
-      {activeShift && now.length + next.length > 0 && (
-        <DayBrief nowCount={now.length} nextJob={next[0] ?? now[0]} />
+      {/* Day progress + sync honesty — two glance micro-details */}
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-2xs font-black uppercase tracking-wider text-ink-low">
+              Day · {counts.completed} of {counts.all} stops done
+            </span>
+          </div>
+          <div className="h-1 rounded-full bg-fill-strong overflow-hidden">
+            <div
+              className="h-full rounded-full bg-accent transition-all"
+              style={{ width: `${counts.all > 0 ? (counts.completed / counts.all) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+        {pendingSyncCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setView("syncCenter")}
+            className="shrink-0 min-h-[36px] px-2.5 rounded-full border border-pending-line bg-pending-dim text-pending text-2xs font-black uppercase tracking-wide haptic"
+            aria-label={`${pendingSyncCount} changes queued — open sync centre`}
+          >
+            {pendingSyncCount} queued
+          </button>
+        )}
+      </div>
+
+      {/* 2 · The task at hand */}
+      {focusJob ? (
+        <>
+          <FocusCard
+            job={focusJob}
+            live={focusIsLive}
+            stale={focusEntryStale}
+            sinceMs={focusEntry ? new Date(focusEntry.start).getTime() : null}
+            gpsFixed={!!focusEntry?.lat && !!focusEntry?.lng}
+            onOpen={() => openJob(focusJob.id)}
+            onClockIn={() => startClockOn(focusJob.id, currentStaffId)}
+          />
+          {/* Quick capture — photo with label picker, note, and the
+              completion path, without leaving the home. */}
+          <CaptureBar
+            inline
+            job={focusJob}
+            billableActive={focusIsLive}
+            onPhoto={openCamera}
+            onSaveNote={(text) => dispatch({
+              type: "ADD_VOICE_NOTE",
+              jobId: focusJob.id,
+              note: { id: crypto.randomUUID(), transcript: text, createdAt: new Date().toISOString(), createdBy: currentStaff?.id ?? currentStaffId },
+            })}
+            onPart={() => openJob(focusJob.id)}
+            onSafety={() => openJob(focusJob.id)}
+            onComplete={() => { setActiveId(focusJob.id); setView("signoff"); }}
+            onClockOn={() => startClockOn(focusJob.id, currentStaffId)}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={onCameraCapture}
+            className="hidden"
+            aria-label="Camera capture for the current job"
+          />
+        </>
+      ) : (
+        <div className="widget-chassis" style={{ padding: "24px 16px", textAlign: "center" }}>
+          <CheckCircle2 size={24} className="text-complete mx-auto mb-2" />
+          <div className="text-title" style={{ fontSize: "1rem" }}>No jobs today</div>
+          <div className="label-micro" style={{ marginTop: "6px" }}>
+            New work lands here the moment it&apos;s scheduled
+          </div>
+        </div>
       )}
 
-      {/* Search & Filters */}
-      <div className="rounded-xl border border-line bg-fill px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setSearchOpen((open) => !open)}
-          className="w-full text-left flex items-center gap-2"
-        >
-          <span className="text-ink-low text-xs">{searchOpen ? "▼" : "▶"}</span>
-          <span className="label-micro">
-            {counts.all} JOBS
-          </span>
-        </button>
+      {/* 3 · My responsibilities — exception list */}
+      <section>
+        <div className="label-micro jobs-section-label" style={{ marginBottom: "10px" }}>MY RESPONSIBILITIES</div>
+        {duties.length === 0 ? (
+          <div className="widget-chassis" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+            <span className="icon-socket icon-socket--complete"><CheckCircle2 size={14} /></span>
+            <span className="text-sm font-semibold text-ink">All clear — nothing owed right now</span>
+          </div>
+        ) : (
+          duties.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={d.act}
+              className="widget-chassis w-full text-left haptic"
+              style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px", cursor: "pointer" }}
+              aria-label={d.text}
+            >
+              <span className={`icon-socket ${d.tone === "warn" ? "icon-socket--pending" : "icon-socket--accent"}`}>
+                <d.icon size={14} />
+              </span>
+              <span className="text-sm font-semibold text-ink flex-1">{d.text}</span>
+              <span className="text-ink-low text-sm">›</span>
+            </button>
+          ))
+        )}
+      </section>
 
+      {/* 4 · Team & management */}
+      <section>
+        <div className="label-micro jobs-section-label" style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span>TEAM &amp; MANAGEMENT</span>
+          {totalUnread > 0 && (
+            <span className="text-2xs font-black rounded-full px-1.5 py-0.5 text-accent bg-accent-dim border border-accent-line">
+              {totalUnread} unread
+            </span>
+          )}
+        </div>
+        {comms.length === 0 ? (
+          <div className="widget-chassis" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: "12px" }}>
+            <span className="icon-socket"><MessageSquare size={14} /></span>
+            <span className="text-sm text-ink-low">No new messages — you&apos;re up to date</span>
+          </div>
+        ) : (
+          comms.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => openChannel(m.channelId)}
+              className="widget-chassis w-full text-left haptic"
+              style={{ padding: "13px 16px", display: "flex", gap: "12px", marginBottom: "8px", cursor: "pointer", alignItems: "flex-start" }}
+              aria-label={`Message from ${m.author} in ${m.channel?.name ?? "team"}`}
+            >
+              <Avatar name={m.authorName} color={m.authorColor} size={36} title={`${m.authorName} in ${m.channel?.name ?? "team"}`} />
+              <span className="flex-1 min-w-0">
+                <span className="flex items-baseline gap-2">
+                  <span className="text-sm font-bold text-ink">{m.author}</span>
+                  <span className="text-2xs text-ink-low font-mono">{m.channel?.name ?? ""}</span>
+                  <span className="text-2xs text-ink-low ml-auto shrink-0">
+                    {new Date(m.ts).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}
+                  </span>
+                </span>
+                <span className="block text-xs text-ink-mid mt-0.5 line-clamp-2">{m.text}</span>
+              </span>
+            </button>
+          ))
+        )}
+      </section>
+
+      {/* 5 · Up next — compact, swipe to clock in */}
+      {scheduled.length > 0 && (
+        <section>
+          <div className="label-micro jobs-section-label" style={{ marginBottom: "10px" }}>UP NEXT · {scheduled.length}</div>
+          {scheduled.slice(0, 3).map((job) => (
+            <CompactJobRow
+              key={job.id}
+              job={job}
+              onOpen={openJob}
+              onClockIn={(id) => startClockOn(id, currentStaffId)}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* All jobs — collapsed expander keeps the list tooling off the home */}
+      <div className="rounded-xl border border-line bg-fill px-4 py-3">
+        <button type="button" onClick={() => setSearchOpen((open) => !open)} className="w-full text-left flex items-center gap-2">
+          <span className="text-ink-low text-xs">{searchOpen ? "▼" : "▶"}</span>
+          <span className="label-micro">{counts.all} JOBS · {counts.active} ACTIVE · {counts.completed} DONE</span>
+        </button>
         {searchOpen && (
-          <div style={{ marginTop: "16px" }}>
+          <div style={{ marginTop: "12px" }}>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="SEARCH..."
               aria-label="Search jobs"
-              className="w-full px-3 py-2.5 text-[13px] font-mono"
+              className="w-full px-3 py-2.5 text-sm font-mono"
               style={{
                 background: "var(--app-inset)",
                 border: "1px solid var(--surface-border)",
                 color: "var(--text-primary)",
-                borderRadius: "8px"
+                borderRadius: "8px",
               }}
             />
             <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
               {([
                 { key: "all", label: "ALL", count: counts.all },
-                { key: "in_progress", label: "ACTIVE", count: counts.inProgress },
+                { key: "in_progress", label: "ACTIVE", count: counts.active },
                 { key: "scheduled", label: "NEXT", count: counts.scheduled },
                 { key: "completed", label: "DONE", count: counts.completed },
               ] as const).map((f) => (
@@ -124,147 +382,170 @@ export function TodayStream() {
                     fontSize: "0.7rem",
                     background: filter === f.key ? "var(--chrome-600)" : "var(--btn-secondary-bg)",
                     border: filter === f.key ? "1px solid var(--chrome-400)" : "var(--chassis-border)",
-                    boxShadow: filter === f.key ? "var(--btn-primary-shadow)" : "var(--btn-secondary-shadow)"
+                    boxShadow: filter === f.key ? "var(--btn-primary-shadow)" : "var(--btn-secondary-shadow)",
                   }}
                 >
                   {f.label} {f.count}
                 </button>
               ))}
             </div>
+            <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              {filtered.map((job) => (
+                <CompactJobRow
+                  key={job.id}
+                  job={job}
+                  onOpen={openJob}
+                  onClockIn={derivedJobStatus(job) === "scheduled" ? (id) => startClockOn(id, currentStaffId) : () => undefined}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Empty state */}
-      {now.length + next.length + done.length === 0 && (
-        <div className="widget-chassis">
-          <div className="label-micro" style={{ textAlign: "center", padding: "24px 0" }}>
-            {search ? "NO RESULTS" : "NO JOBS"}
-          </div>
-        </div>
-      )}
+/** The task at hand — hero card with first-time-fix actions and evidence. */
+function FocusCard({
+  job, live, stale, sinceMs, gpsFixed, onOpen, onClockIn,
+}: {
+  job: Job;
+  live: boolean;
+  stale: boolean;
+  sinceMs: number | null;
+  gpsFixed: boolean;
+  onOpen: () => void;
+  onClockIn: () => void;
+}) {
+  const status = derivedJobStatus(job);
+  const notes = (job.voiceNotes?.length ?? 0) + (job.logEntries?.length ?? 0);
+  const seconds = useTimer(live && sinceMs !== null, sinceMs);
+  const hh = String(Math.floor(seconds / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
 
-      {/* NOW */}
-      {now.length > 0 && (
-        <JobSection label="NOW" count={now.length}>
-          {now.map((job) => (
-            <JobRow key={job.id} job={job} isPrimaryActive={job.id === primaryActiveJobId} onOpen={openJob} onClockIn={(id) => startClockOn(id, currentStaffId)} />
-          ))}
-        </JobSection>
-      )}
+  return (
+    <div className="widget-chassis" style={{ padding: "18px 16px 16px" }}>
+      <header className="widget-header" style={{ marginBottom: "12px" }}>
+        <span className="job-serial-readout">
+          <span className="work-order-id">{formatSerialWithHash(job.id)}</span>
+          {live && <span className="active-job-led" aria-label="Active job" title="Active job" />}
+        </span>
+        {live ? (
+          <span className="flex items-center gap-2">
+            {gpsFixed && !stale && (
+              <span className="text-2xs font-black uppercase tracking-wide text-complete" title="Arrival GPS-verified">
+                GPS ✓
+              </span>
+            )}
+            <span
+              className={`text-sm font-mono font-bold tabular-nums ${stale ? "text-pending" : "text-ink"}`}
+              title={stale ? "Open since before today — review this time entry" : "On-site elapsed"}
+              aria-label={`On site ${hh} hours ${mm} minutes${stale ? " — entry still open from an earlier day" : ""}`}
+            >
+              {hh}:{mm}:{ss}
+            </span>
+          </span>
+        ) : (
+          <StatusChip status={status === "in_progress" ? "in_progress" : "scheduled"} size={12} />
+        )}
+      </header>
+      <hr className="hairline-divider" style={{ margin: "0 0 12px 0" }} />
 
-      {/* NEXT */}
-      {next.length > 0 && (
-        <JobSection label="NEXT" count={next.length}>
-          {next.map((job) => (
-            <JobRow key={job.id} job={job} isPrimaryActive={job.id === primaryActiveJobId} onOpen={openJob} onClockIn={(id) => startClockOn(id, currentStaffId)} />
-          ))}
-        </JobSection>
-      )}
+      <div className="text-2xl font-black tracking-tight text-ink leading-tight">{job.client}</div>
 
-      {/* DONE */}
-      {done.length > 0 && (
-        <div className="widget-chassis">
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
+        <span className="icon-socket icon-socket--xs"><MapPin size={12} /></span>
+        <span className="text-sm text-ink-mid">{job.address}</span>
+        {job.accessCode && (
+          <span className="text-xs text-ink-mid" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+            <IconKeyAccess size={12} style={{ color: "var(--chrome-400)" }} /> {job.accessCode}
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-ink-mid mt-1.5 line-clamp-2">{job.scope}</p>
+
+      {/* Actions — thumb zone, one primary */}
+      <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="btn-machined primary"
+          style={{ flex: 1, minHeight: "48px" }}
+        >
+          OPEN JOB
+        </button>
+        {job.phone && (
+          <a
+            href={`tel:${job.phone}`}
+            className="btn-machined secondary"
+            style={{ minHeight: "48px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "0 14px", textDecoration: "none" }}
+            aria-label={`Call ${job.client}`}
+          >
+            <Phone size={14} /> CALL
+          </a>
+        )}
+        <a
+          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-machined secondary"
+          style={{ minHeight: "48px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "0 14px", textDecoration: "none" }}
+          aria-label={`Navigate to ${job.address}`}
+        >
+          <Navigation size={14} /> GO
+        </a>
+      </div>
+
+      {/* Evidence strip — each count an instrument: owed reads pending,
+          satisfied reads complete, idle stays neutral. */}
+      <hr className="hairline-divider" style={{ margin: "14px 0 10px" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <span className="text-2xs text-ink-low" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+          <span className={`icon-socket icon-socket--xs ${(job.photos?.length ?? 0) > 0 ? "icon-socket--complete" : live ? "icon-socket--pending" : ""}`}>
+            <IconCameraField size={12} />
+          </span>
+          {job.photos?.length ?? 0} photos
+        </span>
+        <span className="text-2xs text-ink-low" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+          <span className={`icon-socket icon-socket--xs ${(job.serviceItems?.length ?? 0) > 0 ? "icon-socket--complete" : ""}`}>
+            <IconHexNut size={12} />
+          </span>
+          {job.serviceItems?.length ?? 0} parts
+        </span>
+        <span className="text-2xs text-ink-low" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+          <span className={`icon-socket icon-socket--xs ${notes > 0 ? "icon-socket--complete" : ""}`}>
+            <IconNotePen size={12} />
+          </span>
+          {notes} notes
+        </span>
+        {status === "scheduled" && (
           <button
             type="button"
-            onClick={() => setDoneOpen((open) => !open)}
-            className="w-full text-left"
+            onClick={onClockIn}
+            className="btn-machined primary ml-auto haptic"
+            style={{ minHeight: "36px", padding: "0 12px", fontSize: "0.65rem" }}
           >
-            <div className="label-micro">
-              {done.length} COMPLETED {doneOpen ? "▼" : "▶"}
-            </div>
+            <Clock size={12} style={{ marginRight: "4px" }} /> CLOCK IN
           </button>
-          {doneOpen && (
-            <div style={{ marginTop: "16px" }}>
-              {done.map((job) => (
-                <JobRow key={job.id} job={job} isPrimaryActive={false} onOpen={openJob} onClockIn={() => undefined} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );  }
-
-/**
- * Day Brief — Hardware chassis with telemetry
- */
-function DayBrief({ nowCount, nextJob }: { nowCount: number; nextJob?: Job }) {
-  const { activeShift } = usePlumbTrackCtx();
-  const anchor = activeShift?.loggedOnAt ? new Date(activeShift.loggedOnAt).getTime() : Date.now();
-  const seconds = useTimer(true, anchor);
-
-  const hours = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-
-  return (
-    <div className="widget-chassis">
-      <header className="widget-header" style={{ marginBottom: "16px" }}>
-        <span className="label-micro">Day Brief</span>
-      </header>
-      <hr className="hairline-divider" />
-
-      <div className="telemetry-grid" style={{ marginBottom: "0" }}>
-        <div className="telemetry-data">
-          <div className="data-block">
-            <span className="label-micro">On Shift</span>
-            <div className="data-hero">
-              {String(hours).padStart(2, "0")}:{String(mins).padStart(2, "0")}
-            </div>
-          </div>
-        </div>
-        <div className="data-block" style={{ textAlign: "right" }}>
-          <span className="label-micro">Active Jobs</span>
-          <div className="data-hero" style={{ fontSize: "1.5rem" }}>
-            {nowCount}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-/**
- * Job Section — with label
- */
-function JobSection({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="label-micro jobs-section-label" style={{ marginBottom: "12px" }}>
-        {label} · {count}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Job Row — Hardware chassis with timeline node
- */
-function JobRow({
+/** Compact row for up-next and search results — swipe right to clock in. */
+function CompactJobRow({
   job,
-  isPrimaryActive,
   onOpen,
   onClockIn,
 }: {
   job: Job;
-  isPrimaryActive: boolean;
   onOpen: (id: string) => void;
   onClockIn: (id: string) => void;
 }) {
   const status = derivedJobStatus(job);
-  const parts = job.serviceItems?.length ?? 0;
-  const notes = (job.voiceNotes?.length ?? 0) + (job.logEntries?.length ?? 0);
-
-  // Timeline node status
-  const nodeClass = status === "in_progress"
-    ? isPrimaryActive ? "active" : "pending"
-    : status === "completed"
-    ? "complete"
-    : "";
-
   return (
     <SwipeableCard
       rightAction={
@@ -276,69 +557,15 @@ function JobRow({
       onActivate={() => onOpen(job.id)}
       ariaLabel={`Open job ${formatSerial(job.id)}`}
     >
-      <div className={`widget-chassis job-card-chassis${status === "in_progress" && isPrimaryActive ? " is-active" : ""}`} style={{ padding: "16px" }}>
-        {/* Header — Job ID + Status */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-          <span className="job-serial-readout">
-            <span className="work-order-id">{formatSerialWithHash(job.id)}</span>
-            {status === "in_progress" && isPrimaryActive && <span className="active-job-led" aria-label="Active job" title="Active job" />}
-          </span>
-          <div className="status-indicator">
-            <span className={`status-dot ${nodeClass || ""}`} />
-            <span className="label-micro">
-              {status === "in_progress" ? (isPrimaryActive ? "ACTIVE" : "IN PROGRESS") : status === "scheduled" ? "SCHED" : "DONE"}
-            </span>
-          </div>
-        </div>
-
-        <hr className="hairline-divider" style={{ margin: "0 0 12px 0" }} />
-
-        {/* Client name — title */}
-        <div className="text-title">{job.client}</div>
-
-        {/* Address */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "8px" }}>
-          <MapPin size={12} style={{ color: "var(--text-secondary)" }} />
-          <span className="task-detail">{job.address}</span>
-        </div>
-
-        {/* Meta row */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "12px" }}>
-          {job.accessCode && (
-            <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-              <IconKeyAccess size={12} style={{ color: "var(--chrome-400)" }} />
-              {job.accessCode}
-            </span>
-          )}
-          {job.phone && (
-            <a
-              href={`tel:${job.phone}`}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "0.75rem",
-                color: "var(--chrome-400)",
-                fontWeight: 700
-              }}
-            >
-              <Phone size={11} />
-              CALL
-            </a>
-          )}
-          <div style={{ marginLeft: "auto", display: "flex", gap: "8px", fontSize: "0.7rem", color: "var(--text-secondary)" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-              <IconHexNut size={10} /> {parts}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-              <IconCameraField size={10} /> {job.photos?.length ?? 0}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "2px" }}>
-              <IconNotePen size={10} /> {notes}
-            </span>
-          </div>
-        </div>
+      <div className="widget-chassis" style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <span className="work-order-id shrink-0">{formatSerialWithHash(job.id)}</span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold text-ink truncate">{job.client}</span>
+          <span className="block text-2xs text-ink-low truncate">{job.address}</span>
+        </span>
+        <span className={`text-2xs font-black uppercase shrink-0 ${status === "in_progress" ? "text-accent" : status === "completed" ? "text-complete" : "text-ink-low"}`}>
+          {status === "in_progress" ? "Live" : status === "completed" ? "Done" : "Sched"}
+        </span>
       </div>
     </SwipeableCard>
   );

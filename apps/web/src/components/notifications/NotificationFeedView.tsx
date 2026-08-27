@@ -62,23 +62,23 @@ function DeliveryBadge({ item }: { item: NotificationFeedItem }) {
   const state = deliveryState(item);
   if (state === "delivered") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/20">
-        <CheckCircle2 size={10} />
+      <span className="inline-flex items-center gap-1 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent-dim text-accent border border-accent-line">
+        <CheckCircle2 size={12} />
         Delivered
       </span>
     );
   }
   if (state === "failed") {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-urgent-dim text-urgent border border-urgent-line">
-        <AlertTriangle size={10} />
+      <span className="inline-flex items-center gap-1 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-urgent-dim text-urgent border border-urgent-line">
+        <AlertTriangle size={12} />
         Failed
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-fill-strong text-ink-low border border-line">
-      <Clock size={10} />
+    <span className="inline-flex items-center gap-1 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-fill-strong text-ink-low border border-line">
+      <Clock size={12} />
       Pending
     </span>
   );
@@ -87,7 +87,7 @@ function DeliveryBadge({ item }: { item: NotificationFeedItem }) {
 function ChannelBadge({ channel }: { channel: string }) {
   const isDm = channel.startsWith("dm-");
   return (
-    <span className="text-[10px] font-bold tracking-wide px-2 py-0.5 rounded-md bg-fill border border-line text-ink-low">
+    <span className="text-2xs font-bold tracking-wide px-2 py-0.5 rounded-md bg-fill border border-line text-ink-low">
       {isDm ? `💬 ${channel.replace("dm-", "@")}` : `# ${channel}`}
     </span>
   );
@@ -108,17 +108,17 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition min-h-[36px] ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition min-h-[36px] ${
         active
-          ? "bg-accent/15 text-accent border border-accent/25"
+          ? "bg-accent-dim text-accent border border-accent-line"
           : "bg-fill text-ink-low border border-line active:bg-fill-strong"
       }`}
     >
       {label}
       {count > 0 && (
         <span
-          className={`text-[10px] font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
-            active ? "bg-accent/25 text-accent" : "bg-fill-strong text-ink-low"
+          className={`text-2xs font-bold min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 ${
+            active ? "bg-accent-dim text-accent" : "bg-fill-strong text-ink-low"
           }`}
         >
           {count}
@@ -147,7 +147,7 @@ function NotificationDetail({
           className="p-2 -ml-1 rounded-xl hover:bg-fill-strong active:bg-fill-strong transition min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Back to feed"
         >
-          <ArrowLeft size={18} className="text-ink-low" />
+          <ArrowLeft size={20} className="text-ink-low" />
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-ink truncate">Notification Detail</p>
@@ -159,18 +159,18 @@ function NotificationDetail({
       <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--surface-border) transparent" }}>
         {/* Message */}
         <div className="surface-card p-5">
-          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider mb-2">Message</p>
-          <p className="text-[15px] text-ink leading-relaxed">{item.text}</p>
+          <p className="text-xs font-bold text-ink-low uppercase tracking-wider mb-2">Message</p>
+          <p className="text-base text-ink leading-relaxed">{item.text}</p>
         </div>
 
         {/* Metadata */}
         <div className="surface-card p-4 space-y-3">
-          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider">Metadata</p>
+          <p className="text-xs font-bold text-ink-low uppercase tracking-wider">Metadata</p>
           <div className="space-y-2.5">
             <div className="flex items-center gap-3">
-              <Hash size={14} className="text-ink-low shrink-0" />
+              <span className="icon-socket icon-socket--xs"><Hash size={12} /></span>
               <div>
-                <p className="text-[10px] text-ink-low mb-0.5">Channel</p>
+                <p className="text-2xs text-ink-low mb-0.5">Channel</p>
                 <p className="text-sm text-ink font-medium">
                   {item.channel.startsWith("dm-")
                     ? `Direct message — ${item.channel.replace("dm-", "@")}`
@@ -180,9 +180,9 @@ function NotificationDetail({
             </div>
             <div className="h-px bg-fill-strong" />
             <div className="flex items-center gap-3">
-              <User size={14} className="text-ink-low shrink-0" />
+              <span className="icon-socket icon-socket--xs"><User size={12} /></span>
               <div>
-                <p className="text-[10px] text-ink-low mb-0.5">Author</p>
+                <p className="text-2xs text-ink-low mb-0.5">Author</p>
                 <p className="text-sm text-ink font-medium">
                   {item.author === "plumbtrack" ? "🤖 PlumbTrack (bot)" : item.author}
                 </p>
@@ -190,11 +190,11 @@ function NotificationDetail({
             </div>
             <div className="h-px bg-fill-strong" />
             <div className="flex items-center gap-3">
-              <Clock size={14} className="text-ink-low shrink-0" />
+              <span className="icon-socket icon-socket--xs"><Clock size={12} /></span>
               <div>
-                <p className="text-[10px] text-ink-low mb-0.5">Dispatched</p>
+                <p className="text-2xs text-ink-low mb-0.5">Dispatched</p>
                 <p className="text-sm text-ink font-medium">{fullTimestamp(item.createdAt)}</p>
-                <p className="text-[10px] text-ink-low mt-0.5">{timeAgo(item.createdAt)}</p>
+                <p className="text-2xs text-ink-low mt-0.5">{timeAgo(item.createdAt)}</p>
               </div>
             </div>
           </div>
@@ -202,23 +202,23 @@ function NotificationDetail({
 
         {/* Delivery status */}
         <div className="surface-card p-4">
-          <p className="text-[11px] font-bold text-ink-low uppercase tracking-wider mb-3">Slack Delivery</p>
+          <p className="text-xs font-bold text-ink-low uppercase tracking-wider mb-3">Slack Delivery</p>
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                 deliveryState(item) === "delivered"
-                  ? "bg-accent/15"
+                  ? "bg-accent-dim"
                   : deliveryState(item) === "failed"
                     ? "bg-urgent-dim"
                     : "bg-fill"
               }`}
             >
               {deliveryState(item) === "delivered" ? (
-                <CheckCircle2 size={18} className="text-accent" />
+                <CheckCircle2 size={20} className="text-accent" />
               ) : deliveryState(item) === "failed" ? (
-                <AlertTriangle size={18} className="text-urgent" />
+                <AlertTriangle size={20} className="text-urgent" />
               ) : (
-                <Clock size={18} className="text-ink-low" />
+                <Clock size={20} className="text-ink-low" />
               )}
             </div>
             <div className="flex-1">
@@ -229,7 +229,7 @@ function NotificationDetail({
                     ? "Delivery failed"
                     : "Pending relay"}
               </p>
-              <p className="text-[11px] text-ink-low mt-0.5">
+              <p className="text-xs text-ink-low mt-0.5">
                 {deliveryState(item) === "delivered"
                   ? "The webhook accepted this message successfully."
                   : deliveryState(item) === "failed"
@@ -242,10 +242,10 @@ function NotificationDetail({
 
         {/* Raw JSON */}
         <details className="surface-card">
-          <summary className="p-4 cursor-pointer text-[11px] font-bold text-ink-low uppercase tracking-wider select-none">
+          <summary className="p-4 cursor-pointer text-xs font-bold text-ink-low uppercase tracking-wider select-none">
             Raw payload
           </summary>
-          <pre className="px-4 pb-4 text-[11px] text-ink-low font-mono overflow-x-auto leading-relaxed">
+          <pre className="px-4 pb-4 text-xs text-ink-low font-mono overflow-x-auto leading-relaxed">
             {JSON.stringify(item, null, 2)}
           </pre>
         </details>
@@ -336,8 +336,8 @@ export function NotificationFeedView() {
           <Send size={14} className="text-accent" />
           <p className="text-sm font-semibold text-ink">Notification Feed</p>
           {status === "ready" && (
-            <span className="flex items-center gap-1 text-[10px] text-ink-low">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent/60 animate-pulse" />
+            <span className="flex items-center gap-1 text-2xs text-ink-low">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
               LIVE
             </span>
           )}
@@ -438,10 +438,10 @@ export function NotificationFeedView() {
                 </div>
                 <p className="text-sm text-ink leading-relaxed mb-2 line-clamp-2">{n.text}</p>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-ink-low font-medium">
+                  <span className="text-xs text-ink-low font-medium">
                     {n.author === "plumbtrack" ? "🤖 PlumbTrack" : n.author}
                   </span>
-                  <span className="text-[10px] text-ink-low">{timeAgo(n.createdAt)}</span>
+                  <span className="text-2xs text-ink-low">{timeAgo(n.createdAt)}</span>
                 </div>
               </button>
             ))}

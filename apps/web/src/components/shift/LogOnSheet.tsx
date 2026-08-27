@@ -71,7 +71,7 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
           />
         ))}
         {workType !== "standard" && (
-          <p className="text-[11px] px-1" style={{ color: "var(--accent)" }}>
+          <p className="text-xs px-1" style={{ color: "var(--accent)" }}>
             Selected: {WORK_TYPES.find((wt) => wt.key === workType)?.title}
           </p>
         )}
@@ -87,7 +87,7 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
             className="mt-0.5 w-4 h-4 accent-[var(--accent)]"
             aria-label="Acknowledge workplace tracking notice"
           />
-          <span className="text-[12px] leading-snug" style={{ color: "var(--sheet-muted)" }}>
+          <span className="text-xs leading-snug" style={{ color: "var(--sheet-muted)" }}>
             I&apos;ve received the written tracking notice: while logged on, this device shares
             GPS location with dispatch for routing and customer ETAs. Tracking never runs
             off-duty, during unpaid breaks, or after log-off.
@@ -100,7 +100,7 @@ export function LogOnSheet({ open, onClose }: { open: boolean; onClose: () => vo
           disabled={!noticeAck || starting}
           className="w-full py-3.5 rounded-xl bg-accent text-on-accent text-sm font-bold flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition disabled:opacity-30 disabled:cursor-not-allowed shadow-hardware"
         >
-          {starting ? "Acquiring location…" : "Log On &amp; Start Shift"}
+          {starting ? "Acquiring location…" : "Log On & Start Shift"}
         </button>
       </div>
     </BottomSheet>

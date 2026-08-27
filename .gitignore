@@ -34,3 +34,7 @@ Thumbs.db
 .idea/
 .vscode/
 dev-server.err
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/

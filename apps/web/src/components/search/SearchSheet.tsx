@@ -26,7 +26,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
     const { term, index } = hits[0];
     if (index > cursor) parts.push(text.slice(cursor, index));
     parts.push(
-      <mark key={`${index}-${term}`} className="rounded-[2px] bg-accent/30 text-ink px-0.5">
+      <mark key={`${index}-${term}`} className="rounded-[2px] bg-accent-dim text-ink px-0.5">
         {text.slice(index, index + term.length)}
       </mark>,
     );
@@ -38,8 +38,8 @@ function Highlight({ text, query }: { text: string; query: string }) {
 function GroupHeader({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center justify-between mb-1.5 pt-1">
-      <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider">{label}</p>
-      <span className="text-[10px] font-mono text-ink-low">{count}</span>
+      <p className="text-2xs font-bold text-ink-low uppercase tracking-wider">{label}</p>
+      <span className="text-2xs font-mono text-ink-low">{count}</span>
     </div>
   );
 }
@@ -110,7 +110,7 @@ export function SearchSheet({
               className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-fill-strong text-ink-low flex items-center justify-center haptic"
               aria-label="Clear search"
             >
-              <X size={13} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -152,12 +152,12 @@ export function SearchSheet({
                       onClick={() => goJob(hit.jobId)}
                       className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
-                      <span className="w-8 h-8 shrink-0 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
-                        <Wrench size={15} />
+                      <span className="w-8 h-8 shrink-0 rounded-lg bg-accent-dim text-accent flex items-center justify-center">
+                        <Wrench size={16} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-ink-low truncate"><Highlight text={hit.snippet} query={query} /> <span className="text-ink-low">· {hit.field}</span></span>
+                        <span className="block text-sm font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-2xs text-ink-low truncate"><Highlight text={hit.snippet} query={query} /> <span className="text-ink-low">· {hit.field}</span></span>
                       </span>
                       <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>
@@ -182,11 +182,11 @@ export function SearchSheet({
                       className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
                       <span className="w-8 h-8 shrink-0 rounded-lg bg-pending-dim text-pending flex items-center justify-center">
-                        <FileText size={15} />
+                        <FileText size={16} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-ink-low truncate">{hit.subtitle} · <Highlight text={hit.snippet} query={query} /></span>
+                        <span className="block text-sm font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-2xs text-ink-low truncate">{hit.subtitle} · <Highlight text={hit.snippet} query={query} /></span>
                       </span>
                       <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>
@@ -207,11 +207,11 @@ export function SearchSheet({
                       className="w-full flex items-center gap-2.5 rounded-xl border border-line bg-fill p-2.5 text-left min-h-[46px] haptic"
                     >
                       <span className="w-8 h-8 shrink-0 rounded-lg bg-complete-dim text-complete flex items-center justify-center">
-                        <MessageSquare size={15} />
+                        <MessageSquare size={16} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[13px] font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
-                        <span className="block text-[10.5px] text-ink-low truncate"><Highlight text={hit.snippet} query={query} /></span>
+                        <span className="block text-sm font-semibold text-ink truncate"><Highlight text={hit.title} query={query} /></span>
+                        <span className="block text-2xs text-ink-low truncate"><Highlight text={hit.snippet} query={query} /></span>
                       </span>
                       <ChevronRight size={14} className="text-ink-low shrink-0" />
                     </button>

@@ -32,7 +32,7 @@ export function StatusChip({ status, size = 13, className = "" }: { status: JobS
   return (
     <span
       suppressHydrationWarning
-      className={`inline-flex items-center gap-1.5 min-h-[26px] rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider border ${className}`}
+      className={`inline-flex items-center gap-1.5 min-h-[26px] rounded-full px-2.5 text-2xs font-bold uppercase tracking-wider border ${className}`}
       style={{ color: token.color, background: token.bg, borderColor: token.border }}
     >
       <Icon size={size} />
@@ -51,19 +51,23 @@ const SYNC_TOKENS: Record<Exclude<SyncBadgeState, "synced">, { icon: typeof Icon
   failed: { icon: IconCloudFail, color: "var(--status-urgent)", label: "Retry needed" },
 };
 
-/** Compact offline-honesty badge; renders nothing while fully synced. */
-export function SyncBadge({ state, count, size = 12 }: { state: SyncBadgeState; count?: number; size?: number }) {
+/** Compact offline-honesty badge; renders nothing while fully synced.
+ *  `compact` drops the visible word (icon + count only) for tight corners
+ *  like capture slots — the full label still reaches screen readers via
+ *  the aria-label. */
+export function SyncBadge({ state, count, size = 12, compact = false }: { state: SyncBadgeState; count?: number; size?: number; compact?: boolean }) {
   if (state === "synced") return null;
   const token = SYNC_TOKENS[state];
   const Icon = token.icon;
+  const label = `${token.label}${count && count > 1 ? ` (${count})` : ""}`;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wide"
       style={{ color: token.color, background: "var(--surface-hover-subtle)", border: `1px solid var(--divider-etch)` }}
-      aria-label={`${token.label}${count && count > 1 ? ` (${count})` : ""}`}
+      aria-label={label}
     >
       <Icon size={size} />
-      {count !== undefined && count > 1 ? `${count} ${token.label.toLowerCase()}` : token.label}
+      {compact ? (count !== undefined && count > 1 ? count : "") : (count !== undefined && count > 1 ? `${count} ${token.label.toLowerCase()}` : token.label)}
     </span>
   );
 }

@@ -1331,6 +1331,65 @@ html[data-theme="light"] .dashboard-chassis .job-card-chassis.is-active {
   color: var(--icon-accent);
 }
 
+/* ── Type rung: 2xs — the field legibility floor ───────────────────────────
+   Also declared in tailwind.config.ts fontSize; repeated here because the
+   dev server only reads the config at startup, and a config added mid-run
+   silently compiles nothing (every text-2xs fell back to 16px). Plain CSS
+   hot-reloads; the duplicate is harmless once the config loads. */
+.text-2xs {
+  font-size: 10px;
+  line-height: 14px;
+}
+
+/* ── Icon sockets — micro-icons as instruments, not marks ──────────────────
+   Every functional glyph sits in a machined socket: tinted fill, family
+   border, inset top edge. Static by design — the tint IS the state
+   (accent = powered/active, pending = owed, complete = satisfied,
+   neutral = idle). Context decides the variant, never animation. */
+.icon-socket {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  background: var(--surface-hover-subtle);
+  border: 1px solid var(--surface-border);
+  color: var(--app-muted);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.icon-socket--xs {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+.icon-socket--accent {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.icon-socket--pending {
+  background: var(--status-pending-dim);
+  border-color: var(--status-pending-border);
+  color: var(--status-pending);
+}
+
+.icon-socket--complete {
+  background: var(--status-complete-dim);
+  border-color: var(--status-complete-border);
+  color: var(--status-complete);
+}
+
+.icon-socket--urgent {
+  background: var(--status-urgent-dim);
+  border-color: var(--status-urgent-border);
+  color: var(--status-urgent);
+}
+
 /* Chrome-tinted selection */
 ::selection {
   background: var(--selection-bg);
@@ -1630,6 +1689,10 @@ html[data-theme="light"] .app-shell {
   --status-pending: var(--status-pending-light);
   --status-pending-border: rgba(180, 83, 9, 0.32);
   --status-pending-dim: rgba(180, 83, 9, 0.10);
+  /* Daylight green keeps ≥3:1 on light sockets (WCAG 1.4.11). */
+  --status-complete: #15803D;
+  --status-complete-border: rgba(21, 128, 61, 0.32);
+  --status-complete-dim: rgba(21, 128, 61, 0.10);
 }
 
 html[data-theme="light"] .hardware-pusher,

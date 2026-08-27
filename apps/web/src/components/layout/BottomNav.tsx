@@ -60,12 +60,12 @@ export function BottomNav({
                 <span className="relative">
                   <Icon size={20} strokeWidth={active ? 2.5 : 1.5} />
                   {key === "messages" && unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-on-accent text-[10px] font-bold flex items-center justify-center leading-none animate-scale-in">
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-on-accent text-2xs font-bold flex items-center justify-center leading-none animate-scale-in">
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
                 </span>
-                <span className={`text-[10px] font-semibold transition-colors ${active ? "text-accent" : "text-ink-low"}`}>
+                <span className={`text-2xs font-semibold transition-colors ${active ? "text-accent" : "text-ink-low"}`}>
                   {label}
                 </span>
               </button>
@@ -95,7 +95,7 @@ export function BottomNav({
             )}
             <Ellipsis size={20} strokeWidth={moreActive ? 2.5 : 1.5} />
             <span
-              className={`text-[10px] font-semibold transition-colors ${moreActive ? "text-accent" : "text-ink-low"}`}
+              className={`text-2xs font-semibold transition-colors ${moreActive ? "text-accent" : "text-ink-low"}`}
             >
               More
             </span>

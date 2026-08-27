@@ -207,19 +207,36 @@ function usePlumbTrackImpl() {
   // Background Sync continue using the normal online listener and timer.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
-    void navigator.serviceWorker.register("/service-worker.js").catch(() => undefined);
-    // Background-precache the data-download URLs (document vault + quote
-    // lists) so they open offline too, not just the shell. `.ready` resolves
-    // with the newest controlling worker (the SW skip-waits + claims), so the
-    // message lands on a worker that has the precache handler. The org header
-    // is mandatory — without it the tenant plugin rejects precache fetches 400.
-    void navigator.serviceWorker.ready.then((registration) => {
-      registration.active?.postMessage({
-        type: "PLUMBTRACK_PRECACHE",
-        urls: [`${API_URL}/api/documents`, `${API_URL}/api/quotes`],
-        headers: { "x-organization-id": DEFAULT_ORG_ID },
-      });
-    }).catch(() => undefined);
+    // The SW serves /_next/static/ cache-first, which is only safe when chunk
+    // URLs are content-hashed — production builds. Dev chunk URLs stay stable
+    // while content recompiles, so a dev-registered SW pins the first compile
+    // it ever saw and the app appears frozen between edits. Register in
+    // production only; in dev, uninstall any earlier registration and purge
+    // our caches so a previously frozen shell heals on the next load.
+    if (process.env.NODE_ENV === "production") {
+      void navigator.serviceWorker.register("/service-worker.js").catch(() => undefined);
+      // Background-precache the data-download URLs (document vault + quote
+      // lists) so they open offline too, not just the shell. `.ready` resolves
+      // with the newest controlling worker (the SW skip-waits + claims), so the
+      // message lands on a worker that has the precache handler. The org header
+      // is mandatory — without it the tenant plugin rejects precache fetches 400.
+      void navigator.serviceWorker.ready.then((registration) => {
+        registration.active?.postMessage({
+          type: "PLUMBTRACK_PRECACHE",
+          urls: [`${API_URL}/api/documents`, `${API_URL}/api/quotes`],
+          headers: { "x-organization-id": DEFAULT_ORG_ID },
+        });
+      }).catch(() => undefined);
+      return;
+    }
+    void navigator.serviceWorker.getRegistrations()
+      .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+      .catch(() => undefined);
+    if (typeof caches !== "undefined") {
+      void caches.keys()
+        .then((keys) => Promise.all(keys.filter((k) => k.startsWith("plumbtrack-")).map((k) => caches.delete(k))))
+        .catch(() => undefined);
+    }
   }, []);
 
   // Merge remote data on mount — after ensuring a signed device session,
@@ -585,14 +602,17 @@ function usePlumbTrackImpl() {
   );
 
   const addPhoto = useCallback(
-    (label: string, url = "") => {
-      if (!activeId) return;
+    (label: string, url = "", jobIdOverride?: string) => {
+      // jobIdOverride lets surfaces outside the job view (e.g. the home
+      // capture bar) attach evidence without mutating activeId first.
+      const targetId = jobIdOverride ?? activeId;
+      if (!targetId) return;
       const photoId = crypto.randomUUID();
       const uploadOpId = crypto.randomUUID();
       const takenAt = new Date().toISOString();
-      dispatch({ type: "ADD_PHOTO", jobId: activeId, photo: { id: photoId, label, url, takenAt, lat: null, lng: null } });
+      dispatch({ type: "ADD_PHOTO", jobId: targetId, photo: { id: photoId, label, url, takenAt, lat: null, lng: null } });
       void captureEvidenceCoordinates().then((coords) => {
-        dispatch({ type: "UPDATE_PHOTO_EVIDENCE", jobId: activeId, photoId, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
+        dispatch({ type: "UPDATE_PHOTO_EVIDENCE", jobId: targetId, photoId, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
       });
       if (!url) return;
 
@@ -602,9 +622,9 @@ function usePlumbTrackImpl() {
         .then(() => enqueueOutboxOperation({
           id: uploadOpId,
           kind: "photo-upload",
-          payload: { jobId: activeId, photoId, label, mediaId: photoId },
+          payload: { jobId: targetId, photoId, label, mediaId: photoId },
         }))
-        .then(() => postMessage("field-updates", "plumbtrack", `📸 ${label} photo added to ${activeId}.`, [uploadOpId]))
+        .then(() => postMessage("field-updates", "plumbtrack", `📸 ${label} photo added to ${targetId}.`, [uploadOpId]))
         .catch(() => undefined);
     },
     [activeId, postMessage],

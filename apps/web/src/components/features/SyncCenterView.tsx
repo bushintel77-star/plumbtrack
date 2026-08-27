@@ -60,13 +60,13 @@ export function SyncCenterView() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-ink-mid uppercase tracking-wider">Sync centre</p>
-            <p className="text-[11px] text-ink-low mt-1">Field work is saved locally first and delivered in the background.</p>
+            <p className="text-xs text-ink-low mt-1">Field work is saved locally first and delivered in the background.</p>
           </div>
-          <Cloud size={18} className={syncStatus.failed > 0 ? "text-urgent" : syncStatus.pending > 0 ? "text-pending" : "text-accent"} />
+          <Cloud size={20} className={syncStatus.failed > 0 ? "text-urgent" : syncStatus.pending > 0 ? "text-pending" : "text-accent"} />
         </div>
         <div className="mt-3 rounded-xl bg-fill border border-line px-3 py-2.5 flex items-center justify-between gap-3">
           <span className="text-xs text-ink-low">{syncStatus.label}</span>
-          <span className="text-[10px] text-ink-low">{operations.length} queued</span>
+          <span className="text-2xs text-ink-low">{operations.length} queued</span>
         </div>
       </GlassCard>
 
@@ -84,24 +84,27 @@ export function SyncCenterView() {
           return (
             <GlassCard key={operation.id} className="!p-3">
               <div className="flex items-start gap-3">
-                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${failed ? "bg-urgent-dim text-urgent" : operation.kind === "photo-upload" ? "bg-accent/15 text-accent" : "bg-fill-strong text-ink-mid"}`}>
+                <span
+                  className={`icon-socket ${failed ? "icon-socket--urgent" : operation.kind === "photo-upload" ? "icon-socket--accent" : ""}`}
+                  style={{ width: "36px", height: "36px" }}
+                >
                   {failed ? <AlertTriangle size={16} /> : operation.kind === "photo-upload" ? <Upload size={16} /> : <Cloud size={16} />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-ink truncate">{operationLabel(operation)}</p>
-                    <span className={`text-[10px] uppercase tracking-wider font-bold shrink-0 ${failed ? "text-urgent" : operation.status === "processing" ? "text-accent" : "text-pending"}`}>
+                    <span className={`text-2xs uppercase tracking-wider font-bold shrink-0 ${failed ? "text-urgent" : operation.status === "processing" ? "text-accent" : "text-pending"}`}>
                       {failed ? "Needs attention" : operation.status}
                     </span>
                   </div>
                   <p className="text-xs text-ink-low mt-1 truncate">{operationDetail(operation)}</p>
-                  <p className={`text-[10px] mt-1 ${failed ? "text-urgent" : "text-ink-low"}`}>{failed ? operation.lastError : retryTime(operation)}</p>
+                  <p className={`text-2xs mt-1 ${failed ? "text-urgent" : "text-ink-low"}`}>{failed ? operation.lastError : retryTime(operation)}</p>
                 </div>
               </div>
               {failed && (
                 <div className="flex gap-2 mt-3 pt-3 border-t border-line">
-                  <button type="button" onClick={() => { void retrySyncOperation(operation.id); }} className="flex-1 min-h-[44px] rounded-xl bg-accent/15 text-accent text-xs font-semibold border border-accent/25 flex items-center justify-center gap-1.5"><RefreshCw size={13} /> Retry</button>
-                  <button type="button" onClick={() => { void discardFailedSync(); }} className="min-h-[44px] px-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line" aria-label="Dismiss failed updates"><Trash2 size={13} /></button>
+                  <button type="button" onClick={() => { void retrySyncOperation(operation.id); }} className="flex-1 min-h-[44px] rounded-xl bg-accent-dim text-accent text-xs font-semibold border border-accent-line flex items-center justify-center gap-1.5"><RefreshCw size={14} /> Retry</button>
+                  <button type="button" onClick={() => { void discardFailedSync(); }} className="min-h-[44px] px-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line" aria-label="Dismiss failed updates"><Trash2 size={14} /></button>
                 </div>
               )}
             </GlassCard>

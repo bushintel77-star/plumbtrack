@@ -97,7 +97,7 @@ function staffColor(staffId: string | undefined, members: SlackMember[]): string
 function Tag({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide ${className}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-semibold tracking-wide ${className}`}
     >
       {children}
     </span>
@@ -140,7 +140,7 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
       className: kind.tag,
       children: (
         <>
-          <Clock3 size={9} /> {fmtDuration(event.elapsedSeconds)}
+          <Clock3 size={12} /> {fmtDuration(event.elapsedSeconds)}
         </>
       ),
     });
@@ -156,7 +156,7 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
         <span
           className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition group-hover:scale-105 ${kind.node}`}
         >
-          <Icon size={15} />
+          <Icon size={16} />
         </span>
         {!isLast && (
           <span
@@ -169,11 +169,11 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
       {/* Content */}
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-[13px] font-semibold text-ink-mid truncate">{event.title}</p>
+          <p className="text-sm font-semibold text-ink-mid truncate">{event.title}</p>
           <time
             dateTime={event.createdAt}
             title={exactDate(event.createdAt)}
-            className="text-[10px] font-mono tabular-nums text-ink-low shrink-0"
+            className="text-2xs font-mono tabular-nums text-ink-low shrink-0"
           >
             {exactTime(event.createdAt)}
           </time>
@@ -197,16 +197,28 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
 
 function IntegrationStatus({ label, detail, state, icon: Icon }: { label: string; detail: string; state: "ready" | "queued" | "attention"; icon: typeof Cloud }) {
   const stateLabel = state === "ready" ? "Ready" : state === "queued" ? "Queued" : "Attention";
-  const stateClass = state === "ready" ? "text-complete" : state === "queued" ? "text-pending" : "text-urgent";
+  // Standard row anatomy, same grammar as every other list in the app:
+  // socket (identity, state-tinted) → title → sub → contained status badge.
+  // The socket leads, the badge is boxed — so the system name outranks its
+  // state word instead of the reverse.
+  const socketClass = state === "ready" ? "icon-socket--complete" : state === "queued" ? "icon-socket--pending" : "icon-socket--urgent";
+  const badgeClass =
+    state === "ready"
+      ? "text-complete bg-complete-dim border-complete-line"
+      : state === "queued"
+        ? "text-pending bg-pending-dim border-pending-line"
+        : "text-urgent bg-urgent-dim border-urgent-line";
   const dotClass = state === "ready" ? "bg-complete" : state === "queued" ? "bg-pending animate-pulse" : "bg-urgent";
   return (
-    <div className="flex items-center gap-2.5 min-w-0">
-      <Icon size={15} className={stateClass} />
+    <div className="flex items-center gap-3 min-w-0">
+      <span className={`icon-socket ${socketClass}`}>
+        <Icon size={14} />
+      </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-ink-mid font-semibold">{label}</p>
-        <p className="text-[10px] text-ink-low truncate">{detail}</p>
+        <p className="text-sm text-ink font-semibold">{label}</p>
+        <p className="text-2xs text-ink-low truncate">{detail}</p>
       </div>
-      <span className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold ${stateClass}`}>
+      <span className={`inline-flex items-center gap-1.5 text-2xs uppercase tracking-normal font-black rounded-full px-2 py-1 border ${badgeClass}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
         {stateLabel}
       </span>
@@ -260,11 +272,11 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         <div className="flex items-center justify-between mb-1">
           <div>
             <p className="text-xs font-bold text-ink-mid uppercase tracking-wider">Job activity</p>
-            <p className="text-[11px] text-ink-low mt-0.5">One record for field, customer and HQ updates</p>
+            <p className="text-xs text-ink-low mt-0.5">One record for field, customer and HQ updates</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-accent">
-              <Activity size={11} /> {totalCount} event
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent-line bg-accent-dim px-2 py-1 text-2xs font-mono uppercase tracking-wider text-accent">
+              <Activity size={12} /> {totalCount} event
             </span>
           </div>
         </div>
@@ -273,7 +285,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         {kindCounts.size > 1 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {[...kindCounts.entries()].map(([kind, count]) => (
-              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums tracking-wide text-ink-low border-line bg-fill`}>
+              <span key={kind} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-mono tabular-nums tracking-wide text-ink-low border-line bg-fill`}>
                 {KIND_LABEL[kind]} × {count}
               </span>
             ))}
@@ -283,7 +295,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         {/* Journal */}
         {visibleCount === 0 ? (
           <div className="rounded-xl border border-dashed border-line px-3 py-4 text-center">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-ink-low">No field activity yet</p>
+            <p className="text-2xs font-mono uppercase tracking-widest text-ink-low">No field activity yet</p>
             <p className="text-xs text-ink-low mt-1">Clock on to open the job journal.</p>
           </div>
         ) : (
@@ -292,9 +304,9 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
               <div key={group.date}>
                 {gi > 0 && <div className="my-1.5 border-t border-line" />}
                 <div className="flex items-center gap-2 pb-1 pt-0.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-ink-low">{group.label}</p>
+                  <p className="text-2xs font-bold uppercase tracking-widest text-ink-low">{group.label}</p>
                   <p className="h-px flex-1 bg-gradient-to-r from-fill to-transparent" aria-hidden />
-                  <p className="text-[10px] font-mono tabular-nums text-ink-low">{group.events.length}</p>
+                  <p className="text-2xs font-mono tabular-nums text-ink-low">{group.events.length}</p>
                 </div>
                 {group.events.map((event, ei) => (
                   <ActivityRow
@@ -312,7 +324,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-[11px] font-semibold text-ink-low active:bg-fill-strong transition haptic"
+                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-xs font-semibold text-ink-low active:bg-fill-strong transition haptic"
               >
                 Show all {totalCount} events <ChevronDown size={14} className="text-ink-low" />
               </button>
@@ -321,7 +333,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-[11px] font-semibold text-ink-mid hover:bg-fill-strong transition haptic"
+                className="mt-2 w-full min-h-[44px] rounded-xl border border-line bg-fill flex items-center justify-center gap-1.5 text-xs font-semibold text-ink-mid hover:bg-fill-strong transition haptic"
               >
                 Show fewer <ChevronUp size={14} className="text-ink-low" />
               </button>
@@ -330,7 +342,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         )}
 
         {/* Console strip */}
-        <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider">
+        <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-2xs font-mono uppercase tracking-wider">
           <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-active animate-pulse" : "bg-pending animate-pulse"}`} aria-hidden />
           <span className={online ? "text-ink-low" : "text-pending"}>{online ? "Live" : "Offline"}</span>
           <span className="text-ink-low">·</span>
@@ -345,8 +357,10 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
       {/* Connected workflow */}
       <GlassCard className="!p-3">
         <div className="flex items-center justify-between mb-2.5">
-          <p className="text-[10px] font-bold text-ink-low uppercase tracking-wider">Connected workflow</p>
-          {online ? <Radio size={14} className="text-accent" /> : <WifiOff size={14} className="text-pending" />}
+          <p className="text-2xs font-bold text-ink-low uppercase tracking-wider">Connected workflow</p>
+          <span className={`icon-socket icon-socket--xs ${online ? "icon-socket--accent" : "icon-socket--pending"}`}>
+            {online ? <Radio size={12} /> : <WifiOff size={12} />}
+          </span>
         </div>
         <div className="space-y-2.5">
           <IntegrationStatus icon={Cloud} label="PlumbTrack" detail={online ? "Saved on this device and server" : "Saved locally — will sync when online"} state={online ? "ready" : "queued"} />
@@ -354,13 +368,13 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
           <IntegrationStatus icon={Receipt} label="Xero" detail={hasXero ? "Invoice draft created" : "Runs automatically after sign-off"} state={hasXero ? "ready" : "queued"} />
         </div>
         {(syncStatus.pending > 0 || syncStatus.processing > 0 || syncStatus.failed > 0) && (
-          <div className={`mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] ${syncStatus.failed > 0 ? "text-urgent" : "text-pending"}`}>
-            <Cloud size={13} /> {syncStatus.label}
+          <div className={`mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-2xs font-semibold ${syncStatus.failed > 0 ? "text-urgent" : "text-pending"}`}>
+            <span className={`icon-socket icon-socket--xs ${syncStatus.failed > 0 ? "icon-socket--urgent" : "icon-socket--pending"}`}><Cloud size={12} /></span> {syncStatus.label}
           </div>
         )}
         {syncStatus.pending === 0 && syncStatus.processing === 0 && syncStatus.failed === 0 && online && (
-          <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[10px] text-ink-low">
-            <Check size={13} className="text-accent" /> No action required
+          <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-2xs text-ink-low">
+            <span className="icon-socket icon-socket--xs icon-socket--accent"><Check size={12} /></span> No action required
           </div>
         )}
       </GlassCard>
