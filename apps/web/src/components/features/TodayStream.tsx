@@ -68,7 +68,7 @@ export function TodayStream() {
   const done = filtered.filter((j) => derivedJobStatus(j) === "completed");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "20px" }}>
+    <div className="mobile-page-shell" style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "20px" }}>
       {/* Shift Card */}
       <ShiftCard />
 
