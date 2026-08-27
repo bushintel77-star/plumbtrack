@@ -320,7 +320,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       </GlassCard>
 
       <div className="surface-card p-4">
-        <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-accent animate-pulse" /><span className="text-[10px] uppercase tracking-widest text-ink-low font-bold">On site timer</span></div><span className="text-xs text-ink-low">GPS check-in</span></div>
+        <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-active animate-pulse" /><span className="text-[10px] uppercase tracking-widest text-ink-low font-bold">On site timer</span></div><span className="text-xs text-active">GPS check-in</span></div>
         <div className="flex items-center justify-between gap-3"><p className="text-4xl font-mono tabular-nums text-ink">{formatClock(billedSeconds)}</p><button type="button" onClick={onClockPress} className="min-h-[52px] px-4 rounded-xl bg-accent text-on-accent text-sm font-bold flex items-center gap-2 haptic"><Clock size={17} /> Clock {job.timeEntries.some((entry) => entry.staffId === currentStaff?.id && entry.end === null) ? "off" : "on"}</button></div>
       </div>
 
@@ -329,7 +329,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
       <GlassCard>
         <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Photo proof</p><p className="text-[11px] text-ink-low mt-0.5">Timestamped before and after evidence</p></div><span className="text-xs text-ink-low">{job.photos.length} saved</span></div>
         <div className="grid grid-cols-2 gap-2 mb-2">
-          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} disabled={!billableActive} aria-label={!billableActive ? `${label} photo — clock on required` : `${label} photo`} className="min-h-[92px] rounded-xl border border-dashed border-line-strong bg-fill text-ink-mid flex flex-col items-center justify-center gap-1.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"><IconCameraField size={21} className="text-accent" /><span className="text-xs font-semibold">{label}</span><span className="text-[10px] text-ink-low">{billableActive ? "Open camera" : "Clock on first"}</span></button>)}
+          {(["Before", "After"] as const).map((label) => <button key={label} type="button" onClick={() => openCamera(label)} disabled={!billableActive} aria-label={!billableActive ? `${label} photo — clock on required` : `${label} photo`} className="min-h-[92px] rounded-xl border border-dashed border-line-strong bg-fill text-ink-mid flex flex-col items-center justify-center gap-1.5 haptic disabled:opacity-35 disabled:cursor-not-allowed"><IconCameraField size={21} className="text-accent" /><span className="text-xs font-semibold">{label}</span><span className="text-[10px] text-ink-low">Open camera</span></button>)}
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
           {job.photos.slice(-5).map((photo) => <div key={photo.id} className="w-14 h-14 shrink-0 rounded-lg surface-inset overflow-hidden relative">{photo.url && <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />}<span className="absolute inset-x-0 bottom-0 bg-scrim text-[8px] text-center text-on-accent">{photo.label}</span></div>)}
@@ -339,7 +339,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
 
       <GlassCard>
         <div className="flex items-center justify-between mb-2"><div><p className="text-xs font-bold text-ink-low uppercase tracking-wider">Job diary</p><p className="text-[11px] text-ink-low mt-0.5">Quick note or dictate while your hands are busy</p></div><Volume2 size={16} className="text-accent" /></div>
-        <div className="flex gap-2"><VoiceCaptureButton disabled={!billableActive} onTranscript={(text) => setVoiceText((current) => `${current}${current ? " " : ""}${text}`)} /><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} disabled={!billableActive} placeholder={billableActive ? "Voice note transcript" : "Clock on to add a job note"} className="min-w-0 flex-1 min-h-[48px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low disabled:opacity-45" /><button type="button" onClick={saveVoiceNote} disabled={!billableActive || !voiceText.trim()} className="w-12 h-12 rounded-xl bg-accent text-on-accent flex items-center justify-center disabled:opacity-30" aria-label="Save voice note"><Check size={18} /></button></div>
+        <div className="flex gap-2"><VoiceCaptureButton disabled={!billableActive} onTranscript={(text) => setVoiceText((current) => `${current}${current ? " " : ""}${text}`)} /><input value={voiceText} onChange={(event) => setVoiceText(event.target.value)} disabled={!billableActive} placeholder="Add a job note" className="min-w-0 flex-1 min-h-[48px] app-input border rounded-xl px-3 text-sm text-ink placeholder-ink-low disabled:opacity-45" /><button type="button" onClick={saveVoiceNote} disabled={!billableActive || !voiceText.trim()} className="w-12 h-12 rounded-xl bg-accent text-on-accent flex items-center justify-center disabled:opacity-30" aria-label="Save voice note"><Check size={18} /></button></div>
         <div className="flex gap-1.5 overflow-x-auto mt-2 pb-1">{QUICK_NOTES.map((note) => <button key={note} type="button" onClick={() => addQuickNote(note)} className="shrink-0 min-h-[34px] rounded-full px-3 border border-line bg-fill text-xs text-ink-low active:scale-[0.97]">+ {note}</button>)}</div>
         {voiceNotes.slice(-3).map((note) => <div key={note.id} className="mt-2 flex gap-2 text-xs text-ink-low"><Mic size={13} className="text-accent shrink-0 mt-0.5" /><span>{note.transcript}</span></div>)}
       </GlassCard>
@@ -369,6 +369,7 @@ export function ResidentialJobView({ job, billedSeconds, onClockPress, onSwitchS
         onSaveNote={(text) => dispatch({ type: "ADD_VOICE_NOTE", jobId: job.id, note: { id: crypto.randomUUID(), transcript: text, createdAt: new Date().toISOString(), createdBy: currentStaff?.id ?? "tim" } })}
         onPart={() => setKitOpen(true)}
         onSafety={() => setSafetySheet(true)}
+        onClockOn={onClockPress}
         billableActive={job.timeEntries.some((entry) => entry.staffId === currentStaff?.id && entry.end === null)}
       />
     </div>

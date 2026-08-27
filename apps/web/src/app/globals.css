@@ -20,6 +20,7 @@
   --status-urgent: #FF3B30;
   --status-pending: #FF9F0A;
   --status-complete: #32D74B;
+  --status-active: #14B8A6;
   --status-pending-light: #B45309;
   --text-hero: #FFFFFF;
   --text-muted-grade: #8B94A6;
@@ -106,7 +107,7 @@
   /* Status dot */
   --status-dot-size: 8px;
   --status-dot-glow-urgent: 0 0 10px var(--status-urgent), inset 0 1px 1px var(--edge-highlight);
-  --status-dot-glow-active: 0 0 8px var(--chrome-400), inset 0 1px 1px var(--edge-highlight);
+  --status-dot-glow-active: 0 0 8px var(--status-active), inset 0 1px 1px var(--edge-highlight);
   --status-dot-glow-complete: 0 0 8px var(--status-complete), inset 0 1px 1px var(--edge-highlight);
 
   /* Button machined */
@@ -155,6 +156,15 @@
   --status-pending-border: var(--edge-highlight);
   --status-complete-dim: var(--chassis-recess);
   --status-complete-border: var(--edge-highlight);
+  --status-active-dim: var(--chassis-recess);
+  --status-active-border: var(--edge-highlight);
+
+  /* ═══ Person-identity tokens ═════════════════════════════════════════════ */
+  /* Desaturated mid-tones — read as "who", never "what state". */
+  --person-1: #C27878;  /* dusty rose — Tim */
+  --person-2: #7A9E7E;  /* sage — Sarah */
+  --person-3: #B08D57;  /* ochre — Mike */
+  --person-4: #6B7D8D;  /* slate — bots / unknown */
 
   /* ═══ Presence & activity tokens ══════════════════════════════════════════ */
   --color-online: var(--status-complete);
@@ -1903,7 +1913,7 @@ a:focus-visible,
   width: var(--status-dot-size);
   height: var(--status-dot-size);
   border-radius: 50%;
-  background-color: var(--chrome-400);
+  background-color: var(--status-pending);
 }
 
 .status-dot.urgent {
@@ -1912,7 +1922,7 @@ a:focus-visible,
 }
 
 .status-dot.active {
-  background-color: var(--chrome-400);
+  background-color: var(--status-active);
   box-shadow: var(--status-dot-glow-active);
 }
 

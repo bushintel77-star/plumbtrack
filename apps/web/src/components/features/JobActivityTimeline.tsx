@@ -197,8 +197,8 @@ function ActivityRow({ event, members, isLast }: { event: JobActivity; members: 
 
 function IntegrationStatus({ label, detail, state, icon: Icon }: { label: string; detail: string; state: "ready" | "queued" | "attention"; icon: typeof Cloud }) {
   const stateLabel = state === "ready" ? "Ready" : state === "queued" ? "Queued" : "Attention";
-  const stateClass = state === "ready" ? "text-accent" : state === "queued" ? "text-pending" : "text-urgent";
-  const dotClass = state === "ready" ? "bg-accent" : state === "queued" ? "bg-pending animate-pulse" : "bg-urgent";
+  const stateClass = state === "ready" ? "text-complete" : state === "queued" ? "text-pending" : "text-urgent";
+  const dotClass = state === "ready" ? "bg-complete" : state === "queued" ? "bg-pending animate-pulse" : "bg-urgent";
   return (
     <div className="flex items-center gap-2.5 min-w-0">
       <Icon size={15} className={stateClass} />
@@ -264,7 +264,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/20 bg-accent/10 px-2 py-1 text-[9px] font-mono uppercase tracking-wider text-accent">
-              <Activity size={11} /> {totalCount} evt
+              <Activity size={11} /> {totalCount} event
             </span>
           </div>
         </div>
@@ -331,7 +331,7 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
 
         {/* Console strip */}
         <div className="mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-[9px] font-mono uppercase tracking-wider">
-          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-accent animate-pulse" : "bg-pending animate-pulse"}`} aria-hidden />
+          <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-active animate-pulse" : "bg-pending animate-pulse"}`} aria-hidden />
           <span className={online ? "text-ink-low" : "text-pending"}>{online ? "Live" : "Offline"}</span>
           <span className="text-ink-low">·</span>
           <span className="text-ink-low">

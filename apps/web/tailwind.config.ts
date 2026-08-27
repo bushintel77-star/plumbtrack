@@ -45,6 +45,15 @@ const config: Config = {
         complete: "var(--status-complete)",
         "complete-dim": "var(--status-complete-dim)",
         "complete-line": "var(--status-complete-border)",
+        active: "var(--status-active)",
+        "active-dim": "var(--status-active-dim)",
+        "active-line": "var(--status-active-border)",
+
+        // Person-identity colors (desaturated, mid-tone)
+        "person-1": "var(--person-1)",
+        "person-2": "var(--person-2)",
+        "person-3": "var(--person-3)",
+        "person-4": "var(--person-4)",
 
         // Hardware-grade activity roles
         "activity-ink": "var(--text-hero)",

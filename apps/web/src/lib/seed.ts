@@ -58,10 +58,10 @@ export const seedQuotes: Quote[] = [
 
 /** Team members visible in the Slack sidebar. */
 export const seedMembers: SlackMember[] = [
-  { id: "tim", name: "Tim Bennett", role: "owner", color: "var(--chrome-600)", presence: "active" },
-  { id: "sarah", name: "Sarah Whitfield", role: "admin", color: "var(--chrome-400)", presence: "active" },
-  { id: "mike", name: "Mike Rossi", role: "member", color: "var(--chrome-200)", presence: "away" },
-  { id: "plumbtrack", name: "PlumbTrack", role: "bot", color: "var(--chassis-glass)", presence: "active" },
+  { id: "tim", name: "Tim Bennett", role: "owner", color: "var(--person-1)", presence: "active" },
+  { id: "sarah", name: "Sarah Whitfield", role: "admin", color: "var(--person-2)", presence: "active" },
+  { id: "mike", name: "Mike Rossi", role: "member", color: "var(--person-3)", presence: "away" },
+  { id: "plumbtrack", name: "PlumbTrack", role: "bot", color: "var(--person-4)", presence: "active" },
 ];
 
 /** Channels in the workspace. */

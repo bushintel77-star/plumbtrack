@@ -40,6 +40,7 @@ export function CaptureBar({
   onSaveNote,
   onPart,
   onSafety,
+  onClockOn,
   billableActive,
 }: {
   job: Job;
@@ -48,6 +49,7 @@ export function CaptureBar({
   onSaveNote: (text: string) => void;
   onPart: () => void;
   onSafety: () => void;
+  onClockOn: () => void;
   billableActive: boolean;
 }) {
   const [photoSheet, setPhotoSheet] = useState(false);
@@ -62,13 +64,34 @@ export function CaptureBar({
   }, []);
 
   const completeJob = () => {
-    if (job.photos.length === 0 || completionState !== "idle") return;
+    if (!billableActive || job.photos.length === 0 || completionState !== "idle") return;
     setCompletionState("uploading");
     completionTimers.current.push(window.setTimeout(() => {
       setCompletionState("complete");
       completionTimers.current.push(window.setTimeout(onComplete, 420));
     }, 1100));
   };
+
+  // State-driven label and helper line
+  const primaryLabel = !billableActive
+    ? "Clock On to Start"
+    : completionState === "uploading"
+      ? "Uploading proof…"
+      : completionState === "complete"
+        ? "Ready for sign-off"
+        : "Complete & Sign";
+
+  const helperLine = !billableActive
+    ? null
+    : job.photos.length === 0
+      ? "Capture one completion photo to continue"
+      : null;
+
+  const primaryDisabled = !billableActive
+    ? false // enabled — it's the clock-on action
+    : completionState !== "idle"
+      ? true
+      : job.photos.length > 0 ? false : true;
 
   const saveNote = () => {
     const text = noteText.trim();
@@ -84,13 +107,13 @@ export function CaptureBar({
         <div className="flex items-stretch gap-1.5">
           <button
             type="button"
-            onClick={completeJob}
-            disabled={!billableActive || job.photos.length === 0 || completionState !== "idle"}
+            onClick={!billableActive ? onClockOn : completeJob}
+            disabled={primaryDisabled}
             aria-busy={completionState === "uploading"}
             className={`capture-complete-button flex-[1.25] min-h-[58px] rounded-xl text-on-accent text-sm font-bold flex flex-col items-center justify-center gap-0.5 disabled:opacity-35 haptic ${completionState !== "idle" ? "is-processing" : ""}`}
           >
             {completionState === "idle" ? <IconSealCheck size={19} /> : <CompletionMatrix state={completionState} />}
-            {completionState === "uploading" ? "Uploading proof…" : completionState === "complete" ? "Ready for sign-off" : "Complete & sign"}
+            {primaryLabel}
           </button>
 
           <CaptureSlot
@@ -132,11 +155,9 @@ export function CaptureBar({
             disabled={!billableActive}
           />
         </div>
-        {!billableActive ? (
-          <p className="text-[10px] text-center text-ink-low mt-1">Clock on to unlock billable field capture</p>
-        ) : job.photos.length === 0 ? (
-          <p className="text-[10px] text-center text-ink-low mt-1">Capture one completion photo to continue</p>
-        ) : null}
+        {helperLine && (
+          <p className="text-[10px] text-center text-ink-low mt-1">{helperLine}</p>
+        )}
       </div>
 
       <BottomSheet
