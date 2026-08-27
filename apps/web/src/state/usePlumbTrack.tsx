@@ -12,6 +12,7 @@ import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, 
 import { createSyncManager, DeferredSyncError, TerminalSyncError } from "@/lib/syncManager";
 import { useOutboxStatus } from "@/hooks/useOutboxStatus";
 import { useShiftTracking } from "@/hooks/useShiftTracking";
+import { useRemotePolling } from "@/hooks/useRemotePolling";
 import { seedChannels, seedDocuments, seedJobs, seedMembers, seedMessages, seedQuotes, seedRfis } from "@/lib/seed";
 import { captureEvidenceCoordinates } from "@/lib/geolocation";
 import { reducer } from "./reducer";
@@ -266,6 +267,12 @@ function usePlumbTrackImpl() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // ── Near-real-time dispatch data ──────────────────────────────────────────
+  // 5-second REST polling via TanStack Query (stateless, self-healing; see
+  // providers.tsx). Merges through the same MERGE_REMOTE path as boot, so
+  // pending outbox edits are never reverted and a failed poll is a no-op.
+  useRemotePolling(dispatch);
 
   // ── Durable IndexedDB outbox migration ────────────────────────────────────
   // Stage 1 localStorage operations are copied once into IndexedDB. The

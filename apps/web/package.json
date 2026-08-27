@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
     "lucide-react": "^0.469.0",
     "next": "15.5.23",
     "react": "^19.0.0",

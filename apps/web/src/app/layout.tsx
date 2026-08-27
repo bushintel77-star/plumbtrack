@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Lato } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 // Server-side metadata uses direct env access (no NEXT_PUBLIC_ prefix needed
@@ -62,7 +63,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${lato.variable} ${process.env.NODE_ENV === "development" ? "dev" : ""}`}>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
