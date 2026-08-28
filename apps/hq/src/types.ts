@@ -161,6 +161,7 @@ export type DataMode = "connecting" | "live" | "demo"
 export type AppModule =
   | "dashboard"
   | "dispatch"
+  | "operations"
   | "calendar"
   | "map"
   | "crews"

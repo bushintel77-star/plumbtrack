@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
+import cookie from "@fastify/cookie";
 import { assertAuthConfiguration } from "./lib/auth";
 import { tenantPlugin } from "./lib/tenant";
 import { healthRoutes } from "./routes/health";
@@ -25,6 +26,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const app = Fastify({ logger: options.logger ?? true });
 
   await app.register(helmet);
+  await app.register(cookie);
   // CORS_ORIGINS (comma-separated) restricts browser callers to a configured
   // allowlist. When unset the origin is reflected — acceptable here because
   // sessions are explicit bearer tokens, never ambient cookies, so a rogue

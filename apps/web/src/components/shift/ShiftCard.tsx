@@ -10,6 +10,7 @@ import {
   IconValve,
   IconValveShut,
 } from "@/components/icons/FieldIcons";
+import { ArrowRight } from "lucide-react";
 import { LogOnSheet } from "./LogOnSheet";
 import { LogOffSheet } from "./LogOffSheet";
 
@@ -56,7 +57,7 @@ export function ShiftCard() {
                   Start shift tracking
                 </div>
               </div>
-              <span className="text-[var(--text-secondary)] text-lg">→</span>
+              <ArrowRight size={20} className="text-accent shrink-0" aria-hidden />
             </div>
           </button>
         </div>

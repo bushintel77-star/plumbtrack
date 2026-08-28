@@ -10,7 +10,10 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:3200",
-    viewport: { width: 1600, height: 900 }
+    viewport: { width: 1600, height: 900 },
+    // Headless Chromium has no GPU — software GL keeps the MapLibre canvas
+    // actually rendering (blank canvas without it, breaking map specs).
+    launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] }
   },
   webServer: {
     command: "pnpm build && npx next start -p 3200",
@@ -22,7 +25,8 @@ export default defineConfig({
     // the telemetry simulator so the live-fleet path is exercisable.
     env: {
       NEXT_PUBLIC_HQ_FORCE_DEMO: "1",
-      NEXT_PUBLIC_HQ_TELEMETRY_SIM: "1"
+      NEXT_PUBLIC_HQ_TELEMETRY_SIM: "1",
+      NEXT_PUBLIC_HQ_TEST_BRIDGE: "1"
     }
   }
 })

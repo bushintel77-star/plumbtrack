@@ -1,4 +1,5 @@
 import type { Absence, Job, Technician } from "@/types"
+import { isoDay } from "@/lib/format"
 import { travelMinutes } from "@/lib/travel"
 
 /** Approved absence covering the given ISO day, if any. */
@@ -7,7 +8,9 @@ export function absenceFor(tech: Technician, isoDay: string): Absence | null {
 }
 
 export function jobDay(job: Job): string {
-  return job.scheduledDate ?? new Date().toISOString().slice(0, 10)
+  // Same local-calendar anchor as the seed and the board scrubber — a raw
+  // UTC slice drifts a day off whenever the local date ≠ the UTC date.
+  return job.scheduledDate ?? isoDay(0)
 }
 
 /**

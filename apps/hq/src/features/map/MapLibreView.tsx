@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
-import Map, { Layer, Source, useMap, type LayerProps } from "react-map-gl/maplibre"
+import { useEffect, useMemo, useState } from "react"
+import Map, { Layer, Marker, Popup, Source, useMap, type LayerProps } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job } from "@/types"
+import { blockLabel } from "@/lib/format"
 
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
@@ -18,8 +19,11 @@ import type { Job } from "@/types"
 
 const PERSON_COLORS = ["#c27878", "#7a9e7e", "#b08d57", "#6b7d8d"]
 
-/** Free demo style — swap for the enterprise tile contract at M4. */
-const MAP_STYLE = "https://demotiles.maplibre.org/style.json"
+/** Free keyless basemaps (CARTO) keyed to the active colourway — swap for the enterprise tile contract at M4. */
+const MAP_STYLES = {
+  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+} as const
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
 
 function statusColor(job: Job): string {
@@ -27,6 +31,30 @@ function statusColor(job: Job): string {
   if (job.status === "complete") return "#cbd5e1"
   if (job.priority === "emergency") return "#ff3b30"
   return "#4e8cff"
+}
+
+function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => void }) {
+  const tech = useBoardStore(s => s.technicians.find(item => item.id === job.techId))
+  const isUnassigned = job.status === "unassigned"
+  return (
+    <div className="w-64 rounded-lg border border-slate-600/70 bg-slate-950/95 p-3 text-white shadow-2xl backdrop-blur-xl" data-testid={`map-popup-${job.id}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="label-mono text-[10px] text-blue-300">{job.id.toUpperCase()} · {job.status.replace("_", " ").toUpperCase()}</div>
+          <div className="mt-1 truncate text-sm font-bold">{job.title}</div>
+        </div>
+        <span className="label-mono shrink-0 text-[10px] text-slate-400">{job.priority.toUpperCase()}</span>
+      </div>
+      <div className="mt-2 space-y-1 text-[11px] text-slate-300">
+        <div className="truncate">{job.client}</div>
+        <div className="truncate text-slate-400">{job.address}</div>
+        <div className="label-mono tnum text-slate-400">{blockLabel(job.startBlock)} → {blockLabel(job.startBlock + job.spanBlocks)} · {job.spanBlocks * 30}M</div>
+        <div className="text-slate-400">{tech ? `${tech.name} · ${tech.van}` : "Unassigned · ready to route"}</div>
+      </div>
+      <button type="button" onClick={() => onOpen(job.id)} className="pointer-events-auto mt-3 w-full rounded-md bg-blue-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">Open job details</button>
+      {isUnassigned && <div className="mt-2 label-mono text-[10px] text-amber-300">DRAG TO ASSIGN · SMART ROUTING</div>}
+    </div>
+  )
 }
 
 interface MapLibreViewProps {
@@ -68,10 +96,31 @@ function VehicleIcon() {
 }
 
 export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
+  const theme = useBoardStore(s => s.theme)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
   const liveLocations = useBoardStore(s => s.liveLocations)
+  const liveLocationHistory = useBoardStore(s => s.liveLocationHistory)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
+  const [hoveredJobId, setHoveredJobId] = useState<string | null>(null)
+  const hoveredJob = visible.find(job => job.id === hoveredJobId)
+  const hoveredLocation = hoveredJob?.location
+
+  useEffect(() => {
+    const onFocusJob = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail
+      if (visible.some(job => job.id === id)) setHoveredJobId(id)
+    }
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHoveredJobId(null)
+    }
+    window.addEventListener("hq-map-focus-job", onFocusJob)
+    window.addEventListener("keydown", onEscape)
+    return () => {
+      window.removeEventListener("hq-map-focus-job", onFocusJob)
+      window.removeEventListener("keydown", onEscape)
+    }
+  }, [visible])
   const unassigned = visible.filter(job => job.status === "unassigned")
 
   const pins = useMemo(
@@ -122,6 +171,18 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     [technicians, visible, vanId]
   )
 
+  const breadcrumbs = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: vehicles.map(vehicle => {
+        const points = (liveLocationHistory[vehicle.id] ?? []).map(ping => [ping.lng, ping.lat])
+        if (points.length < 2) return null
+        return { type: "Feature" as const, properties: { vehicleId: vehicle.id }, geometry: { type: "LineString" as const, coordinates: points } }
+      }).filter(Boolean)
+    }),
+    [vehicles, liveLocationHistory]
+  )
+
   const fleet = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -163,15 +224,42 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
   return (
     <Map
       mapLib={maplibregl}
-      initialViewState={{ ...MELBOURNE, zoom: 10.5 }}
+      initialViewState={{ longitude: MELBOURNE.lng, latitude: MELBOURNE.lat, zoom: 10.5 }}
       style={{ width: "100%", height: "100%" }}
-      mapStyle={MAP_STYLE}
+      mapStyle={MAP_STYLES[theme]}
+      interactiveLayerIds={["job-pins"]}
+      onMouseMove={event => {
+        const feature = event.features?.find(f => f.properties?.jobId)
+        if (feature?.properties?.jobId) setHoveredJobId(String(feature.properties.jobId))
+      }}
+      // react-map-gl synthesizes `mouseleave` when the cursor leaves an
+      // interactive FEATURE — that would kill the hover card the instant the
+      // pin is crossed. `onMouseOut` is the real canvas-exit event.
+      onMouseOut={() => setHoveredJobId(null)}
       onClick={event => {
         const feature = event.features?.find(f => f.properties?.jobId)
         if (feature?.properties?.jobId) onSelectJob(String(feature.properties.jobId))
       }}
     >
       <VehicleIcon />
+      {hoveredJob && hoveredLocation && (
+        <Popup
+          longitude={hoveredLocation.lng}
+          latitude={hoveredLocation.lat}
+          anchor="bottom"
+          closeButton={false}
+          closeOnClick={false}
+          offset={14}
+          className="map-job-popup"
+          onClose={() => setHoveredJobId(null)}
+        >
+          <MapJobPopup job={hoveredJob} onOpen={onSelectJob} />
+        </Popup>
+      )}
+
+      <Source id="breadcrumbs" type="geojson" data={breadcrumbs}>
+        <Layer id="breadcrumb-lines" type="line" paint={{ "line-color": "#60a5fa", "line-width": 2, "line-opacity": 0.35 }} />
+      </Source>
 
       <Source id="job-routes" type="geojson" data={routes}>
         <Layer

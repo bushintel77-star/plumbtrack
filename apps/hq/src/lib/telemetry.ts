@@ -40,43 +40,57 @@ export function useTelemetrySocket(): void {
     const flush = throttle((pings: LiveLocation[]) => {
       useBoardStore.getState().mergeLiveLocations(pings)
     }, 1000)
+    let socket: WebSocket | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let stopped = false
+    let attempt = 0
 
-    if (WS_URL) {
-      let socket: WebSocket | null = null
+    const connect = (): void => {
+      if (stopped || !WS_URL) return
       try {
         socket = new WebSocket(WS_URL)
       } catch {
-        socket = null
+        scheduleReconnect()
+        return
       }
-      if (socket) {
-        socket.onmessage = (event: MessageEvent<string>) => {
-          try {
-            const message = JSON.parse(event.data) as StatusMessage | TelemetryMessage
-            if (message.topic === "topic/jobs/status") {
-              useBoardStore.getState().applyRemoteStatus(message.jobId, message.status)
-            } else if (message.topic === "topic/fleet/telemetry") {
-              flush([message.payload])
-            }
-          } catch {
-            // Malformed frame — ignore; polling remains the safety net.
-          }
+      socket.onopen = () => {
+        attempt = 0
+        useBoardStore.getState().setDataMode("live")
+      }
+      socket.onmessage = (event: MessageEvent<string>) => {
+        try {
+          const message = JSON.parse(event.data) as StatusMessage | TelemetryMessage
+          if (message.topic === "topic/jobs/status") useBoardStore.getState().applyRemoteStatus(message.jobId, message.status)
+          else if (message.topic === "topic/fleet/telemetry") flush([message.payload])
+        } catch {
+          // Ignore malformed frames; the connection remains usable.
         }
-        socket.onclose = () => {
+      }
+      socket.onerror = () => socket?.close()
+      socket.onclose = () => {
+        socket = null
+        if (!stopped) {
           useBoardStore.getState().setDataMode("connecting")
-        }
-        return () => {
-          socket?.close()
-          flush.cancel()
+          scheduleReconnect()
         }
       }
     }
 
-    if (SIMULATE) {
-      const stop = startTelemetrySimulator(ping => flush([ping]))
-      return () => {
-        stop()
-        flush.cancel()
-      }
+    const scheduleReconnect = (): void => {
+      if (stopped || retryTimer) return
+      const delay = Math.min(30_000, 1_000 * 2 ** attempt) + Math.floor(Math.random() * 500)
+      attempt += 1
+      retryTimer = setTimeout(() => { retryTimer = null; connect() }, delay)
+    }
+
+    if (WS_URL) connect()
+    const stopSimulation = !WS_URL && SIMULATE ? startTelemetrySimulator(ping => flush([ping])) : null
+    return () => {
+      stopped = true
+      if (retryTimer) clearTimeout(retryTimer)
+      socket?.close()
+      stopSimulation?.()
+      flush.cancel()
     }
   }, [])
 }

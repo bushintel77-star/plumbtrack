@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { blockLabel } from "@/lib/format"
+import { blockLabel, isoDay } from "@/lib/format"
 import { jobDay } from "@/lib/schedule"
 import { DEPOT } from "@/lib/optimize"
 import { travelMinutes } from "@/lib/travel"
@@ -41,7 +41,7 @@ export function useSlackBridge(): void {
     const store = useBoardStore.getState()
 
     // Bootstrap: today's unassigned queue already needs its alert cards.
-    const today = new Date().toISOString().slice(0, 10)
+    const today = isoDay(0)
     for (const job of Object.values(store.jobs)) {
       if (job.status === "unassigned" && jobDay(job) === today) {
         store.postSlackCard({

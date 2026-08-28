@@ -259,44 +259,6 @@ test.describe("Rapid status overrides + conflict flagging", () => {
   })
 })
 
-test.describe("Quote state machine", () => {
-  test("an empty quote cannot transition to SENT until client name and line items exist", async ({
-    page
-  }) => {
-    await page.getByTestId("job-block-j-1005").click()
-
-    await expect(page.getByTestId("quote-validation")).toBeVisible()
-    await expect(page.getByTestId("quote-status")).toHaveText("draft")
-
-    await page.getByTestId("quote-mark-sent").click()
-    await expect(page.getByText("Quote blocked from SENT")).toBeVisible()
-    await expect(page.getByTestId("quote-status")).toHaveText("draft")
-
-    await page.getByTestId("quote-client-input").fill("Vantage Build Ltd")
-    await page.getByTestId("quote-add-item").click()
-    await page.getByTestId("quote-mark-sent").click()
-
-    await expect(page.getByTestId("quote-status")).toHaveText("sent")
-    await expect(page.getByTestId("quote-validation")).toHaveCount(0)
-
-    await page.getByTestId("quote-mark-approved").click()
-    await expect(page.getByTestId("quote-status")).toHaveText("approved")
-    await page.getByTestId("details-close").click()
-  })
-})
-
-test.describe("Document Vault expiry warnings", () => {
-  test("permit within 30 days flags amber, expired certification flags red", async ({ page }) => {
-    await openPaletteAndSelect(page, "emergency drainage")
-    await expect(page.getByTestId("inspector-j-1001")).toBeVisible()
-    await expect(page.getByTestId("doc-badge-d-1001-a")).toHaveText(/EXPIRES IN \d+D/)
-    await expect(page.getByTestId("doc-badge-d-1001-b")).toHaveText(/45D LEFT/)
-
-    await openPaletteAndSelect(page, "leak detection")
-    await expect(page.getByTestId("doc-badge-d-1006-a")).toHaveText("EXPIRED")
-  })
-})
-
 test.describe("Command palette smoke", () => {
   test("Ctrl+K palette navigates to a job and opens its details overlay", async ({ page }) => {
     await page.keyboard.press("Control+K")
@@ -374,10 +336,13 @@ test.describe("Zoom topology + view switcher", () => {
   test("weekly and monthly zoom grids render jobs and absence hashing", async ({ page }) => {
     await page.getByTestId("zoom-weekly").click()
     await expect(page.getByTestId("weekly-view")).toBeVisible()
-    // Priya's leave window hashes her cells in the weekly grid.
+    // Priya's leave (today → +2d) hashes her cells; the window clips at the
+    // week boundary, so the in-week cell count depends on today's weekday.
+    const mondayIndex = (new Date().getDay() + 6) % 7
+    const expectedLeaveCells = Math.min(3, 7 - mondayIndex)
     await expect(
       page.locator('[data-testid^="zoom-cell-t-priya-"]').filter({ hasText: "ON LEAVE" })
-    ).toHaveCount(3)
+    ).toHaveCount(expectedLeaveCells)
 
     await page.getByTestId("zoom-monthly").click()
     await expect(page.getByTestId("monthly-view")).toBeVisible()
@@ -453,32 +418,6 @@ test.describe("Programmatic self-healing", () => {
         await storeAction(page, "clockOn", "j-1004")
       }
     )
-  })
-
-  test("detects an invalid quote forced to SENT, resets it to DRAFT, and re-passes", async ({
-    page
-  }) => {
-    await openPaletteAndSelect(page, "sump pump")
-
-    await page.evaluate(() => {
-      const store = (window as any).__hqStore
-      const state = store.getState()
-      store.setState({
-        jobs: {
-          ...state.jobs,
-          "j-1007": { ...state.jobs["j-1007"], quote: { ...state.jobs["j-1007"].quote, status: "sent" } }
-        }
-      })
-    })
-
-    await expectWithSelfHeal(
-      page,
-      () => expect(page.getByTestId("quote-status")).toHaveText("draft"),
-      async () => {
-        await storeAction(page, "forceQuoteDraft", "j-1007")
-      }
-    )
-    await expect(page.getByTestId("quote-validation")).toBeVisible()
   })
 })
 

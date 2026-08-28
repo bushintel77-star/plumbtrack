@@ -24,6 +24,7 @@ pnpm-debug.log*
 # Tool directories
 .mimosa/
 .freebuff/
+.zcode/
 
 # Local GUI test evidence
 gui-test-screenshots/
@@ -38,3 +39,9 @@ dev-server.err
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+apps/hq/test-results/
+apps/hq/playwright-report/
+
+# HQ local verification screenshots
+apps/hq/shots/
+apps/hq/shots-premium/

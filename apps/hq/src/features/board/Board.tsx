@@ -43,6 +43,7 @@ import { CalendarView } from "@/features/calendar/CalendarView"
 import { MapView } from "@/features/map/MapView"
 import { JobDetailsDialog } from "@/features/right/JobDetailsDialog"
 import { ClosedLoopHub } from "@/features/office/ClosedLoopHub"
+import { OperationsCoverageCard } from "@/features/office/OperationsCoverageCard"
 import { QueueCardVisual } from "@/features/left/QueueCardVisual"
 import { performAssignment } from "./actions"
 
@@ -83,6 +84,7 @@ export function Board() {
     availableOnly: parseAsBoolean.withDefault(false),
     date: parseAsString.withDefault(todayIsoDay())
   })
+  const splitMap = filters.view === "map" && filters.zoom === "daily"
 
   const selectedJob = jobs.find(j => j.id === selectedJobId)
   const showSuggestions =
@@ -203,6 +205,7 @@ export function Board() {
     >
       <div className="flex h-full min-h-0 flex-col">
         <ClosedLoopHub />
+        <OperationsCoverageCard />
         <FilterBar filters={filters} onFiltersChange={setFilters} zoom={filters.zoom} />
         {showSuggestions && selectedJob && <SuggestionStrip job={selectedJob} />}
 
@@ -247,7 +250,7 @@ export function Board() {
           <div className="min-w-0 flex-1">
             {filters.view === "list" && <JobListView filters={filters} />}
             {filters.view === "calendar" && <CalendarView filters={filters} />}
-            {filters.view === "map" && <MapView filters={filters} />}
+            {filters.view === "map" && (splitMap ? <div className="grid h-full min-h-0 grid-cols-[minmax(280px,0.85fr)_minmax(520px,1.5fr)] divide-x divide-line"><MapView filters={filters} /><DispatchCanvas filters={filters} zoom="daily" drag={drag} bestSlot={bestSlot} /></div> : <MapView filters={filters} />)}
             {filters.view === "matrix" && (
               <DispatchCanvas
                 filters={filters}

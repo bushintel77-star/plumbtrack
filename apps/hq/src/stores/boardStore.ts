@@ -17,6 +17,7 @@ import { channels as seedChannels, jobs as seedJobs, technicians as seedTechs } 
 import type { ApiBoardPayload } from "@/lib/adapter"
 import { adaptApiBoard } from "@/lib/adapter"
 import { TOTAL_BLOCKS } from "@/lib/format"
+import { jobDay } from "@/lib/schedule"
 
 /** Fleet vehicle bound to a technician (telemetry vehicleId target). */
 export interface Vehicle {
@@ -64,6 +65,7 @@ interface BoardState {
   dataMode: DataMode
   /** Live fleet telemetry (throttled ingest from the socket hook). */
   liveLocations: Record<string, LiveLocation>
+  liveLocationHistory: Record<string, LiveLocation[]>
   /** Test bridges: force the server-persist failure / offline paths. */
   simulateFailure: boolean
   offline: boolean
@@ -168,6 +170,7 @@ export function missingQuoteFields(quote: Quote): string[] {
   return missing
 }
 
+// Rollback state belongs to the store instance rather than a module-global mutable slot.
 let rollbackSnapshot: Record<string, Job> | null = null
 
 export const useBoardStore = create<BoardState>()((set, get) => ({
@@ -182,6 +185,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   theme: "dark",
   dataMode: "connecting",
   liveLocations: {},
+  liveLocationHistory: {},
   simulateFailure: false,
   offline: false,
   optimizerOpen: false,
@@ -221,8 +225,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     if (pings.length === 0) return
     set(s => {
       const next = { ...s.liveLocations }
-      for (const ping of pings) next[ping.vehicleId] = ping
-      return { liveLocations: next }
+      const history = { ...s.liveLocationHistory }
+      for (const ping of pings) {
+        next[ping.vehicleId] = ping
+        history[ping.vehicleId] = [...(history[ping.vehicleId] ?? []), ping].slice(-100)
+      }
+      return { liveLocations: next, liveLocationHistory: history }
     })
   },
 
@@ -253,7 +261,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     const tech = get().technicians.find(t => t.id === techId)
     if (!current) return { ok: false, reason: "Job not found." }
     if (!tech) return { ok: false, reason: "Technician not found." }
-    const day = current.scheduledDate ?? new Date().toISOString().slice(0, 10)
+    const day = jobDay(current)
     const absence = tech.absences.find(a => day >= a.from && day <= a.to)
     if (absence) {
       return {
@@ -569,6 +577,6 @@ export function useJobsList(): Job[] {
 
 // Test bridge: Playwright dispatches self-healing resets + failure simulation
 // through this handle.
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_HQ_TEST_BRIDGE === "1")) {
   ;(window as unknown as { __hqStore: typeof useBoardStore }).__hqStore = useBoardStore
 }

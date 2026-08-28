@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { getBearerToken, isLegacyTenantFallbackAllowed, sendUnauthorized, verifyAuthToken, type AuthClaims } from "./auth";
 
+const SESSION_COOKIE = "plumbtrack_hq_session";
+
 export const ORG_HEADER = "x-organization-id";
 
 declare module "fastify" {
@@ -42,7 +44,7 @@ export const tenantPlugin = fp(
         return;
       }
 
-      const bearer = getBearerToken(request);
+      const bearer = getBearerToken(request) ?? request.cookies?.[SESSION_COOKIE] ?? null;
       if (bearer) {
         const claims = verifyAuthToken(bearer);
         if (!claims) {

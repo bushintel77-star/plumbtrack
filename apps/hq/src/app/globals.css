@@ -150,6 +150,15 @@
     outline: none;
     box-shadow: 0 0 0 3px var(--focus-ring);
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
@@ -213,6 +222,25 @@
   /* Scrim for modal overlays (theme-aware) */
   .overlay-scrim {
     background: var(--scrim);
+  }
+
+  /* Click-through hover card: the cursor must be able to cross the popup
+     without leaving the canvas (else onMouseLeave dismisses it mid-hover).
+     Only the action button re-enables pointer events. */
+  .map-job-popup {
+    pointer-events: none;
+  }
+
+  .map-job-popup .maplibregl-popup-content {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+  }
+
+  .map-job-popup .maplibregl-popup-tip {
+    border-top-color: #020617;
+    border-bottom-color: #020617;
   }
 }
 

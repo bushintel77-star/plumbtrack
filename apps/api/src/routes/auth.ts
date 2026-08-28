@@ -5,6 +5,8 @@ import { getOrgId, sendMissingOrg } from "../lib/tenant";
 
 /** Field devices re-enroll at most daily; a 30-day session survives quiet periods. */
 const DEVICE_SESSION_SECONDS = 30 * 24 * 60 * 60;
+const SESSION_COOKIE = "plumbtrack_hq_session";
+const COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
 
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
@@ -79,6 +81,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       expiresInSeconds: DEVICE_SESSION_SECONDS,
     });
 
+    reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: DEVICE_SESSION_SECONDS });
     return reply.code(201).send({ token, organizationId: orgId, role, expiresAt });
+  });
+
+  app.post("/renew", async (request, reply) => {
+    if (!request.auth) return sendUnauthorized(reply);
+    const token = issueAuthToken({ userId: request.auth.userId, organizationId: request.auth.organizationId, role: request.auth.role, expiresInSeconds: DEVICE_SESSION_SECONDS });
+    const expiresAt = Math.floor(Date.now() / 1000) + DEVICE_SESSION_SECONDS;
+    reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: DEVICE_SESSION_SECONDS });
+    return { authenticated: true, organizationId: request.auth.organizationId, role: request.auth.role, expiresAt };
+  });
+
+  app.post("/sign-out", async (_request, reply) => {
+    reply.clearCookie(SESSION_COOKIE, COOKIE_OPTIONS);
+    return reply.code(204).send();
   });
 }

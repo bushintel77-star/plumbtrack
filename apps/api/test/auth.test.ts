@@ -181,6 +181,24 @@ describe("device enrollment", () => {
     }
   });
 
+  it("renews and clears an HTTP-only session cookie", async () => {
+    process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "true"
+    process.env.AUTH_SECRET = "test-auth-secret"
+    const devApp = await buildApp({ logger: false })
+    await devApp.ready()
+    try {
+      const enrolled = await devApp.inject({ method: "POST", url: "/api/auth/device", headers: { "x-organization-id": ORG }, payload: { deviceId: "hq" } })
+      const cookie = enrolled.headers["set-cookie"]
+      expect(cookie).toContain("plumbtrack_hq_session=")
+      const renewed = await devApp.inject({ method: "POST", url: "/api/auth/renew", headers: { cookie } })
+      expect(renewed.statusCode).toBe(200)
+      expect(renewed.headers["set-cookie"]).toContain("HttpOnly")
+      const signedOut = await devApp.inject({ method: "POST", url: "/api/auth/sign-out", headers: { cookie } })
+      expect(signedOut.statusCode).toBe(204)
+      expect(signedOut.headers["set-cookie"]).toContain("Max-Age=0")
+    } finally { await devApp.close() }
+  })
+
   it("rejects a mismatched bootstrap secret", async () => {
     process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
     process.env.AUTH_SECRET = "test-auth-secret";

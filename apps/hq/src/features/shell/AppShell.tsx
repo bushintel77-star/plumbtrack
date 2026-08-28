@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { authApi } from "@/lib/api"
 import { useQueryState, parseAsString } from "nuqs"
 import {
   BarChart3,
@@ -29,6 +30,7 @@ import { DashboardModule } from "@/features/dashboard/DashboardModule"
 import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
+import { OperationsHub } from "@/features/office/OperationsHub"
 
 const NAV: Array<{
   id: AppModule
@@ -39,6 +41,7 @@ const NAV: Array<{
 }> = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
   { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
+  { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
   { id: "crews", label: "Crews", icon: Users, enabled: false, milestone: "M3" },
   { id: "jobs", label: "Jobs", icon: Briefcase, enabled: false, milestone: "M2" },
   { id: "customers", label: "Customers", icon: Building2, enabled: false, milestone: "M2" },
@@ -110,6 +113,28 @@ function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: A
 }
 
 function Toolbar({ module }: { module: AppModule }) {
+  const [sessionLabel, setSessionLabel] = useState("SESSION CHECKING")
+  const [sessionError, setSessionError] = useState(false)
+  const [sessionBusy, setSessionBusy] = useState(false)
+  const refreshSession = () => {
+    setSessionBusy(true)
+    void authApi.session().then(session => {
+      setSessionError(false)
+      setSessionLabel(`${session.role.toUpperCase()} · ${session.organizationId}`)
+    }).catch(() => {
+      setSessionError(true)
+      setSessionLabel("SESSION UNAVAILABLE")
+    }).finally(() => setSessionBusy(false))
+  }
+  useEffect(() => {
+    refreshSession()
+    const renewal = window.setInterval(() => { void authApi.renew().then(refreshSession).catch(() => setSessionError(true)) }, 15 * 60 * 1000)
+    return () => window.clearInterval(renewal)
+  }, [])
+  const signOut = () => {
+    setSessionBusy(true)
+    void authApi.signOut().then(() => { setSessionLabel("SIGNED OUT"); setSessionError(true) }).catch(() => setSessionError(true)).finally(() => setSessionBusy(false))
+  }
   const clock = useWallClock()
   const setPaletteOpen = useBoardStore(s => s.setPaletteOpen)
   const dataMode = useBoardStore(s => s.dataMode)
@@ -187,6 +212,7 @@ function Toolbar({ module }: { module: AppModule }) {
             DEMO · API UNREACHABLE
           </span>
         )}
+        <button data-testid="session-badge" type="button" onClick={sessionError ? refreshSession : signOut} className="label-mono rounded-full border border-line px-2 py-0.5 text-2xs text-ink-low hover:text-ink disabled:cursor-wait disabled:opacity-60" title={sessionError ? "Retry session" : "Sign out"} aria-label={sessionError ? "Retry session" : "Sign out"} disabled={sessionBusy}>{sessionBusy ? "SESSION WORKING" : sessionLabel}</button>
         <span
           data-testid="live-badge"
           className="label-mono inline-flex items-center gap-1.5 rounded-full border border-chrome-400/40 bg-chrome-wash px-2 py-0.5 text-2xs text-chrome-400"
@@ -275,6 +301,7 @@ export function AppShell() {
         <main className="min-h-0 flex-1">
           {activeModule === "dashboard" && <DashboardModule />}
           {activeModule === "dispatch" && <Board />}
+          {activeModule === "operations" && <OperationsHub />}
           {!ENABLED.has(activeModule) && (
             <PlaceholderModule
               id={activeModule}
