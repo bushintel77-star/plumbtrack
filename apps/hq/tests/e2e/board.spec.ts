@@ -37,14 +37,15 @@ test.describe("App shell (Arrivy topology)", () => {
     await expect(page.getByTestId("matrix-view")).toBeVisible()
   })
 
-  test("colourway toggle flips between Soft White and hardware chassis", async ({ page }) => {
+  test("colourway toggle flips between hardware chassis and Soft White", async ({ page }) => {
     await page.goto("/?module=dispatch")
-    await expect(page.locator("html")).not.toHaveClass(/dark/)
-    await page.getByTestId("theme-toggle").click()
+    // Hardware chassis (dark) is the default colourway.
     await expect(page.locator("html")).toHaveClass(/dark/)
+    await page.getByTestId("theme-toggle").click()
+    await expect(page.locator("html")).not.toHaveClass(/dark/)
     await expect(page.getByTestId("matrix-view")).toBeVisible()
     await page.getByTestId("theme-toggle").click()
-    await expect(page.locator("html")).not.toHaveClass(/dark/)
+    await expect(page.locator("html")).toHaveClass(/dark/)
   })
 })
 

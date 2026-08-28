@@ -59,7 +59,7 @@ interface BoardState {
   paletteOpen: boolean
   /** Details overlay (researched topology: selection opens an overlay). */
   detailsOpen: boolean
-  /** Colourway — Soft White (light) default, hardware chassis is `.dark`. */
+  /** Colourway — hardware chassis (dark) default, Soft White toggle. */
   theme: "light" | "dark"
   dataMode: DataMode
   /** Live fleet telemetry (throttled ingest from the socket hook). */
@@ -179,7 +179,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   selectedJobId: "j-1001",
   paletteOpen: false,
   detailsOpen: false,
-  theme: "light",
+  theme: "dark",
   dataMode: "connecting",
   liveLocations: {},
   simulateFailure: false,

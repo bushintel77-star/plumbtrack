@@ -35,11 +35,13 @@ export default function RootLayout({
         {/* Native Chrome/Edge translate prompt suppressed — the console is
             English-only operations UI and the popup steals focus on load. */}
         <meta name="google" content="notranslate" />
-        {/* Apply the saved colourway before first paint (no dark flash). */}
+        {/* Apply the saved colourway before first paint (no flash). Default
+            is the hardware chassis (dark) — the Electron-grade command
+            aesthetic; Soft White stays one toggle away. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{if(localStorage.getItem('hq-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})()"
+              "(function(){try{if(localStorage.getItem('hq-theme')!=='light'){document.documentElement.classList.add('dark')}}catch(e){}})()"
           }}
         />
       </head>

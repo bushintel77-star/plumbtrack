@@ -6,7 +6,8 @@
    PlumbTrack HQ — Tier-1 Design System
    Ported from the field agent (apps/web). Declared colourways:
    "Chrome Blue ramp · Soft White · Status (red/amber/green, theme-invariant)".
-   LIGHT is the default; `.dark` on <html> restores the hardware chassis.
+   The HARDWARE CHASSIS (dark) is the default — the Electron command-center
+   aesthetic with frosted glass; `.dark` off restores Soft White.
    shadcn primitives are bridged onto the same tokens — no parallel palette.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -36,6 +37,7 @@
   --scrim: rgba(9, 20, 40, 0.45);
   --chassis-shadow: 0 1px 2px rgba(15, 35, 74, 0.06), 0 4px 14px rgba(15, 35, 74, 0.08);
   --btn-primary-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 3px 10px rgba(30, 86, 224, 0.35);
+  --focus-ring: rgba(30, 86, 224, 0.35);
 
   /* ═══ Theme-invariant tokens ═════════════════════════════════════════════ */
   --chrome-600: #1e56e0;
@@ -96,11 +98,17 @@
   --status-complete: #cbd5e1;
   --status-active: #ffffff;
 
-  --panel: color-mix(in srgb, var(--chassis-glass) 42%, var(--chassis-void));
-  --panel-strong: color-mix(in srgb, var(--chassis-glass) 68%, var(--chassis-void));
+  /* Frosted glass (Electron reference: bg-white/5 + blur(16px)) — the fill
+     is a translucent chassis tint so content beneath reads through drawers
+     and overlays; elevation comes from the border, inset highlight and
+     shadow, not from an opaque fill. */
+  --panel: color-mix(in srgb, var(--chassis-glass) 14%, transparent);
+  --panel-strong: color-mix(in srgb, var(--chassis-glass) 26%, transparent);
   --scrim: rgba(0, 0, 0, 0.8);
   --chassis-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
   --btn-primary-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 4px 12px rgba(0, 0, 0, 0.45);
+  /* Chrome-200 halo (Electron focus ring, verbatim) */
+  --focus-ring: rgba(184, 216, 255, 0.28);
 
   --text-hero: #ffffff;
   --text-muted-grade: #8b94a6;
@@ -136,10 +144,18 @@
     font-family: var(--font-lato-stack);
     @apply antialiased;
   }
+
+  /* Chrome halo focus ring (Electron reference) — token-tinted per colourway */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
 }
 
 @layer components {
-  /* Elevated surface — light: white card; dark: chassis glass */
+  /* Elevated surface — light: white card; dark: frosted chassis glass
+     (Electron `.glass`: translucent fill + 16px backdrop-blur + inset
+     top highlight) */
   .panel {
     background: var(--panel);
     border: 1px solid var(--divider-etch);
@@ -154,10 +170,31 @@
     box-shadow: var(--chassis-shadow);
   }
 
-  /* Machined primary button (field agent gradient) */
+  .dark .panel,
+  .dark .panel-strong {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  /* Machined primary button (field agent gradient) with the Electron
+     reference's hardware press physics: brighten on hover, seat 1px +
+     deeper inset on press. */
   .btn-primary {
     background: var(--btn-primary-bg);
     box-shadow: var(--btn-primary-shadow);
+    transition: transform 100ms ease, filter 100ms ease, box-shadow 100ms ease;
+  }
+
+  .dark .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+
+  .btn-primary:active {
+    transform: translateY(1px);
+  }
+
+  .dark .btn-primary:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7), 0 1px 3px rgba(0, 0, 0, 0.6);
   }
 
   /* Monospace uppercase labels — the system's signature */
