@@ -30,6 +30,8 @@ import { fetchBoardPayload } from "@/lib/adapter"
 import { todayIsoDay } from "@/lib/format"
 import { rankCrews } from "@/lib/assignment"
 import { cacheJobs } from "@/lib/offline"
+import { primeRoadMatrix } from "@/lib/roadTime"
+import { DEPOT } from "@/lib/optimize"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { AssignCheck } from "@/types"
 
@@ -43,7 +45,6 @@ import { CalendarView } from "@/features/calendar/CalendarView"
 import { MapView } from "@/features/map/MapView"
 import { JobDetailsDialog } from "@/features/right/JobDetailsDialog"
 import { ClosedLoopHub } from "@/features/office/ClosedLoopHub"
-import { OperationsCoverageCard } from "@/features/office/OperationsCoverageCard"
 import { QueueCardVisual } from "@/features/left/QueueCardVisual"
 import { performAssignment } from "./actions"
 
@@ -60,6 +61,12 @@ interface DragState {
  *  crews for the picked-up task with a best-slot beacon on the canvas. */
 export function Board() {
   const jobs = useJobsList()
+  // One ORS matrix call per session upgrades every travel figure on the
+  // board (suggestions, bands, optimizer, conflicts) to real road times.
+  // No-ops without NEXT_PUBLIC_ORS_API_KEY.
+  useEffect(() => {
+    void primeRoadMatrix([DEPOT, ...jobs.flatMap(j => (j.location ? [j.location] : []))])
+  }, [jobs])
   const technicians = useBoardStore(s => s.technicians)
   const dataMode = useBoardStore(s => s.dataMode)
   const hydrateFromApi = useBoardStore(s => s.hydrateFromApi)
@@ -205,7 +212,6 @@ export function Board() {
     >
       <div className="flex h-full min-h-0 flex-col">
         <ClosedLoopHub />
-        <OperationsCoverageCard />
         <FilterBar filters={filters} onFiltersChange={setFilters} zoom={filters.zoom} />
         {showSuggestions && selectedJob && <SuggestionStrip job={selectedJob} />}
 

@@ -26,9 +26,9 @@ export function TimerControl({ job }: { job: Job }) {
 
   return (
     <>
-      <section className="rounded-lg border border-white/10 bg-white/5 p-3.5">
+      <section className="rounded-lg border border-line bg-recess/70 p-2.5">
         <div className="flex items-center justify-between"><h3 className="label-mono text-2xs text-ink-low">ACTIVE TIMER</h3>{isActive ? <Badge className="label-mono animate-pulse-soft rounded-sm bg-active-wash text-2xs text-active hover:bg-active-wash">RUNNING</Badge> : <Badge variant="outline" className="label-mono rounded-sm border-line text-2xs text-ink-low">{job.status === "complete" ? "COMPLETE" : "IDLE"}</Badge>}</div>
-        <div data-testid={`inspector-timer-${job.id}`} className={cn("tnum mt-2 text-center font-mono text-[40px] font-bold leading-none tracking-tight", isActive ? "text-active" : "text-ink-low")}>{formatElapsed(job.elapsedSeconds)}</div>
+        <div data-testid={`inspector-timer-${job.id}`} className={cn("tnum mt-1.5 text-center font-mono text-[26px] font-bold leading-none tracking-tight", isActive ? "text-active" : "text-ink-low")}>{formatElapsed(job.elapsedSeconds)}</div>
         <p className="label-mono mt-1.5 text-center text-2xs leading-relaxed text-ink-low">CLOCK-ON #{job.clockOnCount} · FRESH CLOCK-ON RESTARTS 00:00:00 · ONE LIVE TIMER PER TECH</p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Tooltip><TooltipTrigger asChild><span className="inline-flex"><Button size="sm" data-testid="clock-on-btn" disabled={!canClockOn} className="btn-primary w-full gap-1.5" onClick={() => void performClockOn(job.id)}><Play className="h-3.5 w-3.5" />Clock On</Button></span></TooltipTrigger><TooltipContent side="bottom">{!job.techId ? "Assign the job to a technician first" : isActive ? "Timer already running on this row" : `Start the single active timer for ${tech?.name.split(" ")[0] ?? "this technician"}`}</TooltipContent></Tooltip>

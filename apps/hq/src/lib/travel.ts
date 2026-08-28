@@ -1,5 +1,7 @@
 import type { GeoPoint } from "@/types"
 
+import { cachedRoadMinutes } from "@/lib/roadTime"
+
 /** Great-circle distance in kilometres. */
 export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   const R = 6371
@@ -23,6 +25,10 @@ const FIXED_OVERHEAD_MIN = 4
  * drive-time matrices); deterministic so tests and buffers stay stable.
  */
 export function travelMinutes(a: GeoPoint, b: GeoPoint): number {
+  // Real road duration when the ORS matrix has been primed for this pair —
+  // same rounded 5-minute granularity, so every consumer behaves uniformly.
+  const road = cachedRoadMinutes(a, b)
+  if (road !== null) return road
   const km = haversineKm(a, b)
   const minutes = (km / CITY_SPEED_KMH) * 60 + FIXED_OVERHEAD_MIN
   return Math.max(5, Math.round(minutes / 5) * 5)

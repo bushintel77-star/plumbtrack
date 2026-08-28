@@ -18,13 +18,30 @@ const MapLibreView = dynamic(() => import("./MapLibreView"), {
   loading: () => <div className="flex h-full items-center justify-center text-xs text-ink-low">Loading live map…</div>
 })
 
+function shiftDay(isoDayString: string, delta: number): string {
+  const d = new Date(`${isoDayString}T12:00:00`)
+  d.setDate(d.getDate() + delta)
+  return d.toISOString().slice(0, 10)
+}
+
+function mondayOf(isoDayString: string): string {
+  const d = new Date(`${isoDayString}T12:00:00`)
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7)
+  return d.toISOString().slice(0, 10)
+}
+
 export function MapView({ filters }: { filters: BoardFilters }) {
   const technicians = useBoardStore(s => s.technicians)
   const openDetails = useBoardStore(s => s.openDetails)
   const jobs = useJobsList()
   const [date] = useQueryState("date", parseAsString.withDefault(todayIsoDay()))
+  const [zoom] = useQueryState("zoom", parseAsString.withDefault("daily"))
   const [vanId, setVanId] = useState("")
-  const visible = jobs.filter(j => (!j.scheduledDate || j.scheduledDate === date) && jobMatchesFilters(j, filters))
+  // The map honours the zoom contract: daily pins the selected day; weekly and
+  // monthly pin the whole visible window (Mon-anchored, matching the board).
+  const rangeFrom = zoom === "daily" ? date : mondayOf(date)
+  const rangeTo = zoom === "daily" ? date : shiftDay(mondayOf(date), zoom === "weekly" ? 6 : 27)
+  const visible = jobs.filter(j => (!j.scheduledDate || (j.scheduledDate >= rangeFrom && j.scheduledDate <= rangeTo)) && jobMatchesFilters(j, filters))
   const selectedTech = technicians.find(t => t.id === vanId)
   const unassignedCount = visible.filter(job => job.status === "unassigned").length
   const stops = selectedTech ? visible.filter(j => j.techId === selectedTech.id && j.location).sort((a, b) => a.startBlock - b.startBlock) : []

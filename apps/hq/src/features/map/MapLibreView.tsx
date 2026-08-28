@@ -19,18 +19,23 @@ import { blockLabel } from "@/lib/format"
 
 const PERSON_COLORS = ["#c27878", "#7a9e7e", "#b08d57", "#6b7d8d"]
 
-/** Free keyless basemaps (CARTO) keyed to the active colourway — swap for the enterprise tile contract at M4. */
+/** Keyless, unlimited basemaps (OpenFreeMap) keyed to the active colourway.
+ * Free-tier fallback if OFM is ever unavailable: CARTO dark-matter / positron
+ * (basemaps.cartocdn.com). Long-term: self-hosted Protomaps PMTiles. */
 const MAP_STYLES = {
-  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+  dark: "https://tiles.openfreemap.org/styles/dark",
+  light: "https://tiles.openfreemap.org/styles/positron"
 } as const
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
 
 function statusColor(job: Job): string {
+  // Colour contract: cobalt = live/interactive work, red = emergency,
+  // pale = complete, neutral = scheduled/queued. Highlight ring (hover or
+  // selection) is painted separately so no status colour doubles as it.
   if (job.status === "active") return "#2563eb"
   if (job.status === "complete") return "#cbd5e1"
   if (job.priority === "emergency") return "#ff3b30"
-  return "#4e8cff"
+  return "#8fa3bf"
 }
 
 function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => void }) {
@@ -130,11 +135,13 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         .filter(job => job.location)
         .map(job => ({
           type: "Feature" as const,
-          id: job.id,            properties: {
+          id: job.id,
+          properties: {
             jobId: job.id,
             title: job.title,
             status: job.status,
             color: statusColor(job),
+            highlighted: hoveredJobId === job.id || selectedJobId === job.id,
             draggable: job.status === "unassigned"
           },
           geometry: {
@@ -143,7 +150,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
           }
         }))
     }),
-    [visible]
+    [visible, hoveredJobId, selectedJobId]
   )
 
   const routes = useMemo(
@@ -211,15 +218,14 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       type: "circle",
       source: "job-pins",
       paint: {
-        "circle-radius": ["case", ["boolean", ["feature-state", "selected"], false], 9, 6],
+        "circle-radius": ["case", ["boolean", ["get", "highlighted"], false], 9, 6],
         "circle-color": ["get", "color"],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#071022"
+        "circle-stroke-width": ["case", ["boolean", ["get", "highlighted"], false], 3, 2],
+        "circle-stroke-color": ["case", ["boolean", ["get", "highlighted"], false], "#ffffff", "#071022"]
       }
     }
-    void selectedJobId // feature-state selection lands with map interaction polish
     return [base]
-  }, [selectedJobId])
+  }, [])
 
   return (
     <Map

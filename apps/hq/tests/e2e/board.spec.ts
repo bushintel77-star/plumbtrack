@@ -201,6 +201,19 @@ test.describe("Spatial routing buffers (travel-time integration)", () => {
   test("travel bands render between consecutive jobs with estimated drive time", async ({
     page
   }) => {
+    // Mike's seeded jobs are back-to-back (no gap → no band by design), so
+    // give the second job a one-hour buffer via the test bridge.
+    await page.evaluate(() => {
+      const store = (window as any).__hqStore
+      const state = store.getState()
+      store.setState({
+        jobs: {
+          ...state.jobs,
+          "j-1003": { ...state.jobs["j-1003"], startBlock: 12 }
+        }
+      })
+    })
+
     const band = page.getByTestId("travel-segment-j-1002-j-1003")
     await expect(band).toBeVisible()
     await expect(band).toHaveAttribute("data-tight", "false")
