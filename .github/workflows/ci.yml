@@ -35,8 +35,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        # Version comes from packageManager in package.json — specifying it
+        # here too makes action-setup v4 fail with "Multiple versions".
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
