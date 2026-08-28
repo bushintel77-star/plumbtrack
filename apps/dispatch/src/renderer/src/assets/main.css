@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    /* Field Agent chassis: deep navy foundation */
+    --background: 222 17% 7%;
+    --foreground: 213 18% 94%;
+
+    --card: 221 20% 10%;
+    --card-foreground: 213 18% 94%;
+
+    --popover: 221 22% 9%;
+    --popover-foreground: 213 18% 94%;
+
+    /* Primary interactive: high-visibility cobalt #2563EB */
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 16% 14%;
+    --secondary-foreground: 213 16% 88%;
+
+    --muted: 220 16% 13%;
+    --muted-foreground: 219 13% 62%;
+
+    --accent: 221 83% 53%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Errors / expiry only — never decorative */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 86% 97%;
+
+    --border: 220 15% 16%;
+    --input: 220 15% 15%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.5rem;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --background: 210 20% 98%;
+    --foreground: 222 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 12%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 222 25% 18%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+    --border: 215 20% 84%;
+    --input: 215 20% 84%;
+    --ring: 221 83% 53%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: #0B1120;
+    @apply font-sans text-foreground antialiased;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(184, 216, 255, 0.28);
+  }
+}
+
+@layer components {
+  /* Frosted glassmorphism surface for overlays, drawers and floating cards */
+  .glass {
+    @apply border border-white/10 bg-white/5 backdrop-blur-[16px];
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.8);
+  }
+
+  :root[data-theme='light'] body {
+    background-color: #F4F6F8;
+  }
+
+  :root[data-theme='light'] .glass,
+  :root[data-theme='light'] .glass-strong,
+  :root[data-theme='light'] .dispatch-surface {
+    @apply border-slate-200/80 bg-white/80;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 18px rgba(15,23,42,0.10);
+  }
+
+  :root[data-theme='light'] .dispatch-control {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 3px 8px rgba(15,23,42,0.14);
+  }
+
+  .glass-strong {
+    @apply border border-white/10 bg-white/5 backdrop-blur-[16px];
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 12px rgba(0,0,0,0.8);
+  }
+
+  .dispatch-surface {
+    @apply border border-white/10 bg-white/5 backdrop-blur-[16px];
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.45);
+  }
+
+  .dispatch-navy {
+    background-color: #0B1120;
+  }
+
+  :root[data-theme='light'] .dispatch-canvas {
+    background-color: #F4F6F8;
+  }
+
+  :root[data-theme='light'] .dispatch-canvas .bg-chassis\/95,
+  :root[data-theme='light'] .dispatch-canvas .bg-chassis\/90 {
+    background-color: rgba(255,255,255,0.88);
+  }
+
+  /* Every timestamp, timer and financial figure renders with tabular lining
+     numerals so live countdowns never jitter. */
+  .tnum {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/10;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dispatch-toolbar {
+    position: relative;
+    z-index: 40;
+    background: rgba(3, 6, 14, 0.72);
+  }
+
+  :root[data-theme='light'] .dispatch-toolbar {
+    background: rgba(255,255,255,0.82);
+  }
+
+  .dispatch-control {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.55), 0 3px 8px rgba(0,0,0,0.55);
+    transition: transform 100ms ease, filter 100ms ease, box-shadow 100ms ease;
+  }
+
+  .dispatch-control:hover {
+    filter: brightness(1.08);
+  }
+
+  .dispatch-control:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.7), 0 1px 3px rgba(0,0,0,0.6);
+  }
+
+  .dispatch-status-active {
+    color: #FBBF24;
+    background: rgba(245,158,11,0.12);
+    border-color: rgba(245,158,11,0.32);
+  }
+}  @media (max-width: 1279px) {
+    .dispatch-toolbar + .relative > .flex > [data-panel-group-direction='horizontal'] > [data-panel] {
+      min-width: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

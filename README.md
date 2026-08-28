@@ -12,11 +12,16 @@ a local development compatibility fallback.
 apps/
   api/          Fastify + Prisma + Zod REST API
   web/          Next.js 15 (App Router) + Tailwind + Lucide React
+  hq/           Dispatch Command Center (Next.js) — see APPLICATION_MAP.md
+  dispatch/     Electron board prototype (reference only, not in workspace builds)
 packages/
   database/     Prisma schema, client singleton, migrations and seed
   tsconfig/     Shared TypeScript configurations
   eslint-config/ Shared ESLint configurations
 ```
+
+The system blueprint, UI/UX contracts, business rules and milestones live in
+[`APPLICATION_MAP.md`](./APPLICATION_MAP.md) — the governing document for the HQ rebuild.
 
 ## Prerequisites
 

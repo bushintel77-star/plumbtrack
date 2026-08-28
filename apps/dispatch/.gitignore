@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+*.local
+test-results/
+playwright-report/
+.playwright/
+screenshots/
+.DS_Store

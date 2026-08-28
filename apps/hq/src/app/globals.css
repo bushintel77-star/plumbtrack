@@ -1,0 +1,205 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PlumbTrack HQ — Tier-1 Design System
+   Ported from the field agent (apps/web). Declared colourways:
+   "Chrome Blue ramp · Soft White · Status (red/amber/green, theme-invariant)".
+   LIGHT is the default; `.dark` on <html> restores the hardware chassis.
+   shadcn primitives are bridged onto the same tokens — no parallel palette.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ═══ Soft White colourway ═══════════════════════════════════════════════ */
+  --chassis-void: #f4f7fc;
+  --chassis-recess: #e9eef7;
+  --chassis-glass: #dce7f9;
+  --edge-highlight: rgba(11, 27, 51, 0.14);
+  --edge-shadow: rgba(15, 35, 74, 0.14);
+  --divider-etch: rgba(11, 27, 51, 0.09);
+
+  --app-text: #0b1b33;
+  --app-muted: #52627e;
+  --app-subtle: #6b7a94;
+  --app-on-accent: #ffffff;
+
+  /* Status quartet — theme-invariant hues, darkened for light-surface text */
+  --status-urgent: #de2417;
+  --status-pending: #b45309;
+  --status-complete: #1f9a37;
+  --status-active: #0e9384;
+  --status-pending-light: #b45309;
+
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --scrim: rgba(9, 20, 40, 0.45);
+  --chassis-shadow: 0 1px 2px rgba(15, 35, 74, 0.06), 0 4px 14px rgba(15, 35, 74, 0.08);
+  --btn-primary-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 3px 10px rgba(30, 86, 224, 0.35);
+
+  /* ═══ Theme-invariant tokens ═════════════════════════════════════════════ */
+  --chrome-600: #1e56e0;
+  --chrome-400: #4e8cff;
+  --chrome-200: #b8d8ff;
+  --text-hero: #0b1b33;
+  --text-muted-grade: #52627e;
+  --accent: var(--chrome-600);
+  --accent-dim: var(--chassis-recess);
+  --accent-border: var(--edge-highlight);
+
+  --person-1: #c27878;
+  --person-2: #7a9e7e;
+  --person-3: #b08d57;
+  --person-4: #6b7d8d;
+
+  --wash-urgent: rgba(222, 36, 23, 0.1);
+  --wash-pending: rgba(180, 83, 9, 0.1);
+  --wash-complete: rgba(31, 154, 55, 0.1);
+  --wash-active: rgba(14, 147, 132, 0.12);
+  --wash-chrome: rgba(78, 140, 255, 0.14);
+
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
+  --font-lato-stack: var(--font-lato), "Lato", "Trebuchet MS", sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius: 10px;
+  --btn-primary-bg: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
+
+  --status-dot-glow-urgent: 0 0 8px rgba(222, 36, 23, 0.35);
+  --status-dot-glow-active: 0 0 8px rgba(14, 147, 132, 0.35);
+  --status-dot-glow-complete: 0 0 8px rgba(31, 154, 55, 0.35);
+
+  /* ═══ shadcn bridge ══════════════════════════════════════════════════════ */
+  --border: var(--divider-etch);
+  --input: var(--divider-etch);
+  --ring: var(--chrome-600);
+}
+
+.dark {
+  /* ═══ Hardware Chassis colourway (field agent, verbatim) ═════════════════ */
+  --chassis-void: #071022;
+  --chassis-recess: #03060e;
+  --chassis-glass: #103b8c;
+  --edge-highlight: rgba(255, 255, 255, 0.15);
+  --edge-shadow: rgba(0, 0, 0, 0.8);
+  --divider-etch: rgba(255, 255, 255, 0.08);
+
+  --app-text: #ffffff;
+  --app-muted: #8b94a6;
+  --app-subtle: #8b94a6;
+  --app-on-accent: #ffffff;
+
+  --status-urgent: #ff3b30;
+  --status-pending: #ff9f0a;
+  --status-complete: #cbd5e1;
+  --status-active: #ffffff;
+
+  --panel: color-mix(in srgb, var(--chassis-glass) 42%, var(--chassis-void));
+  --panel-strong: color-mix(in srgb, var(--chassis-glass) 68%, var(--chassis-void));
+  --scrim: rgba(0, 0, 0, 0.8);
+  --chassis-shadow: inset 0 1px 1px var(--edge-highlight), 0 4px 12px var(--edge-shadow);
+  --btn-primary-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 4px 12px rgba(0, 0, 0, 0.45);
+
+  --text-hero: #ffffff;
+  --text-muted-grade: #8b94a6;
+  --accent: var(--chrome-400);
+
+  --wash-urgent: rgba(255, 59, 48, 0.14);
+  --wash-pending: rgba(255, 159, 10, 0.12);
+  --wash-complete: rgba(203, 213, 225, 0.1);
+  --wash-active: rgba(255, 255, 255, 0.12);
+  --wash-chrome: rgba(78, 140, 255, 0.12);
+
+  --status-dot-glow-urgent: 0 0 10px var(--status-urgent), inset 0 1px 1px var(--edge-highlight);
+  --status-dot-glow-active: 0 0 8px var(--status-active), inset 0 1px 1px var(--edge-highlight);
+  --status-dot-glow-complete: 0 0 8px var(--status-complete), inset 0 1px 1px var(--edge-highlight);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--chassis-void);
+    color: var(--app-text);
+    font-family: var(--font-lato-stack);
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  /* Elevated surface — light: white card; dark: chassis glass */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--divider-etch);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--chassis-shadow);
+  }
+
+  .panel-strong {
+    background: var(--panel-strong);
+    border: 1px solid var(--edge-highlight);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--chassis-shadow);
+  }
+
+  /* Machined primary button (field agent gradient) */
+  .btn-primary {
+    background: var(--btn-primary-bg);
+    box-shadow: var(--btn-primary-shadow);
+  }
+
+  /* Monospace uppercase labels — the system's signature */
+  .label-mono {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Numerals never jitter */
+  .tnum {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+
+  /* Scrim for modal overlays (theme-aware) */
+  .overlay-scrim {
+    background: var(--scrim);
+  }
+}
+
+@layer utilities {
+  /* Solid + translucent page-background fills for sticky headers/cells */
+  .bg-void {
+    background: var(--chassis-void);
+  }
+  .bg-void-95 {
+    background: color-mix(in srgb, var(--chassis-void) 94%, transparent);
+  }
+  .bg-void-90 {
+    background: color-mix(in srgb, var(--chassis-void) 90%, transparent);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background: var(--divider-etch);
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

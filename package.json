@@ -30,12 +30,15 @@
       "prisma",
       "esbuild",
       "sharp",
-      "unrs-resolver"
+      "unrs-resolver",
+      "electron"
     ],
     "overrides": {
       "postcss": ">=8.5.10",
       "sharp": ">=0.35.0",
-      "deepmerge-ts": ">=8.0.0"
+      "deepmerge-ts": ">=8.0.2",
+      "@types/react": "^19.2.18",
+      "@types/react-dom": "^19.2.4"
     }
   }
 }
