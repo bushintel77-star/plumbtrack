@@ -25,12 +25,14 @@
   --app-subtle: #6b7a94;
   --app-on-accent: #ffffff;
 
-  /* Status quartet — theme-invariant hues, darkened for light-surface text */
+  /* Status quartet — one hue family per meaning, both themes: teal = billing
+     now (the ONLY live colour), red = emergency/expired/error, amber =
+     delayed/expiring/on-leave, green = complete. Values shift per theme only
+     for contrast; the meaning never does. */
   --status-urgent: #de2417;
   --status-pending: #b45309;
   --status-complete: #1f9a37;
   --status-active: #0e9384;
-  --status-pending-light: #b45309;
 
   --panel: #ffffff;
   --panel-strong: #ffffff;
@@ -43,8 +45,6 @@
   --chrome-600: #1e56e0;
   --chrome-400: #4e8cff;
   --chrome-200: #b8d8ff;
-  --text-hero: #0b1b33;
-  --text-muted-grade: #52627e;
   --accent: var(--chrome-600);
   --accent-dim: var(--chassis-recess);
   --accent-border: var(--edge-highlight);
@@ -69,10 +69,6 @@
   --radius: 10px;
   --btn-primary-bg: linear-gradient(180deg, var(--chrome-400) 0%, var(--chrome-600) 100%);
 
-  --status-dot-glow-urgent: 0 0 8px rgba(222, 36, 23, 0.35);
-  --status-dot-glow-active: 0 0 8px rgba(14, 147, 132, 0.35);
-  --status-dot-glow-complete: 0 0 8px rgba(31, 154, 55, 0.35);
-
   /* ═══ shadcn bridge ══════════════════════════════════════════════════════ */
   --border: var(--divider-etch);
   --input: var(--divider-etch);
@@ -95,8 +91,8 @@
 
   --status-urgent: #ff3b30;
   --status-pending: #ff9f0a;
-  --status-complete: #cbd5e1;
-  --status-active: #ffffff;
+  --status-complete: #32d74b;
+  --status-active: #14b8a6;
 
   /* Frosted glass (Electron reference: bg-white/5 + blur(16px)) — the fill
      is a translucent chassis tint so content beneath reads through drawers
@@ -110,19 +106,13 @@
   /* Chrome-200 halo (Electron focus ring, verbatim) */
   --focus-ring: rgba(184, 216, 255, 0.28);
 
-  --text-hero: #ffffff;
-  --text-muted-grade: #8b94a6;
   --accent: var(--chrome-400);
 
   --wash-urgent: rgba(255, 59, 48, 0.14);
   --wash-pending: rgba(255, 159, 10, 0.12);
-  --wash-complete: rgba(203, 213, 225, 0.1);
-  --wash-active: rgba(255, 255, 255, 0.12);
+  --wash-complete: rgba(50, 215, 75, 0.1);
+  --wash-active: rgba(20, 184, 166, 0.12);
   --wash-chrome: rgba(78, 140, 255, 0.12);
-
-  --status-dot-glow-urgent: 0 0 10px var(--status-urgent), inset 0 1px 1px var(--edge-highlight);
-  --status-dot-glow-active: 0 0 8px var(--status-active), inset 0 1px 1px var(--edge-highlight);
-  --status-dot-glow-complete: 0 0 8px var(--status-complete), inset 0 1px 1px var(--edge-highlight);
 }
 
 @layer base {
@@ -239,8 +229,8 @@
   }
 
   .map-job-popup .maplibregl-popup-tip {
-    border-top-color: #020617;
-    border-bottom-color: #020617;
+    border-top-color: var(--chassis-void);
+    border-bottom-color: var(--chassis-void);
   }
 }
 

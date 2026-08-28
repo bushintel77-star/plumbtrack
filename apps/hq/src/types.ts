@@ -101,8 +101,6 @@ export interface Technician {
   role: Role
   /** Approved absences — hashed, un-droppable row windows + availability. */
   absences: Absence[]
-  /** Stable visual identity used by dispatch; presentation-only metadata. */
-  identityColor?: string
 }
 
 export interface ChatMessage {

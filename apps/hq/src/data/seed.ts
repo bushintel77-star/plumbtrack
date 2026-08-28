@@ -11,10 +11,10 @@ const day = (offset: number): string => {
 }
 
 export const technicians: Technician[] = [
-  { id: "t-mike", name: "Mike Reyes", van: "Van 2", skills: ["gas", "hot-water", "general"], role: "Technician", absences: [], identityColor: "#4E8CFF" },
-  { id: "t-dana", name: "Dana Whitfield", van: "Van 1", skills: ["drainage", "general"], role: "Electrician", absences: [], identityColor: "#B08D57" },
-  { id: "t-carlos", name: "Carlos Mendes", van: "Van 4", skills: ["general", "hot-water"], role: "Installer", absences: [], identityColor: "#C27878" },
-  { id: "t-priya", name: "Priya Nair", van: "Van 3", skills: ["leak-detection", "drainage", "general"], role: "Driver", absences: [{ from: isoDay(0), to: isoDay(2), reason: "Approved leave" }], identityColor: "#7A9E7E" }
+  { id: "t-mike", name: "Mike Reyes", van: "Van 2", skills: ["gas", "hot-water", "general"], role: "Technician", absences: [] },
+  { id: "t-dana", name: "Dana Whitfield", van: "Van 1", skills: ["drainage", "general"], role: "Electrician", absences: [] },
+  { id: "t-carlos", name: "Carlos Mendes", van: "Van 4", skills: ["general", "hot-water"], role: "Installer", absences: [] },
+  { id: "t-priya", name: "Priya Nair", van: "Van 3", skills: ["leak-detection", "drainage", "general"], role: "Driver", absences: [{ from: isoDay(0), to: isoDay(2), reason: "Approved leave" }] }
 ]
 
 export const jobs: Job[] = [

@@ -10,6 +10,8 @@ import type { Job } from "@/types"
 import { blockLabel } from "@/lib/format"
 import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
 
+import { readComputedTokens, resolvePalette, type MapPalette } from "./palette"
+
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
  * for job pins / dashed per-tech route polylines, and a symbol layer whose
@@ -18,9 +20,9 @@ import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
  * movement along the street network. Route polylines render straight-line
  * immediately, then upgrade to road-following geometry once the free routing
  * tier (ORS keyed / OSRM keyless) answers — offline the heuristic stays.
+ * Paint colors come from the Tier-1 tokens via the palette bridge (WebGL
+ * cannot resolve CSS vars); DOM chrome uses the token utilities directly.
  */
-
-const PERSON_COLORS = ["#c27878", "#7a9e7e", "#b08d57", "#6b7d8d"]
 
 /** Keyless, unlimited basemaps (OpenFreeMap) keyed to the active colourway.
  * Free-tier fallback if OFM is ever unavailable: CARTO dark-matter / positron
@@ -29,38 +31,40 @@ const MAP_STYLES = {
   dark: "https://tiles.openfreemap.org/styles/dark",
   light: "https://tiles.openfreemap.org/styles/positron"
 } as const
+
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
 
-function statusColor(job: Job): string {
-  // Colour contract: cobalt = live/interactive work, red = emergency,
-  // pale = complete, neutral = scheduled/queued. Highlight ring (hover or
-  // selection) is painted separately so no status colour doubles as it.
-  if (job.status === "active") return "#2563eb"
-  if (job.status === "complete") return "#cbd5e1"
-  if (job.priority === "emergency") return "#ff3b30"
-  return "#8fa3bf"
+function statusColor(job: Job, palette: MapPalette): string {
+  // Colour contract (token-sourced): chrome cobalt = live/interactive work,
+  // urgent = emergency, complete = pale, ink-mid = scheduled/queued.
+  // Highlight ring (hover or selection) is painted separately so no status
+  // colour doubles as it.
+  if (job.status === "active") return palette.live
+  if (job.status === "complete") return palette.complete
+  if (job.priority === "emergency") return palette.urgent
+  return palette.neutral
 }
 
 function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => void }) {
   const tech = useBoardStore(s => s.technicians.find(item => item.id === job.techId))
   const isUnassigned = job.status === "unassigned"
   return (
-    <div className="w-64 rounded-lg border border-slate-600/70 bg-slate-950/95 p-3 text-white shadow-2xl backdrop-blur-xl" data-testid={`map-popup-${job.id}`}>
+    <div className="w-64 rounded-lg border border-line bg-void-95 p-3 text-ink shadow-2xl backdrop-blur-xl" data-testid={`map-popup-${job.id}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="label-mono text-[10px] text-blue-300">{job.id.toUpperCase()} · {job.status.replace("_", " ").toUpperCase()}</div>
+          <div className="label-mono text-[10px] text-chrome-400">{job.id.toUpperCase()} · {job.status.replace("_", " ").toUpperCase()}</div>
           <div className="mt-1 truncate text-sm font-bold">{job.title}</div>
         </div>
-        <span className="label-mono shrink-0 text-[10px] text-slate-400">{job.priority.toUpperCase()}</span>
+        <span className="label-mono shrink-0 text-[10px] text-ink-mid">{job.priority.toUpperCase()}</span>
       </div>
-      <div className="mt-2 space-y-1 text-[11px] text-slate-300">
+      <div className="mt-2 space-y-1 text-[11px] text-ink">
         <div className="truncate">{job.client}</div>
-        <div className="truncate text-slate-400">{job.address}</div>
-        <div className="label-mono tnum text-slate-400">{blockLabel(job.startBlock)} → {blockLabel(job.startBlock + job.spanBlocks)} · {job.spanBlocks * 30}M</div>
-        <div className="text-slate-400">{tech ? `${tech.name} · ${tech.van}` : "Unassigned · ready to route"}</div>
+        <div className="truncate text-ink-mid">{job.address}</div>
+        <div className="label-mono tnum text-ink-mid">{blockLabel(job.startBlock)} → {blockLabel(job.startBlock + job.spanBlocks)} · {job.spanBlocks * 30}M</div>
+        <div className="text-ink-mid">{tech ? `${tech.name} · ${tech.van}` : "Unassigned · ready to route"}</div>
       </div>
-      <button type="button" onClick={() => onOpen(job.id)} className="pointer-events-auto mt-3 w-full rounded-md bg-blue-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">Open job details</button>
-      {isUnassigned && <div className="mt-2 label-mono text-[10px] text-amber-300">DRAG TO ASSIGN · SMART ROUTING</div>}
+      <button type="button" onClick={() => onOpen(job.id)} className="pointer-events-auto mt-3 w-full rounded-md bg-chrome-600 px-2 py-1.5 text-xs font-semibold text-on-accent hover:bg-chrome-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chrome-200">Open job details</button>
+      {isUnassigned && <div className="mt-2 label-mono text-[10px] text-pending">DRAG TO ASSIGN · SMART ROUTING</div>}
     </div>
   )
 }
@@ -72,7 +76,7 @@ interface MapLibreViewProps {
   onDragStart?: (jobId: string) => void
 }
 
-function VehicleIcon() {
+function VehicleIcon({ fill, stroke }: { fill: string; stroke: string }) {
   const { current: map } = useMap()
   useEffect(() => {
     if (!map || map.hasImage("hq-vehicle")) return
@@ -83,8 +87,8 @@ function VehicleIcon() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
     // Forward-pointing triangle (bearing 0 = east, matching icon-rotate).
-    ctx.fillStyle = "#1e56e0"
-    ctx.strokeStyle = "#ffffff"
+    ctx.fillStyle = fill
+    ctx.strokeStyle = stroke
     ctx.lineWidth = 2
     ctx.beginPath()
     ctx.moveTo(24, 14)
@@ -94,12 +98,10 @@ function VehicleIcon() {
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
-    map.addImage("hq-vehicle", {
-      width: size,
-      height: size,
-      data: ctx.getImageData(0, 0, size, size).data
-    })
-  }, [map])
+    const data = ctx.getImageData(0, 0, size, size)
+    if (map.hasImage("hq-vehicle")) map.updateImage("hq-vehicle", data)
+    else map.addImage("hq-vehicle", { width: size, height: size, data: data.data })
+  }, [map, fill, stroke])
   return null
 }
 
@@ -113,6 +115,14 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null)
   /** Road-following coordinates per stop-chain signature (straight lines until they land). */
   const [roadShapes, setRoadShapes] = useState<Record<string, LngLat[]>>({})
+  const [palette, setPalette] = useState<MapPalette>(() => resolvePalette(readComputedTokens()))
+
+  // WebGL paints need concrete colors, so the palette re-reads the Tier-1
+  // tokens after the theme class lands on <html> — one rAF past the toggle.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setPalette(resolvePalette(readComputedTokens())))
+    return () => cancelAnimationFrame(frame)
+  }, [theme])
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
@@ -145,7 +155,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
             jobId: job.id,
             title: job.title,
             status: job.status,
-            color: statusColor(job),
+            color: statusColor(job, palette),
             highlighted: hoveredJobId === job.id || selectedJobId === job.id,
             draggable: job.status === "unassigned"
           },
@@ -155,7 +165,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
           }
         }))
     }),
-    [visible, hoveredJobId, selectedJobId]
+    [visible, hoveredJobId, selectedJobId, palette]
   )
 
   const routes = useMemo(
@@ -172,7 +182,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
             type: "Feature" as const,
             properties: {
               techId: tech.id,
-              color: PERSON_COLORS[index % 4],
+              color: palette.people[index % palette.people.length],
               emphasized: !vanId || vanId === tech.id
             },
             geometry: { type: "LineString" as const, coordinates: roadShapes[routeSignature(stops)] ?? stops }
@@ -180,7 +190,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         })
         .filter(Boolean)
     }),
-    [technicians, visible, vanId, roadShapes]
+    [technicians, visible, vanId, roadShapes, palette]
   )
 
   // Road-following upgrade for the dashed polylines: debounced per board
@@ -273,11 +283,11 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         "circle-radius": ["case", ["boolean", ["get", "highlighted"], false], 9, 6],
         "circle-color": ["get", "color"],
         "circle-stroke-width": ["case", ["boolean", ["get", "highlighted"], false], 3, 2],
-        "circle-stroke-color": ["case", ["boolean", ["get", "highlighted"], false], "#ffffff", "#071022"]
+        "circle-stroke-color": ["case", ["boolean", ["get", "highlighted"], false], palette.highlightStroke, palette.pinStroke]
       }
     }
     return [base]
-  }, [])
+  }, [palette])
 
   return (
     <Map
@@ -299,7 +309,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         if (feature?.properties?.jobId) onSelectJob(String(feature.properties.jobId))
       }}
     >
-      <VehicleIcon />
+      <VehicleIcon fill={palette.vehicle} stroke={palette.highlightStroke} />
       {hoveredJob && hoveredLocation && (
         <Popup
           longitude={hoveredLocation.lng}
@@ -316,7 +326,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       )}
 
       <Source id="breadcrumbs" type="geojson" data={breadcrumbs}>
-        <Layer id="breadcrumb-lines" type="line" paint={{ "line-color": "#60a5fa", "line-width": 2, "line-opacity": 0.35 }} />
+        <Layer id="breadcrumb-lines" type="line" paint={{ "line-color": palette.breadcrumb, "line-width": 2, "line-opacity": 0.35 }} />
       </Source>
 
       <Source id="job-routes" type="geojson" data={routes}>
