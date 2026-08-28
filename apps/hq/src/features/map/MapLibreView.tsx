@@ -8,13 +8,16 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job } from "@/types"
 import { blockLabel } from "@/lib/format"
+import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
 
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
  * for job pins / dashed per-tech route polylines, and a symbol layer whose
  * vehicle icon rotates with the streamed `heading`. MapLibre interpolates
  * between coordinate updates, so throttled telemetry pings produce smooth
- * movement along the street network.
+ * movement along the street network. Route polylines render straight-line
+ * immediately, then upgrade to road-following geometry once the free routing
+ * tier (ORS keyed / OSRM keyless) answers — offline the heuristic stays.
  */
 
 const PERSON_COLORS = ["#c27878", "#7a9e7e", "#b08d57", "#6b7d8d"]
@@ -108,6 +111,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
   const liveLocationHistory = useBoardStore(s => s.liveLocationHistory)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null)
+  /** Road-following coordinates per stop-chain signature (straight lines until they land). */
+  const [roadShapes, setRoadShapes] = useState<Record<string, LngLat[]>>({})
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
@@ -161,7 +166,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
           const stops = visible
             .filter(j => j.techId === tech.id && j.location)
             .sort((a, b) => a.startBlock - b.startBlock)
-            .map(j => [j.location!.lng, j.location!.lat])
+            .map((j): LngLat => [j.location!.lng, j.location!.lat])
           if (stops.length < 2) return null
           return {
             type: "Feature" as const,
@@ -170,13 +175,60 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
               color: PERSON_COLORS[index % 4],
               emphasized: !vanId || vanId === tech.id
             },
-            geometry: { type: "LineString" as const, coordinates: stops }
+            geometry: { type: "LineString" as const, coordinates: roadShapes[routeSignature(stops)] ?? stops }
           }
         })
         .filter(Boolean)
     }),
-    [technicians, visible, vanId]
+    [technicians, visible, vanId, roadShapes]
   )
+
+  // Road-following upgrade for the dashed polylines: debounced per board
+  // change, cached by stop-chain signature, silent no-op offline.
+  const routeChains = useMemo(
+    () =>
+      technicians
+        .map(tech => ({
+          techId: tech.id,
+          stops: visible
+            .filter(j => j.techId === tech.id && j.location)
+            .sort((a, b) => a.startBlock - b.startBlock)
+            .map((j): LngLat => [j.location!.lng, j.location!.lat])
+        }))
+        .filter(chain => chain.stops.length >= 2),
+    [technicians, visible]
+  )
+  const chainsSignature = routeChains.map(c => `${c.techId}~${routeSignature(c.stops)}`).join("||")
+  useEffect(() => {
+    if (routeChains.length === 0) return
+    const timer = setTimeout(() => {
+      void Promise.all(
+        routeChains.map(async chain => {
+          const coords = await fetchRoadShape(chain.stops)
+          return coords ? [routeSignature(chain.stops), coords] as const : null
+        })
+      ).then(landed => {
+        const fresh = landed.filter(
+          (entry): entry is readonly [string, LngLat[]] => entry !== null
+        )
+        if (fresh.length === 0) return
+        setRoadShapes(prev => {
+          let changed = false
+          const next = { ...prev }
+          for (const [signature, coords] of fresh) {
+            if (next[signature] !== coords) {
+              next[signature] = coords
+              changed = true
+            }
+          }
+          return changed ? next : prev
+        })
+      })
+    }, 400)
+    return () => clearTimeout(timer)
+    // Signature-stable: the debounce only re-arms when a chain actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chainsSignature])
 
   const breadcrumbs = useMemo(
     () => ({
