@@ -246,6 +246,26 @@
     background: color-mix(in srgb, var(--chassis-void) 90%, transparent);
   }
 
+  /* Watermelon skeleton shimmer — recessed base with a sweeping etch highlight */
+  @keyframes skeleton-shine {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  .skeleton-shine {
+    background: linear-gradient(
+      110deg,
+      var(--chassis-recess) 30%,
+      var(--divider-etch) 50%,
+      var(--chassis-recess) 70%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shine 1.6s linear infinite;
+  }
+
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;

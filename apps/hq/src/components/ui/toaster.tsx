@@ -1,35 +1,36 @@
 "use client"
 
-import { useToast } from "@/hooks/use-toast"
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport
-} from "@/components/ui/toast"
+import { CheckCircle2, Info, Loader2, OctagonX, TriangleAlert } from "lucide-react"
+import { Toaster as Sonner } from "sonner"
+
+import { useBoardStore } from "@/stores/boardStore"
+
+/* Watermelon toast pattern: Sonner themed entirely through the FieldLoop
+   tokens — glass panel, etched border, chassis radius. The board theme
+   drives Sonner's light/dark shell so toasts follow the active colourway. */
 
 export function Toaster() {
-  const { toasts } = useToast()
-
+  const theme = useBoardStore(s => s.theme)
   return (
-    <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
-        return (
-          <Toast key={id} {...props}>
-            <div className="grid gap-1">
-              {title && <ToastTitle>{title}</ToastTitle>}
-              {description && (
-                <ToastDescription>{description}</ToastDescription>
-              )}
-            </div>
-            {action}
-            <ToastClose />
-          </Toast>
-        )
-      })}
-      <ToastViewport />
-    </ToastProvider>
+    <Sonner
+      theme={theme}
+      position="bottom-right"
+      className="toaster group"
+      icons={{
+        success: <CheckCircle2 className="size-4" />,
+        info: <Info className="size-4" />,
+        warning: <TriangleAlert className="size-4" />,
+        error: <OctagonX className="size-4" />,
+        loading: <Loader2 className="size-4 animate-spin" />
+      }}
+      style={
+        {
+          "--normal-bg": "var(--panel-strong)",
+          "--normal-text": "var(--app-text)",
+          "--normal-border": "var(--divider-etch)",
+          "--border-radius": "var(--radius)"
+        } as React.CSSProperties
+      }
+    />
   )
 }

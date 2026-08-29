@@ -17,13 +17,26 @@ export const statusStyles: Record<JobStatus, StatusStyle> = {
   complete: { badge: "text-complete", chip: "bg-complete text-on-accent", label: "Complete", icon: Check }
 }
 
-export function statusPrecedence(job: Pick<Job, "status" | "priority">): JobStatus {
-  if (job.priority === "emergency") return "active"
+/** Emergency is a display channel above any status: urgent red + siren —
+ *  an active emergency must read red, never teal (APPLICATION_MAP §6.2). */
+export type StatusChannel = JobStatus | "emergency"
+
+const emergencyStyle: StatusStyle = { badge: "text-urgent", chip: "bg-urgent text-on-accent", label: "Emergency", icon: Siren }
+
+export const channelStyles: Record<StatusChannel, StatusStyle> = {
+  ...statusStyles,
+  emergency: emergencyStyle
+}
+
+/** One precedence order for every surface: emergency > delayed > state. */
+export function statusPrecedence(job: Pick<Job, "status" | "priority">): StatusChannel {
+  if (job.priority === "emergency") return "emergency"
+  if (job.status === "delayed") return "delayed"
   return job.status
 }
 
 export function statusStyleFor(job: Pick<Job, "status" | "priority">): StatusStyle {
-  return statusStyles[statusPrecedence(job)]
+  return channelStyles[statusPrecedence(job)]
 }
 
 export function personOrder(technicians: Technician[]): Technician[] {

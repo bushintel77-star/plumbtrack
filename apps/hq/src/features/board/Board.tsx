@@ -22,6 +22,9 @@ import {
   useQueryStates
 } from "nuqs"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { motion } from "motion/react"
+import { useMachine } from "@xstate/react"
+import { dispatchInteractionMachine } from "@/lib/dispatchMachine"
 import { DispatchGantt, DispatchList, DispatchTable } from "./DispatchViews"
 import { CrewRouteJobTree } from "./CrewRouteJobTree"
 
@@ -160,6 +163,11 @@ export function Board() {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   )
 
+  // Drag-lifecycle FSM (idle → selected → dragging → valid/invalid →
+  // committing) — one machine behind every drag surface; data-drag-state on
+  // the board container exposes the channel for tests and e2e.
+  const [dragSnapshot, dragSend] = useMachine(dispatchInteractionMachine)
+
   const activeJob = useMemo(
     () => (drag ? jobs.find(j => j.id === drag.jobId) ?? null : null),
     [drag, jobs]
@@ -184,6 +192,7 @@ export function Board() {
     const job = useBoardStore.getState().jobs[jobId]
     if (job?.status === "unassigned") selectJob(jobId)
     setDrag({ jobId, fromBlockDrag: fromBlock, overTechId: null, check: null })
+    dragSend({ type: "START_DRAG" })
   }
 
   const onDragOver = (event: DragOverEvent): void => {
@@ -193,6 +202,12 @@ export function Board() {
     // hovered 30-minute slot (research §Phase 2).
     const check = useBoardStore.getState().canAssign(drag.jobId, cell.techId, cell.block)
     setDrag(prev => (prev ? { ...prev, overTechId: cell.techId, check } : prev))
+    dragSend({ type: check.ok ? "HOVER_VALID" : "HOVER_INVALID" })
+  }
+
+  const onDragCancel = (): void => {
+    setDrag(null)
+    dragSend({ type: "CANCEL" })
   }
 
   /** Custom 2D collision strategy (research §Phase 2): the pointer's exact
@@ -210,7 +225,15 @@ export function Board() {
     const jobId = drag?.jobId
     setDrag(null)
     if (!cell || !jobId) return
+    // The FSM blocks the write when the last hovered slot failed validation —
+    // an invalid drop never reaches the assignment path.
+    if (drag?.check && !drag.check.ok) {
+      dragSend({ type: "DROP" })
+      return
+    }
+    dragSend({ type: "DROP" })
     const ok = await performAssignment(jobId, cell.techId, cell.block)
+    dragSend({ type: ok ? "SUCCESS" : "FAILURE" })
     if (ok) selectJob(jobId)
   }
 
@@ -220,10 +243,10 @@ export function Board() {
       collisionDetection={collisionDetection}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
+      onDragCancel={onDragCancel}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setDrag(null)}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col" data-drag-state={String(dragSnapshot.value)}>
         <ClosedLoopHub />
         <FilterBar filters={filters} onFiltersChange={setFilters} zoom={filters.zoom} />
         <DispatchHealthStrip
@@ -279,7 +302,17 @@ export function Board() {
           )}
 
           <div className="min-w-0 flex-1">
-            {filters.view === "list" && (presentation === "table" ? <DispatchTable filters={filters} /> : presentation === "gantt" ? <DispatchGantt filters={filters} /> : <DispatchList filters={filters} />)}
+            {filters.view === "list" && (
+              <motion.div
+                key={presentation ?? "list"}
+                className="h-full min-h-0"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                {presentation === "table" ? <DispatchTable filters={filters} /> : presentation === "gantt" ? <DispatchGantt filters={filters} /> : <DispatchList filters={filters} />}
+              </motion.div>
+            )}
             {filters.view === "calendar" && <CalendarView filters={filters} />}
             {filters.view === "map" && (splitMap ? <div className="grid h-full min-h-0 grid-cols-[minmax(280px,0.85fr)_minmax(520px,1.5fr)] divide-x divide-line"><MapView filters={filters} /><DispatchCanvas filters={filters} zoom="daily" drag={drag} bestSlot={bestSlot} /></div> : <MapView filters={filters} />)}
             {filters.view === "matrix" && (

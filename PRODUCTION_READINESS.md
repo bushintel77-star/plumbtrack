@@ -7,7 +7,8 @@ Updated: 2026-08-29
 | Area | Current state | Evidence |
 |---|---|---|
 | HQ dispatch board | Functional prototype with matrix, list, calendar, map, filters, drag/drop, queue, routing suggestions, timers, and health strip | HQ build and unit suite pass |
-| Semantic status system | Shared status tokens, precedence, icons, map palette bridge, and color gate are implemented | HQ lint/color gate and status tests pass |
+| Semantic status system | Shared status tokens, precedence (emergency > delayed > state), icons, map palette bridge, and color gate are implemented | HQ lint/color gate and status tests pass |
+| Premium UI layer | Watermelon composition (Sonner toast, motion inspector/view transitions, button polish, skeleton/empty) + Kibo primitives (combobox, tags, table row model, gantt now-line), all token-pure; drag lifecycle driven by the XState dispatch machine with `data-drag-state` channel | 30 unit + 28 e2e green (dispatchViews, board, map, accessibility suites) |
 | Map | MapLibre map with token-backed pins, road-shape upgrade, routes, breadcrumbs, hover popup, accessible jobs list, and error fallback | Map palette/road-shape tests pass |
 | Authentication | API HTTP-only session issuance, renewal, sign-out, and cookie-aware HQ client are implemented | API auth tests pass |
 | Connectivity | REST demo fallback, offline queue foundation, telemetry reconnect/backoff, and simulator path exist | Typecheck/build/tests pass |
