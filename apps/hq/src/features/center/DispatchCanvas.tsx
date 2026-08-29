@@ -10,6 +10,7 @@ import { travelMinutes } from "@/lib/travel"
 import { absenceFor, jobDay } from "@/lib/schedule"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { AssignCheck, Job, Technician } from "@/types"
+import { personColor, statusStyleFor } from "@/lib/statusStyles"
 
 import { JobBlock } from "./JobBlock"
 import type { BoardFilters } from "@/features/board/filters"
@@ -26,8 +27,6 @@ export interface BestSlot {
   block: number
   spanBlocks: number
 }
-
-const PERSON_TEXT = ["text-person-1", "text-person-2", "text-person-3", "text-person-4"]
 
 const HASH_OVERLAY =
   "repeating-linear-gradient(45deg, var(--divider-etch) 0 6px, transparent 6px 12px)"
@@ -203,8 +202,10 @@ function TimelineRow({
   bestSlot: BestSlot | null
 }) {
   const openDetails = useBoardStore(s => s.openDetails)
+  const technicians = useBoardStore(s => s.technicians)
 
   const rowJobs = jobs.filter(j => j.techId === tech.id)
+  const revealJob = (jobId: string) => { window.dispatchEvent(new CustomEvent("hq-dispatch-focus-job", { detail: jobId })) }
   const activeJob = rowJobs.find(j => j.status === "active")
   const absence = absenceFor(tech, date)
 
@@ -223,11 +224,11 @@ function TimelineRow({
       <div className="sticky left-0 z-10 flex items-center gap-2.5 border-r border-line bg-void-95 px-3 py-2 backdrop-blur">
         <div
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-            activeJob ? "bg-active-wash text-active ring-2 ring-active" : "bg-chrome-wash",
-            !activeJob && absence && "opacity-60",
-            !activeJob && !absence && PERSON_TEXT[techIndex % 4]
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fill text-[11px] font-bold",
+            activeJob && "ring-2 ring-active",
+            absence && "opacity-60"
           )}
+          style={{ color: personColor(tech, technicians) }}
         >
           {initials(tech.name)}
         </div>
@@ -242,7 +243,7 @@ function TimelineRow({
             {absence && (
               <Badge
                 variant="outline"
-                className="label-mono h-4 shrink-0 rounded-sm border-line px-1 text-2xs text-ink-low"
+                className="label-mono h-4 shrink-0 rounded-sm bg-pending-wash px-1 text-2xs text-pending"
                 title={absence.reason}
               >
                 <CalendarOff className="mr-0.5 h-2.5 w-2.5" />
@@ -268,7 +269,7 @@ function TimelineRow({
       <div
         data-testid={`row-body-${tech.id}`}
         className={cn(
-          "relative h-[76px] transition-colors",
+          "relative h-[68px] transition-colors",
           showSlots && "bg-chrome-wash/40",
           showBlocked && "bg-urgent-wash ring-1 ring-inset ring-urgent"
         )}
@@ -304,7 +305,7 @@ function TimelineRow({
           </div>
         )}
         {rowJobs.map(job => (
-          <JobBlock key={job.id} job={job} onSelect={openDetails} />
+          <JobBlock key={job.id} job={job} onSelect={jobId => { openDetails(jobId); revealJob(jobId) }} />
         ))}
       </div>
     </div>
@@ -378,7 +379,6 @@ function ZoomGrid({
             <div
               className={cn(
                 "sticky left-0 z-10 flex items-center gap-2 border-r border-line bg-void-95 px-3 text-[13px] font-semibold backdrop-blur",
-                PERSON_TEXT[techIndex % 4]
               )}
             >
               {tech.name.split(" ")[0]}
@@ -414,15 +414,7 @@ function ZoomGrid({
                       title={`${job.title} · ${jobDay(job)}`}
                       className={cn(
                         "flex w-full items-center gap-1 rounded border px-1.5 py-1 text-left text-2xs font-semibold",
-                        job.status === "active"
-                          ? "border-active bg-active-wash text-active"
-                          : job.status === "complete"
-                            ? "border-complete bg-complete-wash text-complete"
-                            : job.status === "en_route"
-                              ? "border-chrome-400 bg-chrome-wash text-chrome-600"
-                              : job.status === "delayed"
-                                ? "border-pending bg-pending-wash text-pending"
-                                : "border-line bg-recess text-ink-mid"
+                        `${statusStyleFor(job).chip} border-line`
                       )}
                     >
                       {job.linkedGroupId && <span className="text-chrome-400">⧉</span>}
@@ -466,7 +458,7 @@ export function DispatchCanvas({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" data-testid="matrix-view">
-      <div className="scrollbar-thin min-h-0 flex-1 overflow-auto px-4 pb-4 pt-3">
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-auto px-3 pb-3 pt-2">
         <div className="min-w-[1120px]">
           <div
             className="sticky top-0 z-20 grid border-b border-line bg-void-90 backdrop-blur"

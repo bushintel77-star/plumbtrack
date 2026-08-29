@@ -5,18 +5,12 @@ import { Siren } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { statusStyleFor } from "@/lib/statusStyles"
 import { blockLabel, formatElapsed } from "@/lib/format"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 
 import type { BoardFilters } from "@/features/board/filters"
 import { jobMatchesFilters } from "@/features/board/filters"
-
-const STATUS_BADGE: Record<string, string> = {
-  unassigned: "border-line bg-fill text-ink-mid hover:bg-fill",
-  scheduled: "border-line bg-fill text-ink-low hover:bg-fill",
-  active: "animate-pulse-soft border-active bg-active-wash text-active hover:bg-active-wash",
-  complete: "border-complete bg-complete-wash text-complete hover:bg-complete-wash"
-}
 
 export function JobListView({ filters }: { filters: BoardFilters }) {
   const jobs = useJobsList()
@@ -92,10 +86,10 @@ export function JobListView({ filters }: { filters: BoardFilters }) {
                     <Badge
                       className={cn(
                         "label-mono rounded-sm border text-2xs",
-                        STATUS_BADGE[job.status]
+                        statusStyleFor(job).badge
                       )}
                     >
-                      {job.status === "scheduled" ? "QUEUED" : job.status}
+                      {statusStyleFor(job).label}
                     </Badge>
                   </td>
                 </tr>

@@ -99,8 +99,9 @@ export function AvailabilityPanel({ date }: { date: string }) {
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="panel-strong w-80 p-0" data-testid="availability-panel">
-        <div className="border-b border-line px-3 py-2">
+      <PopoverContent align="end" className="panel-strong w-80 rounded-2xl border border-line/80 bg-recess/95 p-0 shadow-[var(--chassis-shadow)] backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95" data-testid="availability-panel">
+        <div className="flex items-center justify-between px-4 pt-3"><div><div className="text-sm font-semibold text-ink">Crew availability</div><div className="mt-0.5 text-2xs text-ink-low">Pick the next qualified crew at a glance</div></div><span className="rounded-full bg-chrome-wash px-2 py-1 label-mono text-2xs text-chrome-600">LIVE</span></div>
+        <div className="border-b border-line/80 bg-fill/40 px-4 py-3">
           <div className="label-mono text-2xs text-ink-low">CREW BANDWIDTH · TODAY</div>
           <div className="label-mono tnum mt-1 flex gap-2 text-2xs">
             <span className="rounded-sm bg-complete-wash px-1.5 py-0.5 text-complete">{free} FREE</span>
@@ -121,7 +122,7 @@ export function AvailabilityPanel({ date }: { date: string }) {
             </button>
           )}
         </div>
-        <div className="max-h-[320px] overflow-y-auto p-1.5">
+        <div className="max-h-[320px] overflow-y-auto p-2">
           {rows.map(({ tech, availability, todayCount }) => {
             const qualified =
               quickAssignTarget &&
@@ -130,7 +131,7 @@ export function AvailabilityPanel({ date }: { date: string }) {
               <div
                 key={tech.id}
                 data-testid={`availability-row-${tech.id}`}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-fill"
+                className="flex items-center gap-2 rounded-xl border border-transparent px-2.5 py-2 transition-colors hover:border-line hover:bg-fill"
               >
                 <div className="min-w-0 flex-1 leading-tight">
                   <div className="text-xs font-semibold">

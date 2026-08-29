@@ -85,7 +85,8 @@ export function FilterPopover() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="panel-strong w-72 p-2">
+      <PopoverContent align="end" className="panel-strong w-80 rounded-2xl border border-line/80 bg-recess/95 p-2.5 shadow-[var(--chassis-shadow)] backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95">
+        <div className="border-b border-line/80 px-2 pb-2 pt-1"><div className="text-sm font-semibold text-ink">Filter the board</div><div className="mt-0.5 text-2xs text-ink-low">Focus the shift without leaving the planner</div></div>
         <Accordion type="multiple" defaultValue={["status"]}>
           <AccordionItem value="status">
             <AccordionTrigger>STATUS</AccordionTrigger>

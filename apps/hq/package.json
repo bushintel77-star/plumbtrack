@@ -6,7 +6,7 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx && node scripts/check-color-gate.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test"
@@ -34,6 +34,7 @@
     "maplibre-gl": "^4.7.1",
     "next": "15.5.23",
     "nuqs": "^2.1.5",
+    "xstate": "^5.20.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-map-gl": "^7.1.7",

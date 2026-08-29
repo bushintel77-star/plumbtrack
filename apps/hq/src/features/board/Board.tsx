@@ -22,6 +22,8 @@ import {
   useQueryStates
 } from "nuqs"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { DispatchGantt, DispatchList, DispatchTable } from "./DispatchViews"
+import { CrewRouteJobTree } from "./CrewRouteJobTree"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -31,11 +33,13 @@ import { todayIsoDay } from "@/lib/format"
 import { rankCrews } from "@/lib/assignment"
 import { cacheJobs } from "@/lib/offline"
 import { primeRoadMatrix } from "@/lib/roadTime"
+import { travelMinutes } from "@/lib/travel"
 import { DEPOT } from "@/lib/optimize"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { AssignCheck } from "@/types"
 
 import { FilterBar } from "./FilterBar"
+import { DispatchHealthStrip } from "./DispatchHealthStrip"
 import { SuggestionStrip } from "./SuggestionStrip"
 import { RouteOptimizerCard } from "./RouteOptimizerCard"
 import { QueueRail } from "@/features/left/QueueRail"
@@ -92,6 +96,15 @@ export function Board() {
     date: parseAsString.withDefault(todayIsoDay())
   })
   const splitMap = filters.view === "map" && filters.zoom === "daily"
+  const presentation = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("presentation")
+  const routeRiskCount = technicians.reduce((count, tech) => {
+    const rowJobs = jobs.filter(job => job.techId === tech.id && job.location).sort((a, b) => a.startBlock - b.startBlock)
+    return count + rowJobs.slice(1).reduce((rowCount, job, index) => {
+      const previous = rowJobs[index]
+      const gap = (job.startBlock - previous.startBlock - previous.spanBlocks) * 30
+      return rowCount + (gap >= 0 && previous.location && job.location && travelMinutes(previous.location, job.location) > gap ? 1 : 0)
+    }, 0)
+  }, 0)
 
   const selectedJob = jobs.find(j => j.id === selectedJobId)
   const showSuggestions =
@@ -213,13 +226,25 @@ export function Board() {
       <div className="flex h-full min-h-0 flex-col">
         <ClosedLoopHub />
         <FilterBar filters={filters} onFiltersChange={setFilters} zoom={filters.zoom} />
+        <DispatchHealthStrip
+          jobs={jobs}
+          routeRiskCount={routeRiskCount}
+          onFilter={signal => {
+            if (signal === "active" || signal === "unassigned" || signal === "delayed") {
+              void setFilters({ view: "list", status: [signal] })
+            } else if (signal === null) {
+              void setFilters({ status: [] })
+            }
+          }}
+        />
         {showSuggestions && selectedJob && <SuggestionStrip job={selectedJob} />}
+        {filters.view === "matrix" && <CrewRouteJobTree />}
 
         <div className="relative flex min-h-0 flex-1">
           {filters.view === "matrix" && (
             <>
               {queueOpen ? (
-                <div className="flex w-64 min-w-0 shrink-0 flex-col border-r border-line">
+                <div className="flex w-56 min-w-0 shrink-0 flex-col border-r border-line bg-recess/30">
                   <div className="flex items-center justify-between px-3 pt-3">
                     <span className="label-mono text-2xs text-ink-low">UNASSIGNED QUEUE</span>
                     <Button
@@ -236,7 +261,7 @@ export function Board() {
                   <QueueRail date={filters.date} />
                 </div>
               ) : (
-                <div className="flex w-10 shrink-0 flex-col items-center border-r border-line py-3">
+                <div className="flex w-9 shrink-0 flex-col items-center border-r border-line bg-recess/30 py-3">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -254,7 +279,7 @@ export function Board() {
           )}
 
           <div className="min-w-0 flex-1">
-            {filters.view === "list" && <JobListView filters={filters} />}
+            {filters.view === "list" && (presentation === "table" ? <DispatchTable filters={filters} /> : presentation === "gantt" ? <DispatchGantt filters={filters} /> : <DispatchList filters={filters} />)}
             {filters.view === "calendar" && <CalendarView filters={filters} />}
             {filters.view === "map" && (splitMap ? <div className="grid h-full min-h-0 grid-cols-[minmax(280px,0.85fr)_minmax(520px,1.5fr)] divide-x divide-line"><MapView filters={filters} /><DispatchCanvas filters={filters} zoom="daily" drag={drag} bestSlot={bestSlot} /></div> : <MapView filters={filters} />)}
             {filters.view === "matrix" && (

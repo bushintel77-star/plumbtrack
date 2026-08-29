@@ -6,6 +6,7 @@ import { useQueryState, parseAsString } from "nuqs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+import { statusStyleFor } from "@/lib/statusStyles"
 import {
   blockLabel,
   dayLabel,
@@ -117,7 +118,7 @@ export function CalendarView({ filters }: { filters: BoardFilters }) {
             {isToday && nowRow >= 0 && nowRow <= TOTAL_BLOCKS * ROW_HEIGHT && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0 z-10 h-px bg-active"
+                className="pointer-events-none absolute inset-x-0 z-10 h-px bg-chrome-600"
                 style={{ top: nowRow }}
               >
                 <span className="absolute -left-1 -top-[3px] h-[7px] w-[7px] rounded-full bg-active" />
@@ -134,8 +135,7 @@ export function CalendarView({ filters }: { filters: BoardFilters }) {
                   style={{ gridColumn: `${colIndex + 2}`, gridRow: `1 / span ${TOTAL_BLOCKS}` }}
                 >
                   {columnJobs.map(job => {
-                    const isActive = job.status === "active"
-                    const isComplete = job.status === "complete"
+                    const status = statusStyleFor(job)
                     return (
                       <button
                         key={job.id}
@@ -148,13 +148,8 @@ export function CalendarView({ filters }: { filters: BoardFilters }) {
                         }}
                         className={cn(
                           "absolute inset-x-1.5 overflow-hidden rounded-md border px-2 py-1 text-left transition-colors",
-                          isActive
-                            ? "z-[5] animate-glow-active border-active bg-active-wash"
-                            : isComplete
-                              ? "border-complete bg-complete-wash"
-                              : "border-line bg-recess hover:border-chrome-400/50",
-                          selectedJobId === job.id && "ring-2 ring-chrome-400",
-                          !isActive && !isComplete && "opacity-80"
+                          `${status.chip} border-line`,
+                          selectedJobId === job.id && "ring-2 ring-chrome-400"
                         )}
                       >
                         <div className="truncate text-[11px] font-semibold leading-4">

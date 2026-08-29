@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Map, { Layer, Marker, Popup, Source, useMap, type LayerProps } from "react-map-gl/maplibre"
+import Map, { Layer, Popup, Source, useMap, type LayerProps, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
@@ -35,13 +35,12 @@ const MAP_STYLES = {
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
 
 function statusColor(job: Job, palette: MapPalette): string {
-  // Colour contract (token-sourced): chrome cobalt = live/interactive work,
-  // urgent = emergency, complete = pale, ink-mid = scheduled/queued.
-  // Highlight ring (hover or selection) is painted separately so no status
-  // colour doubles as it.
-  if (job.status === "active") return palette.live
-  if (job.status === "complete") return palette.complete
+  // One precedence law shared by board, list, and map.
   if (job.priority === "emergency") return palette.urgent
+  if (job.status === "delayed") return palette.pending
+  if (job.status === "active") return palette.active
+  if (job.status === "en_route") return palette.enRoute
+  if (job.status === "complete") return palette.complete
   return palette.neutral
 }
 
@@ -73,7 +72,7 @@ interface MapLibreViewProps {
   visible: Job[]
   vanId: string
   onSelectJob: (jobId: string) => void
-  onDragStart?: (jobId: string) => void
+
 }
 
 function VehicleIcon({ fill, stroke }: { fill: string; stroke: string }) {
@@ -107,6 +106,7 @@ function VehicleIcon({ fill, stroke }: { fill: string; stroke: string }) {
 
 export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
+  const [mapError, setMapError] = useState(false)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
   const liveLocations = useBoardStore(s => s.liveLocations)
@@ -127,6 +127,13 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
   const hoveredLocation = hoveredJob?.location
 
   useEffect(() => {
+    if (!selectedJobId) return
+    const job = visible.find(item => item.id === selectedJobId)
+    if (!job?.location) return
+    setHoveredJobId(selectedJobId)
+  }, [selectedJobId, visible])
+
+  useEffect(() => {
     const onFocusJob = (event: Event) => {
       const id = (event as CustomEvent<string>).detail
       if (visible.some(job => job.id === id)) setHoveredJobId(id)
@@ -141,8 +148,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       window.removeEventListener("keydown", onEscape)
     }
   }, [visible])
-  const unassigned = visible.filter(job => job.status === "unassigned")
-
   const pins = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -289,6 +294,18 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     return [base]
   }, [palette])
 
+  if (mapError) {
+    return (
+      <div role="alert" className="flex h-full min-h-48 items-center justify-center bg-void p-6 text-center text-ink">
+        <div className="max-w-sm">
+          <p className="label-mono text-2xs text-pending">MAP UNAVAILABLE</p>
+          <p className="mt-2 text-sm text-ink-mid">Live map tiles could not be rendered. Use the Map Jobs list to continue dispatching.</p>
+          <button type="button" className="mt-4 rounded-md bg-chrome-600 px-3 py-2 text-xs font-semibold text-on-accent" onClick={() => setMapError(false)}>Retry map</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Map
       mapLib={maplibregl}
@@ -296,7 +313,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       style={{ width: "100%", height: "100%" }}
       mapStyle={MAP_STYLES[theme]}
       interactiveLayerIds={["job-pins"]}
-      onMouseMove={event => {
+      onError={() => setMapError(true)}
+      onMouseMove={(event: MapLayerMouseEvent) => {
         const feature = event.features?.find(f => f.properties?.jobId)
         if (feature?.properties?.jobId) setHoveredJobId(String(feature.properties.jobId))
       }}
@@ -306,7 +324,11 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       onMouseOut={() => setHoveredJobId(null)}
       onClick={event => {
         const feature = event.features?.find(f => f.properties?.jobId)
-        if (feature?.properties?.jobId) onSelectJob(String(feature.properties.jobId))
+        if (feature?.properties?.jobId) {
+          const jobId = String(feature.properties.jobId)
+          onSelectJob(jobId)
+          window.dispatchEvent(new CustomEvent("hq-map-focus-job", { detail: jobId }))
+        }
       }}
     >
       <VehicleIcon fill={palette.vehicle} stroke={palette.highlightStroke} />

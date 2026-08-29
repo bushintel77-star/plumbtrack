@@ -63,6 +63,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { MessagesView, useMessagesDrawer } from "./messages/MessagesView";
 import { StaffClockInSheet } from "@/components/messages/StaffClockInSheet";
 import { TodayStream } from "@/components/features/TodayStream";
+import { CrewRouteJobTree } from "@/components/features/CrewRouteJobTree";
 import { SearchSheet } from "@/components/search/SearchSheet";
 import { DocumentsView } from "@/components/features/DocumentsView";
 import { NotificationFeedView } from "@/components/notifications/NotificationFeedView";
@@ -264,7 +265,7 @@ function PlumbTrackInner() {
           className="app-main flex-1 overflow-y-auto pb-[calc(1.5rem+var(--bottom-nav-clearance))]"
           style={{ scrollbarWidth: "thin", scrollbarColor: "var(--surface-border) transparent" }}
         >
-          {view === "list" && activeTab === "jobs" && <TodayStream />}
+          {view === "list" && activeTab === "jobs" && <><CrewRouteJobTree /><TodayStream /></>}
           {view === "list" && activeTab === "quotes" && <QuoteListView />}
           {view === "list" && activeTab === "dashboard" && <ProjectDashboard />}
           {view === "list" && activeTab === "documents" && (
@@ -1044,6 +1045,7 @@ function TimesheetView() {
 
   return (
     <div className="p-3 space-y-2">
+      <CrewRouteJobTree />
       <div className="flex gap-2">
         {(["week", "month"] as const).map((p) => (
           <button key={p} type="button" onClick={() => setPeriod(p)}

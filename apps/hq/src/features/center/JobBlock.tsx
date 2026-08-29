@@ -1,9 +1,8 @@
 "use client"
 
 import { useDraggable } from "@dnd-kit/core"
-import {
-  AlertTriangle
-} from "lucide-react"
+import { AlertTriangle } from "lucide-react"
+import { statusStyleFor } from "@/lib/statusStyles"
 
 import {
   ContextMenu,
@@ -41,23 +40,12 @@ export function JobBlock({ job, onSelect }: { job: Job; onSelect: (jobId: string
   const isSelected = selectedJobId === job.id
   const isActive = job.status === "active"
   const isComplete = job.status === "complete"
-  const isEnRoute = job.status === "en_route"
-  const isDelayed = job.status === "delayed"
   const conflicts = jobConflicts(job, jobs, technicians)
+  const status = statusStyleFor(job)
+  const StatusIcon = status.icon
   const hasConflict = conflicts.length > 0
-
-  const stripe = hasConflict ? "bg-white/45" : "bg-black/20"
-  const chip = hasConflict
-    ? "bg-[#dc2626]"
-    : isActive
-      ? "bg-[#2563eb]"
-      : isComplete
-        ? "bg-[#64748b]"
-        : isDelayed
-          ? "bg-[#f59e0b]"
-          : job.priority === "emergency"
-            ? "bg-[#dc2626]"
-            : "bg-[#0089f6]"
+  const stripe = hasConflict ? "bg-urgent" : "bg-black/20"
+  const chip = hasConflict ? "bg-urgent" : status.chip.split(" ")[0]
 
   const statusItem = (value: JobStatus, label: string): React.ReactNode => (
     <ContextMenuRadioItem
@@ -90,11 +78,11 @@ export function JobBlock({ job, onSelect }: { job: Job; onSelect: (jobId: string
             width: `${(job.spanBlocks / TOTAL_BLOCKS) * 100}%`
           }}
           className={cn(
-            "absolute inset-y-2.5 touch-none overflow-hidden rounded-[3px] px-2 py-0 text-left text-white outline-none transition-[filter,transform,opacity]",
+            "absolute inset-y-2.5 touch-none overflow-hidden rounded-[3px] px-2 py-0 text-left outline-none transition-[filter,transform,opacity]",
             chip,
-            hasConflict && "z-[6] animate-pulse-soft ring-2 ring-red-300",
+            hasConflict && "z-[6] animate-pulse-soft ring-2 ring-urgent",
             !isActive && !isComplete && "opacity-95",
-            isSelected && "ring-2 ring-white ring-offset-1 ring-offset-slate-950",
+            isSelected && "ring-2 ring-chrome-400 ring-offset-1 ring-offset-void",
             isDragging && "opacity-40",
             "hover:brightness-110"
           )}
@@ -109,9 +97,9 @@ export function JobBlock({ job, onSelect }: { job: Job; onSelect: (jobId: string
 
           <div className="relative flex min-w-0 items-center gap-1">
             <span className={cn("absolute inset-y-0 -left-2 w-0.5", stripe)} />
-            {hasConflict && <AlertTriangle className="h-3 w-3 shrink-0 text-white" />}
-            <span className="truncate text-[11px] font-bold leading-4 text-white">{job.status === "en_route" ? "EN ROUTE" : job.status === "delayed" ? "DELAYED" : job.status === "complete" ? "DONE" : job.id.replace("j-", "Job #")}</span>
-            {job.status === "scheduled" && <span className="sr-only">QUEUED</span>}
+            {hasConflict ? <AlertTriangle className="h-3 w-3 shrink-0 text-on-accent" /> : <StatusIcon className="h-3 w-3 shrink-0 text-on-accent" />}
+            <span className="truncate text-[11px] font-bold leading-4 text-on-accent">{job.id.replace("j-", "Job #")}</span>
+            <span className="sr-only">{status.label}</span>
           </div>
           {isActive && <span data-testid={`timer-${job.id}`} className="sr-only">{formatElapsed(job.elapsedSeconds)}</span>}
         </button>

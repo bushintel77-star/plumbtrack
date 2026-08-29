@@ -24,6 +24,7 @@ import { BottomSheet, SheetActionCard } from "@/components/ui/BottomSheet";
 import { Avatar } from "@/components/ui/Avatar";
 import { config } from "@/lib/config";
 import type { SlackMember, SlackMessage } from "@/types";
+import { CrewRouteJobTree } from "@/components/features/CrewRouteJobTree";
 
 // ── Semantic colour tokens ──────────────────────────────────────────────────
 const SIDEBAR = "var(--bg-sidebar)";
@@ -971,6 +972,7 @@ export function MessagesView({
       />
 
       {/* Channel info bar */}
+      <CrewRouteJobTree />
       <ChannelInfoBar />
 
       {/* Messages */}

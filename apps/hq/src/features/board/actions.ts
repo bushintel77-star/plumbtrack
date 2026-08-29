@@ -2,7 +2,7 @@
 
 import { toast } from "@/hooks/use-toast"
 import { useBoardStore } from "@/stores/boardStore"
-import { persistJobStatus } from "@/lib/api"
+import { authApi, persistJobStatus } from "@/lib/api"
 import { enqueueSync } from "@/lib/offline"
 import type { OptimizeResult } from "@/lib/optimize"
 
@@ -58,7 +58,7 @@ export async function performAssignment(
 
   if (store.dataMode === "live") {
     try {
-      await persistJobStatus(jobId, "scheduled")
+      await authApi.assignment(jobId, techId, startBlock)
     } catch {
       store.rollbackJobs()
       toast({
@@ -139,7 +139,7 @@ export async function performRouteApply(result: OptimizeResult): Promise<boolean
   if (store.dataMode === "live") {
     try {
       await Promise.all(
-        newlyAssigned.map(stop => persistJobStatus(stop.jobId, "scheduled"))
+        newlyAssigned.map(stop => authApi.assignment(stop.jobId, stop.techId, stop.startBlock))
       )
     } catch {
       store.rollbackJobs()

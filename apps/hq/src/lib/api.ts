@@ -120,6 +120,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
 export const authApi = {
   session: () => apiGet<HqSession>("/api/auth/session"),
+  assignment: (jobId: string, technicianId: string, startBlock: number) =>
+    apiRequest(`/api/jobs/${jobId}/assignment`, {
+      method: "PATCH",
+      body: JSON.stringify({ technicianId, startBlock })
+    }),
   renew: () => apiRequest<HqSession>("/api/auth/renew", { method: "POST" }),
   signOut: () => apiRequest<void>("/api/auth/sign-out", { method: "POST" })
 }

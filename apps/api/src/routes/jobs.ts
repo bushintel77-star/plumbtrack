@@ -13,6 +13,7 @@ import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
+import { assignmentSchema } from "../schemas/assignment";
 
 /** Roles allowed to record field work (time entries and site photos). */
 const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
@@ -69,6 +70,26 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     });
     if (!job) return reply.code(404).send({ message: "Job not found" });
     return job;
+  });
+
+  app.patch("/:id/assignment", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"]);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const parsed = parseBody(assignmentSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const job = await prisma.job.findFirst({ where: { id, orgId } });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    const updated = await prisma.appointment.updateMany({
+      where: { jobId: id, orgId },
+      data: { assignedStaffId: parsed.data.technicianId, updatedAt: new Date() }
+    });
+    if (updated.count === 0) return reply.code(409).send({ message: "Job has no schedulable appointment" });
+    if (updated.count === 0) return reply.code(404).send({ message: "Job not found" });
+    recordAuditEvent(request, { action: "job.assigned", entityType: "job", entityId: id, metadata: parsed.data });
+    return prisma.job.findFirst({ where: { id, orgId }, include: { timeEntries: true, photos: true } });
   });
 
   app.patch("/:id", async (request, reply) => {

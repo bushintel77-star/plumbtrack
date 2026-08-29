@@ -59,7 +59,7 @@ export function SuggestionStrip({ job }: { job: Job }) {
             className={
               qualified
                 ? "label-mono h-4 rounded-sm bg-complete-wash px-1 text-2xs text-complete hover:bg-complete-wash"
-                : "label-mono h-4 rounded-sm bg-urgent-wash px-1 text-2xs text-urgent hover:bg-urgent-wash"
+                : "label-mono h-4 rounded-sm bg-pending-wash px-1 text-2xs text-pending hover:bg-pending-wash"
             }
           >
             {qualified ? "QUALIFIED" : disqualifier === "leave" ? "ON LEAVE" : "NO SKILL"}

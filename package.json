@@ -31,7 +31,8 @@
       "esbuild",
       "sharp",
       "unrs-resolver",
-      "electron"
+      "electron",
+      "esbuild"
     ],
     "overrides": {
       "postcss": ">=8.5.10",

@@ -17,7 +17,8 @@ import {
   Search,
   Sun,
   Table2,
-  Users
+  Users,
+  Network
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,7 @@ import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
+import { DispatchTable, DispatchList, DispatchGantt } from "@/features/board/DispatchViews"
 
 const NAV: Array<{
   id: AppModule
@@ -42,6 +44,7 @@ const NAV: Array<{
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
   { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
   { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
+  { id: "kanban", label: "Kanban", icon: Network, enabled: true, milestone: "" },
   { id: "crews", label: "Crews", icon: Users, enabled: false, milestone: "M3" },
   { id: "jobs", label: "Jobs", icon: Briefcase, enabled: false, milestone: "M2" },
   { id: "customers", label: "Customers", icon: Building2, enabled: false, milestone: "M2" },
@@ -52,24 +55,29 @@ const NAV: Array<{
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 
 function useWallClock(): string {
-  const [now, setNow] = useState(() => new Date())
+  const [clock, setClock] = useState("--:--:--")
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(t)
+    const update = () => {
+      const now = new Date()
+      setClock([now.getHours(), now.getMinutes(), now.getSeconds()]
+        .map(n => n.toString().padStart(2, "0"))
+        .join(":"))
+    }
+    update()
+    const timer = window.setInterval(update, 1000)
+    return () => window.clearInterval(timer)
   }, [])
-  return [now.getHours(), now.getMinutes(), now.getSeconds()]
-    .map(n => n.toString().padStart(2, "0"))
-    .join(":")
+  return clock
 }
 
 function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: AppModule) => void }) {
   return (
-    <aside className="flex w-[212px] shrink-0 flex-col border-r border-line bg-recess">
-      <div className="flex items-center gap-2.5 px-4 pb-4 pt-5">
+    <aside className="group flex w-14 shrink-0 flex-col border-r border-line bg-recess transition-[width] duration-200 hover:w-[212px] focus-within:w-[212px]">
+      <div className="flex items-center gap-2.5 px-3 pb-4 pt-5">
         <div className="btn-primary flex h-8 w-8 items-center justify-center rounded-md text-xs font-black text-on-accent">
           PT
         </div>
-        <div className="leading-tight">
+        <div className="min-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
           <div className="text-[13px] font-bold tracking-tight">PlumbTrack</div>
           <div className="label-mono text-2xs text-ink-low">HQ CONSOLE</div>
         </div>
@@ -85,6 +93,7 @@ function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: A
               data-testid={`nav-${item.id}`}
               disabled={!item.enabled}
               onClick={() => onNavigate(item.id)}
+              title={item.label}
               className={cn(
                 "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] transition-colors",
                 active
@@ -95,7 +104,7 @@ function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: A
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1 overflow-hidden whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">{item.label}</span>
               {!item.enabled && (
                 <span className="label-mono text-2xs text-ink-low">{item.milestone}</span>
               )}
@@ -104,7 +113,7 @@ function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: A
         })}
       </nav>
 
-      <div className="border-t border-line px-4 py-3">
+      <div className="overflow-hidden whitespace-nowrap border-t border-line px-3 py-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
         <div className="label-mono text-2xs text-ink-low">CAULFIELD SOUTH</div>
         <div className="text-2xs text-ink-low">Plumbing · Melbourne</div>
       </div>
@@ -283,8 +292,8 @@ export function AppShell() {
     void setUrlModule(id)
   }
 
-  // Colourway: the boot script already applied the saved theme class before
-  // paint; adopt it into state, then keep the class in sync with the store.
+  // Adopt the persisted theme after hydration, then keep the class in sync
+  // with the store. The server and first client render intentionally match.
   useEffect(() => {
     const isDark = document.documentElement.classList.contains("dark")
     useBoardStore.setState({ theme: isDark ? "dark" : "light" })
@@ -302,6 +311,7 @@ export function AppShell() {
           {activeModule === "dashboard" && <DashboardModule />}
           {activeModule === "dispatch" && <Board />}
           {activeModule === "operations" && <OperationsHub />}
+          {activeModule === "kanban" && <Board />}
           {!ENABLED.has(activeModule) && (
             <PlaceholderModule
               id={activeModule}
