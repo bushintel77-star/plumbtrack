@@ -30,6 +30,18 @@
 
 ## Implemented premium layer (2026-08-29)
 
+**Mobile FSM line (new)**: `my-mobile-app/` — HeroUI Native (Expo 57) field
+agent on the FieldLoop tokens via the HeroUI CSS-variable bridge
+(`src/global.css`). Tabs Day/Jobs + job detail; MA000036 award engine
+ported verbatim; AsyncStorage outbox + sync manager with the same op
+model; SecureStore device sessions; demo flag. **Live channel**: WS
+`/api/stream` (org-scoped liveBus on the API; mobile applies frames
+straight to the store with reconnect-reconcile; demo simulator on the same
+path) — the Sync tab is gone, replaced by a LIVE badge + exception sheet.
+Gate: typecheck, eslint, 15/15 vitest, Hermes bundle export; API side
+103/103 with liveBus + publish specs. Standalone (own lockfile, workspace
+boundary marker); adoption into `apps/` is deliberate later work.
+
 Watermelon UI visual composition + Kibo UI advanced primitives, hand-ported
 onto the Radix/shadcn base and styled exclusively through the FieldLoop
 semantic tokens (Tailwind v3 — no registry CLI, no v4 migration; the colour

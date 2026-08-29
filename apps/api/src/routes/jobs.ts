@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
 import {
   createJobSchema,
@@ -14,6 +15,8 @@ import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
 import { assignmentSchema } from "../schemas/assignment";
+import { publishToOrg } from "../lib/liveBus";
+import { instantiateChecklist, ensureDefaultTemplates } from "../lib/checklists";
 
 /** Roles allowed to record field work (time entries and site photos). */
 const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
@@ -51,13 +54,27 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       data: { ...parsed.data, orgId },
       include: { timeEntries: true, photos: true },
     });
+    // Dynamic checklist: template by jobType + any quoted-line scope items
+    // riding the create payload (quote→job conversion path).
+    await ensureDefaultTemplates(orgId);
+    await instantiateChecklist({
+      jobId: job.id,
+      orgId,
+      jobType: (parsed.data as { jobType?: string }).jobType ?? null,
+      quotedLines: (request.body as { quotedLines?: string[] })?.quotedLines,
+    });
+    const jobWithChecklist = await prisma.job.findFirst({
+      where: { id: job.id, orgId },
+      include: { timeEntries: true, photos: true, checklistItems: { orderBy: { sortOrder: "asc" } } },
+    });
     recordAuditEvent(request, {
       action: "job.created",
       entityType: "job",
       entityId: job.id,
       metadata: { status: job.status },
     });
-    return reply.code(201).send(job);
+    publishToOrg({ topic: "topic/jobs/created", orgId, job: jobWithChecklist });
+    return reply.code(201).send(jobWithChecklist);
   });
 
   app.get("/:id", async (request, reply) => {
@@ -66,7 +83,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const job = await prisma.job.findFirst({
       where: { id, orgId },
-      include: { timeEntries: true, photos: true },
+      include: { timeEntries: true, photos: true, checklistItems: { orderBy: { sortOrder: "asc" } } },
     });
     if (!job) return reply.code(404).send({ message: "Job not found" });
     return job;
@@ -89,6 +106,12 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     if (updated.count === 0) return reply.code(409).send({ message: "Job has no schedulable appointment" });
     if (updated.count === 0) return reply.code(404).send({ message: "Job not found" });
     recordAuditEvent(request, { action: "job.assigned", entityType: "job", entityId: id, metadata: parsed.data });
+    publishToOrg({
+      topic: "topic/jobs/updated",
+      orgId,
+      jobId: id,
+      patch: { assignedStaffId: parsed.data.technicianId }
+    });
     return prisma.job.findFirst({ where: { id, orgId }, include: { timeEntries: true, photos: true } });
   });
 
@@ -157,6 +180,11 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       entityId: id,
       metadata: parsed.data,
     });
+    if (parsed.data.status !== undefined) {
+      publishToOrg({ topic: "topic/jobs/status", orgId, jobId: id, status: parsed.data.status });
+    } else {
+      publishToOrg({ topic: "topic/jobs/updated", orgId, jobId: id, patch: parsed.data });
+    }
     return updatedJob;
   });
 
@@ -209,7 +237,53 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       entityId: entry.id,
       metadata: { jobId: id, staffId: parsed.data.staffId, start: parsed.data.start },
     });
+    publishToOrg({ topic: "topic/jobs/activity", orgId, jobId: id, activity: "clock-in", entryId: entry.id });
     return reply.code(201).send(entry);
+  });
+
+  // Checklist item completion — the field write path. Idempotent on the
+  // item's own state (re-sending the same completedAt is a no-op), so an
+  // offline-queue retry can never corrupt completion evidence.
+  app.patch("/:id/checklist-items/:itemId", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
+    const { id, itemId } = request.params as { id: string; itemId: string };
+    const parsed = parseBody(
+      z.object({ completed: z.boolean(), completedAt: z.string().datetime().optional() }),
+      request.body
+    );
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+
+    // Scope the item to the already-authorized job — a guessed item id from
+    // another job or tenant must never be completable.
+    const item = await prisma.checklistItem.findFirst({ where: { id: itemId, jobId: id } });
+    if (!item) return reply.code(404).send({ message: "Checklist item not found" });
+
+    const completedAt = parsed.data.completed
+      ? item.completedAt ?? new Date(parsed.data.completedAt ?? Date.now())
+      : null;
+    const updated = await prisma.checklistItem.update({
+      where: { id: item.id },
+      data: { completedAt, completedBy: parsed.data.completed ? (request.auth?.userId ?? "field") : null },
+    });
+
+    recordAuditEvent(request, {
+      action: parsed.data.completed ? "checklist_item.completed" : "checklist_item.reopened",
+      entityType: "checklist_item",
+      entityId: item.id,
+      metadata: { jobId: id, label: item.label },
+    });
+    publishToOrg({
+      topic: "topic/jobs/checklist",
+      orgId,
+      jobId: id,
+      itemId: item.id,
+      label: item.label,
+      completedAt: updated.completedAt?.toISOString() ?? null,
+    });
+    return updated;
   });
 
   app.patch("/:id/time-entries/:entryId", async (request, reply) => {
@@ -242,6 +316,9 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       entityId: entryId,
       metadata: { jobId: id, ...parsed.data },
     });
+    if (parsed.data.end !== undefined) {
+      publishToOrg({ topic: "topic/jobs/activity", orgId, jobId: id, activity: "clock-out", entryId });
+    }
     return prisma.timeEntry.findFirst({ where: { id: entryId, jobId: id } });
   });
 

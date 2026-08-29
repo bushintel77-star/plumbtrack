@@ -16,6 +16,7 @@
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^12.0.1",
     "@fastify/rate-limit": "^10.0.0",
+    "@fastify/websocket": "^11.3.0",
     "@plumbtrack/database": "workspace:*",
     "fastify": "^5.2.0",
     "fastify-plugin": "^5.0.1",

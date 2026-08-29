@@ -16,6 +16,8 @@ vi.mock("@plumbtrack/database", () => ({
     $transaction: transaction,
     timeEntry: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     jobPhoto: { create: vi.fn(), deleteMany: vi.fn() },
+    checklistTemplate: { findFirst: vi.fn().mockResolvedValue(null), count: vi.fn().mockResolvedValue(5), create: vi.fn() },
+    checklistItem: { findFirst: vi.fn(), update: vi.fn(), createMany: vi.fn().mockResolvedValue({ count: 0 }) },
   },
 }));
 

@@ -53,6 +53,8 @@ model Organization {
   deliveries    IntegrationDelivery[]
   mediaAssets   MediaAsset[]
   customers     Customer[]
+  checklistTemplates ChecklistTemplate[]
+  checklistItems ChecklistItem[]
   properties    Property[]
   appointments  Appointment[]
   documents     JobDocument[]
@@ -281,11 +283,58 @@ model Job {
   appointments Appointment[]
   documents   JobDocument[]
   rfis        Rfi[]
+  checklistItems ChecklistItem[]
 
   @@index([orgId, status])
   @@index([customerId])
   @@index([propertyId])
   @@map("jobs")
+}
+
+/// Org-scoped checklist template keyed by job type (null = org default).
+/// Instantiated per job at creation so dispatchers can edit per-site.
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobType   String?
+  name      String
+  items     ChecklistTemplateItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, jobType])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id         String   @id @default(cuid())
+  templateId String
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  label      String
+  sortOrder  Int      @default(0)
+
+  @@index([templateId])
+  @@map("checklist_template_items")
+}
+
+/// The per-job instantiated checklist — completion evidence lives here.
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  label       String
+  sortOrder   Int       @default(0)
+  completedAt DateTime?
+  completedBy String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([jobId])
+  @@index([orgId])
+  @@map("checklist_items")
 }
 
 model TimeEntry {

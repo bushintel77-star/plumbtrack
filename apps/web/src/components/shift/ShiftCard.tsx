@@ -41,7 +41,7 @@ export function ShiftCard() {
   if (!activeShift) {
     return (
       <>
-        <div className="widget-chassis shift-logon-chassis">
+        <div className="widget-chassis shift-logon-chassis" data-testid="field-shift-card">
           <button
             type="button"
             onClick={() => setLogOnOpen(true)}
@@ -68,7 +68,7 @@ export function ShiftCard() {
 
   return (
     <>
-      <div className="widget-chassis">
+      <div className="widget-chassis" data-testid="field-shift-card">
         {/* Header — Status indicator + Work order */}
         <header className="widget-header">
           <div className="status-indicator">

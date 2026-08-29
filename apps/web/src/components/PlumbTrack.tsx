@@ -194,7 +194,7 @@ function PlumbTrackInner() {
             <Map size={20} className="text-ink-low" />
           </button>
         ) : (
-          <div className="w-11 h-11 rounded-xl bg-accent-dim flex items-center justify-center">
+          <div className="w-11 h-11 rounded-xl bg-accent-dim flex items-center justify-center instrument-mark" aria-hidden="true">
             <Droplet size={20} className="text-accent" />
           </div>
         )}
@@ -202,7 +202,7 @@ function PlumbTrackInner() {
           <p className="text-2xs uppercase tracking-[0.15em] text-accent font-bold leading-none mb-1">
             {config.orgName}
           </p>
-          <p className="text-lg font-bold text-ink truncate">{headerLabel()}</p>
+          <p className="text-lg font-bold text-ink truncate instrument-wordmark">{headerLabel()}</p>
         </div>
 
         {/* Global search */}
@@ -524,9 +524,9 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
       <IntegrationHub />
 
       <GlassCard>
-        <h3 className="text-ink font-semibold text-sm mb-4">Data</h3>
+        <div className="flex items-center justify-between gap-3 mb-4"><h3 className="text-ink font-semibold text-sm">Data</h3><span className={`sync-live-indicator ${syncStatus.failed > 0 ? "is-attention" : syncStatus.pending > 0 ? "is-queued" : "is-live"}`}><span aria-hidden="true" />{syncStatus.failed > 0 ? "Needs attention" : syncStatus.pending > 0 ? "Queued" : "Live"}</span></div>
         <p className="text-ink-low text-xs mb-4">
-          Field actions save locally first and sync automatically when connectivity returns.
+          Everything syncs automatically when a connection exists. Open Sync Centre only when a queued update needs attention.
         </p>
         <div className="flex items-center gap-2 mb-4">
           <span className={`w-2 h-2 rounded-full ${pendingSyncCount > 0 ? "bg-accent animate-pulse" : "bg-fill-strong"}`} />
@@ -565,7 +565,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
         )}
         <button
           type="button"
-          onClick={() => setLogoutOpen(true)}
+          onClick={() => setLogoutOpen(true)
           className="w-full py-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line hover:bg-fill-strong transition min-h-[48px]"
         >
           Log Out

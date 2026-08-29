@@ -44,6 +44,14 @@ export const tenantPlugin = fp(
         return;
       }
 
+      // The live stream presents its session token as a query parameter
+      // (browser WebSockets cannot set headers); the stream route verifies
+      // the token itself and derives the org channel from the VERIFIED
+      // claims, never from client input.
+      if (url === "/api/stream") {
+        return;
+      }
+
       const bearer = getBearerToken(request) ?? request.cookies?.[SESSION_COOKIE] ?? null;
       if (bearer) {
         const claims = verifyAuthToken(bearer);

@@ -66,8 +66,10 @@
   /* ═══ Border radius scale ═════════════════════════════════════════════════ */
 
   /* ═══ Brutalist typography tokens ══════════════════════════════════════════ */
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  --font-brutal: var(--font-lato), 'Trebuchet MS', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  --font-body: 'IBM Plex Sans', var(--font-lato), 'Trebuchet MS', sans-serif;
+  --font-brutal: var(--font-body);
 
   /* Hero number scale — for data-dominant UIs */
   --text-hero-size-token: 56px;
@@ -130,7 +132,7 @@
 
   /* ═══ Typography scale ════════════════════════════════════════════════════ */
   --text-2xs: 10px;
-  --text-xs: 12px;
+  --text-xs: 13px;
   --text-sm: 14px;
   --text-base: 15px;
   --text-lg: 17px;
@@ -339,7 +341,7 @@ html[data-theme="light"] {
 body {
   background-color: var(--page-bg);
   overflow-x: hidden;
-  font-family: var(--font-lato), 'Trebuchet MS', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior: none;
@@ -1337,8 +1339,15 @@ html[data-theme="light"] .dashboard-chassis .job-card-chassis.is-active {
    silently compiles nothing (every text-2xs fell back to 16px). Plain CSS
    hot-reloads; the duplicate is harmless once the config loads. */
 .text-2xs {
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.instrument-wordmark,
+.list-title,
+.data-hero,
+.text-display {
+  font-family: var(--font-display);
 }
 
 /* ── Icon sockets — micro-icons as instruments, not marks ──────────────────

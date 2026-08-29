@@ -20,7 +20,7 @@ Updated: 2026-08-29
 
 1. **Server-authoritative assignment**: endpoint and HQ mutation client are now scaffolded, but appointment existence, crew/skill/absence validation, and concurrent conflict enforcement still require completion before release.
 2. **Real HQ authentication UX**: add enrollment/sign-in flow, session-expired route state, role-aware access control, and secure production bootstrap configuration. Do not rely on demo fallback in production.
-3. **Production map infrastructure**: provide authenticated/self-hosted tile configuration, routing quotas, timeout budgets, attribution, and a tested offline style fallback. Public demo routing/tile services cannot be the production dependency.
+3. **Production map infrastructure**: provide authenticated/self-hosted tile configuration, routing quotas, timeout budgets, attribution, and a tested offline style fallback. Public demo routing/tile services cannot be the production dependency. (Live streaming foundation landed 2026-08-29: org-scoped `liveBus` + token-authenticated WS `/api/stream` on the API, job events published from every mutation route, mobile field app connected with reconnect-reconcile. Remaining: point HQ's existing `useTelemetrySocket` client at the real endpoint and add field→HQ telemetry upstream.)
 4. **Release validation**: run full Playwright against a production start with API authentication, map accessibility, assignment rollback, timer compliance, and no console errors.
 5. **Observability**: add structured client/API error reporting, correlation IDs in UI diagnostics, health/readiness checks, and alerting for integration delivery failures.
 
