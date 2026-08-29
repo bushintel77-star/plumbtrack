@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "uniwind";
+
+@import "heroui-native/styles";
+
+/* End-user path: heroui-native lives in the project's node_modules, one
+   level up from this src/global.css file. */
+@source '../node_modules/heroui-native/lib';
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FieldLoop semantic tokens — the Steel Instrument colourway (2026-08-29
+   mockup fusion): dark blue-grey steel panels, chrome-glow accent, and the
+   same semantic law as apps/hq and apps/web — teal = billing now (the ONLY
+   live colour), red = urgent/emergency/error, amber = delayed/attention,
+   green = complete, chrome = interactive. No decorative colours. Glow is
+   the signature, spent in exactly two places: the live sync dot and the
+   clock-in radial.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer theme {
+  :root {
+    @variant light {
+      --background: #f4f7fc; /* chassis-void, Soft White */
+      --surface: #ffffff; /*    panel */
+      --overlay: #e9eef7; /*    chassis-recess */
+      --accent: #1e56e0; /*     chrome-600 */
+      --success: #1f9a37; /*    status-complete */
+      --warning: #b45309; /*    status-pending */
+      --danger: #de2417; /*     status-urgent */
+      --active: #0e9384; /*     status-active — billing now */
+      --ink: #0b1b33; /*        app-text */
+      --ink-muted: #52627e; /*  app-muted */
+      --line: rgba(11, 27, 51, 0.09); /* divider-etch */
+    }
+    @variant dark {
+      --background: #0a0e13; /* base — the instrument's black glass */
+      --surface: #131a21; /*    panel */
+      --overlay: #1a232c; /*    panel-2 (raised) */
+      --accent: #4f90ff; /*     chrome-glow */
+      --success: #1faa59; /*    status-complete */
+      --warning: #f2b705; /*    status-pending */
+      --danger: #d7263d; /*     status-urgent */
+      --active: #14b8a6; /*     status-active — billing now */
+      --ink: #ecf1f5; /*        app-text */
+      --ink-muted: #93a4b1; /*  app-muted (outdoor-contrast floor) */
+      --line: #26323c; /*        border */
+    }
+  }
+}
+
+/* FieldLoop extensions exposed as utilities: bg-active, text-ink,
+   text-ink-muted, border-line, text-person-1..4, font-display/sans/mono. */
+@theme inline static {
+  --color-active: var(--active);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+
+  /* Steel-panel borders at two strengths (mockup border/border-strong). */
+  --color-line-strong: #34424d;
+
+  /* Crew identity — invariant in both themes */
+  --color-person-1: #c27878;
+  --color-person-2: #7a9e7e;
+  --color-person-3: #b08d57;
+  --color-person-4: #6b7d8d;
+
+  /* FieldLoop type pairing (mockup fusion): Big Shoulders Display for
+     instrument numerals and titles, IBM Plex Sans for UI, IBM Plex Mono
+     for labels and tabular timer digits — loaded in src/app/_layout.tsx. */
+  --font-display: "Big Shoulders";
+  --font-sans: "IBM Plex Sans";
+  --font-mono: "IBM Plex Mono";
+
+  --radius: 0.625rem; /* FieldLoop --radius: 10px */
+}
+
+/* HeroUI's component CSS references weight-named font families
+   (--font-normal/medium/semibold/bold) that the LIBRARY does not define —
+   the app owns them. Without this block every HeroUI component silently
+   falls back to the system font. */
+@layer theme {
+  :root {
+    --font-normal: "IBM Plex Sans";
+    --font-medium: "IBM Plex Sans";
+    --font-semibold: "IBM Plex Sans";
+    --font-bold: "IBM Plex Sans";
+  }
+}
+
+/* ── colorKit-compatible derived tokens ──────────────────────────────────
+   HeroUI's theme.css derives hover/soft colours with color-mix(in oklab),
+   which web computes to oklch()/color() strings that colorKit (hex/rgb/hsl
+   only) cannot parse — every button press then surfaces the dev error
+   toast. These concrete rgba overrides resolve the same visual intent in
+   a parseable format. Declared in a LATER @theme block than the library's
+   import: Tailwind v4 merges @theme keys last-wins, which beats any
+   cascade trickery. */
+@theme {
+  --color-accent-hover: rgba(97, 160, 255, 1);
+  --color-accent-soft: rgba(78, 140, 255, 0.15);
+  --color-accent-soft-foreground: rgba(184, 216, 255, 1);
+  --color-accent-soft-hover: rgba(78, 140, 255, 0.2);
+  --color-danger-hover: rgba(255, 84, 73, 1);
+  --color-danger-soft-hover: rgba(255, 59, 48, 0.2);
+  --color-default-hover: rgba(255, 255, 255, 0.14);
+  --color-default-soft: rgba(255, 255, 255, 0.12);
+  --color-default-soft-hover: rgba(255, 255, 255, 0.16);
+  --color-surface-hover: rgba(255, 255, 255, 0.08);
+  --color-background-secondary: rgba(255, 255, 255, 0.04);
+  --color-background-tertiary: rgba(255, 255, 255, 0.08);
+}

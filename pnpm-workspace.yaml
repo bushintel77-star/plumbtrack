@@ -1,0 +1,5 @@
+# Standalone project boundary: prevents pnpm from adopting the parent
+# plumbtrack workspace when installing inside this folder.
+packages: []
+patchedDependencies:
+  heroui-native: patches/heroui-native.patch

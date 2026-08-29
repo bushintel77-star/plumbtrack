@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-08-29T12:17:43.263Z",
+  "sessionId": "sess_6f213f99-d6cd-4127-a464-9376a5591992",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "C:\\Users\\Tim\\Downloads\\KellyBet-Fresh\\plumbtrack-workspac\\my-mobile-app\\src\\app\\job\\[id].tsx",
+  "outcome": "inconclusive",
+  "coverage": "partial",
+  "findingCount": 0,
+  "durationMs": 6,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}
