@@ -50,9 +50,6 @@ CREATE INDEX "checklist_items_jobId_idx" ON "checklist_items"("jobId");
 -- CreateIndex
 CREATE INDEX "checklist_items_orgId_idx" ON "checklist_items"("orgId");
 
--- CreateIndex
-CREATE INDEX "jobs_orgId_status_idx" ON "jobs"("orgId", "status");
-
 -- AddForeignKey
 ALTER TABLE "checklist_templates" ADD CONSTRAINT "checklist_templates_orgId_fkey" FOREIGN KEY ("orgId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
