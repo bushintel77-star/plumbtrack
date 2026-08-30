@@ -152,7 +152,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       scroll-behavior: auto !important;
@@ -444,13 +447,16 @@
 }
 
 @layer utilities {
+
   /* Solid + translucent page-background fills for sticky headers/cells */
   .bg-void {
     background: var(--chassis-void);
   }
+
   .bg-void-95 {
     background: color-mix(in srgb, var(--chassis-void) 94%, transparent);
   }
+
   .bg-void-90 {
     background: color-mix(in srgb, var(--chassis-void) 90%, transparent);
   }
@@ -460,17 +466,17 @@
     0% {
       background-position: 200% 0;
     }
+
     100% {
       background-position: -200% 0;
     }
   }
+
   .skeleton-shine {
-    background: linear-gradient(
-      110deg,
-      var(--chassis-recess) 30%,
-      var(--divider-etch) 50%,
-      var(--chassis-recess) 70%
-    );
+    background: linear-gradient(110deg,
+        var(--chassis-recess) 30%,
+        var(--divider-etch) 50%,
+        var(--chassis-recess) 70%);
     background-size: 200% 100%;
     animation: skeleton-shine 1.6s linear infinite;
   }
@@ -479,10 +485,12 @@
     width: 6px;
     height: 6px;
   }
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply rounded-full;
     background: var(--divider-etch);
   }
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }

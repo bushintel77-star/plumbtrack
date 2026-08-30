@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
+import { type FieldLoopMode } from "@/features/fieldloop/context"
 
 import { Board } from "@/features/board/Board"
 import { CommandPalette } from "@/features/board/CommandPalette"
@@ -40,17 +41,17 @@ const NAV: Array<{
   enabled: boolean
   milestone: string
 }> = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
-  { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
-  { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
-  { id: "kanban", label: "Kanban", icon: Network, enabled: true, milestone: "" },
-  { id: "crews", label: "Crews", icon: Users, enabled: true, milestone: "" },
-  { id: "jobs", label: "Jobs", icon: Briefcase, enabled: true, milestone: "" },
-  { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
-  { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
-  { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
-  { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" }
-]
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
+    { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
+    { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
+    { id: "kanban", label: "Kanban", icon: Network, enabled: true, milestone: "" },
+    { id: "crews", label: "Crews", icon: Users, enabled: true, milestone: "" },
+    { id: "jobs", label: "Jobs", icon: Briefcase, enabled: true, milestone: "" },
+    { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
+    { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
+    { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
+    { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" }
+  ]
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 
@@ -180,7 +181,7 @@ function Toolbar({ module }: { module: AppModule }) {
       {(module === "dispatch" || module === "crews" || module === "jobs" || module === "customers" || module === "forms" || module === "reports") && (
         <div
           className="flex items-center rounded-md border border-line bg-recess p-0.5"
-          role="tablist"              aria-label="Dispatch workspace view"
+          role="tablist" aria-label="Dispatch workspace view"
         >
           {(
             [
@@ -295,18 +296,41 @@ function PlaceholderModule({ id, milestone }: { id: AppModule; milestone: string
   )
 }
 
+/** Map legacy module nav onto FieldLoop modes so the workspace opens the
+ *  right tab instead of always defaulting to Dispatch. */
+const MODULE_TO_MODE: Partial<Record<AppModule, FieldLoopMode>> = {
+  dashboard: "dispatch",
+  dispatch: "dispatch",
+  map: "map",
+  forms: "documents",
+  customers: "crm",
+  reports: "reports",
+  accounting: "reports"
+}
+
 export function AppShell() {
   // nuqs URL state is the single source of truth for module routing — every
   // useQueryState("module") instance stays in sync, so the sidebar, palette
   // and dashboard cards all navigate through the URL (shareable, back-button
   // friendly, and immune to bidirectional-sync loops).
   const [urlModule, setUrlModule] = useQueryState("module", parseAsString.withDefault("dispatch"))
+  const [modeParam, setModeParam] = useQueryState("mode", parseAsString)
   const theme = useBoardStore(s => s.theme)
   const activeModule: AppModule = ENABLED.has(urlModule as AppModule)
     ? (urlModule as AppModule)
     : "dashboard"
+
+  useEffect(() => {
+    const mapped = MODULE_TO_MODE[activeModule]
+    if (mapped && mapped !== modeParam) {
+      void setModeParam(mapped)
+    }
+  }, [activeModule, modeParam, setModeParam])
+
   const navigate = (id: AppModule): void => {
     void setUrlModule(id)
+    const mapped = MODULE_TO_MODE[id]
+    if (mapped) void setModeParam(mapped)
   }
   const fieldLoopSurface = FIELDLOOP_MODULES[activeModule]
 

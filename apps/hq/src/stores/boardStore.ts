@@ -267,15 +267,17 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       }
     }
     const span = current.spanBlocks
-    const boundedStart = Math.max(0, Math.min(startBlock, TOTAL_BLOCKS - span))
+    if (startBlock < 0 || startBlock > TOTAL_BLOCKS - span) {
+      return { ok: false, reason: "That time slot is outside the board day." }
+    }
     const conflict = Object.values(get().jobs).find(
       job =>
         job.id !== jobId &&
         job.techId === techId &&
         job.status !== "complete" &&
         (job.scheduledDate ?? "") === (current.scheduledDate ?? "") &&
-        boundedStart < job.startBlock + job.spanBlocks &&
-        boundedStart + span > job.startBlock
+        startBlock < job.startBlock + job.spanBlocks &&
+        startBlock + span > job.startBlock
     )
     if (conflict) return { ok: false, reason: `Slot conflicts with ${conflict.title}.` }
     return { ok: true }
@@ -284,12 +286,10 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   assignJob: (jobId, techId, startBlock) => {
     const check = get().canAssign(jobId, techId, startBlock)
     if (!check.ok) return check
-    const current = get().jobs[jobId]
-    const span = current?.spanBlocks ?? 1
     set(s => ({
       jobs: patchJob(s.jobs, jobId, {
         techId,
-        startBlock: Math.max(0, Math.min(startBlock, TOTAL_BLOCKS - span)),
+        startBlock,
         status: "scheduled"
       })
     }))
@@ -399,18 +399,18 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       channels: s.channels.map(c =>
         c.id === `job-${jobId}` && !c.archived
           ? {
-              ...c,
-              archived: true,
-              messages: [
-                ...c.messages,
-                {
-                  id: `m-${c.id}-archive`,
-                  author: "PlumbTrack",
-                  body: "Job completed — field notes and parts synced to the FSM record. Channel archived.",
-                  minutesAgo: 0
-                }
-              ]
-            }
+            ...c,
+            archived: true,
+            messages: [
+              ...c.messages,
+              {
+                id: `m-${c.id}-archive`,
+                author: "PlumbTrack",
+                body: "Job completed — field notes and parts synced to the FSM record. Channel archived.",
+                minutesAgo: 0
+              }
+            ]
+          }
           : c
       )
     })),
@@ -528,12 +528,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       channels: s.channels.map(c =>
         c.id === channelId
           ? {
-              ...c,
-              messages: [
-                ...c.messages,
-                { id: `m-${Date.now()}`, author: "HQ", body, minutesAgo: 0 }
-              ]
-            }
+            ...c,
+            messages: [
+              ...c.messages,
+              { id: `m-${Date.now()}`, author: "HQ", body, minutesAgo: 0 }
+            ]
+          }
           : c
       )
     })),
@@ -569,5 +569,5 @@ export function useJobsList(): Job[] {
 // Test bridge: Playwright dispatches self-healing resets + failure simulation
 // through this handle.
 if (typeof window !== "undefined" && (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_HQ_TEST_BRIDGE === "1")) {
-  ;(window as unknown as { __hqStore: typeof useBoardStore }).__hqStore = useBoardStore
+  ; (window as unknown as { __hqStore: typeof useBoardStore }).__hqStore = useBoardStore
 }

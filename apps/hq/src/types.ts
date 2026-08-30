@@ -134,10 +134,25 @@ export interface Job {
   cost?: number | null
 }
 
+/** Point-in-time position captured at clock-in/clock-out ONLY.
+ *  Continuous tracking is a deliberate non-capability — see
+ *  FIELDLOOP_DESIGN_REFERENCES.md and the design spec §8. */
+export interface LastKnownLocation {
+  point: GeoPoint
+  /** ISO timestamp of the clock-in/clock-out that captured it. */
+  capturedAt: string
+}
+
+/** Derived, never stored: on_leave from approved absences, on_job from an
+ *  in-flight job, available otherwise. `offline` requires a real signal. */
+export type Presence = "on_job" | "available" | "on_leave" | "offline"
+
 export interface Technician {
   id: string
   name: string
   van: string
+  /** Only ever populated at clock-in/clock-out. Absent = no marker at all. */
+  lastKnownLocation?: LastKnownLocation
   /** Skills held — drag targets without the required skill are invalid (BR-04). */
   skills: string[]
   /** Resource role — Y-axis team filtering (Technician/Installer/…). */

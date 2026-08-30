@@ -24,6 +24,8 @@ export const technicians: Technician[] = [
 export const jobs: Job[] = [
   {
     id: "j-1001",
+    // Real labour + materials outlay, not a percentage of the billed rate.
+    cost: 265,
     title: "Emergency Drainage",
     client: "Northgate Mall Facilities",
     address: "1200 Northgate Way, Bay 3",
@@ -55,6 +57,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1002",
+    cost: 70,
     title: "Boiler Annual Service",
     client: "Hargrove Residence",
     address: "18 Cedar Ln",
@@ -83,6 +86,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1003",
+    cost: 720,
     title: "Water Heater Swap",
     client: "Okafor Property Mgmt",
     address: "77 Riverside Dr, Unit 12",
@@ -110,6 +114,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1004",
+    cost: 430,
     title: "Pipe Re-route — Unit 4B",
     client: "Sable Court HOA",
     address: "400 Sable Ct, Unit 4B",
@@ -142,6 +147,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1005",
+    cost: 380,
     title: "Bathroom Rough-In",
     client: "Vantage Build Ltd",
     address: "9 Quarry Rd",
@@ -165,6 +171,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1006",
+    cost: 120,
     title: "Leak Detection Survey",
     client: "Meridian Dental",
     address: "310 Fulton St, Suite 2",
@@ -193,6 +200,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1007",
+    cost: 85,
     title: "Sump Pump Inspection",
     client: "Delmar double-lot",
     address: "58 Delmar Ave",
@@ -213,6 +221,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1008",
+    cost: 140,
     title: "Backflow Preventer Test",
     client: "Kestrel Foods Plant",
     address: "3 Kestrel Way",
@@ -233,6 +242,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1009",
+    cost: 610,
     title: "Northgate Fit-Out — Stage 1",
     client: "Northgate Mall Facilities",
     address: "1200 Northgate Way, Bay 3",
@@ -255,6 +265,7 @@ export const jobs: Job[] = [
   },
   {
     id: "j-1010",
+    cost: 590,
     title: "Northgate Fit-Out — Stage 2",
     client: "Northgate Mall Facilities",
     address: "1200 Northgate Way, Bay 3",
