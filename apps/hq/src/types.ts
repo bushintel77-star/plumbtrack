@@ -168,6 +168,7 @@ export type AppModule =
   | "customers"
   | "forms"
   | "reports"
+  | "accounting"
 
 export const SKILLS = ["drainage", "gas", "hot-water", "leak-detection", "general"] as const
 export type Skill = (typeof SKILLS)[number]

@@ -3,15 +3,12 @@
 import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useTelemetrySocket } from "@/lib/telemetry"
 import { useSlackBridge } from "@/lib/slackBridge"
 import { registerSyncDrain } from "@/lib/offline"
 import { persistJobStatus } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 
 function useBootstrapServices() {
-  // Real-time telemetry (WebSocket channels + throttled fleet pings).
-  useTelemetrySocket()
   // FSM → Slack state-machine bridge (transition cards + job channels).
   useSlackBridge()
 }

@@ -30,9 +30,9 @@ function etaFor(job: Job): number {
   if (!tech || !job.location) {
     return travelMinutes(DEPOT, job.location ?? DEPOT)
   }
-  const vehicleId = `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`
-  const ping = state.liveLocations[vehicleId]
-  if (ping) return travelMinutes({ lat: ping.lat, lng: ping.lng }, job.location)
+  // Location is intentionally not read from live telemetry. Use the depot
+  // estimate until an approved point-in-time clock-in/out location contract
+  // is available for this workflow.
   return travelMinutes(DEPOT, job.location)
 }
 

@@ -14,12 +14,11 @@ import { readComputedTokens, resolvePalette, type MapPalette } from "./palette"
 
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
- * for job pins / dashed per-tech route polylines, and a symbol layer whose
- * vehicle icon rotates with the streamed `heading`. MapLibre interpolates
- * between coordinate updates, so throttled telemetry pings produce smooth
- * movement along the street network. Route polylines render straight-line
- * immediately, then upgrade to road-following geometry once the free routing
- * tier (ORS keyed / OSRM keyless) answers — offline the heuristic stays.
+ * for job pins and dashed per-tech route polylines. Technician location is
+ * intentionally not rendered: FieldLoop permits only point-in-time capture at
+ * clock-in/clock-out, never live movement or breadcrumb history. Route
+ * polylines render straight-line immediately, then upgrade to road-following
+ * geometry once the routing tier answers — offline the heuristic stays.
  * Paint colors come from the Tier-1 tokens via the palette bridge (WebGL
  * cannot resolve CSS vars); DOM chrome uses the token utilities directly.
  */
@@ -75,46 +74,16 @@ interface MapLibreViewProps {
 
 }
 
-function VehicleIcon({ fill, stroke }: { fill: string; stroke: string }) {
-  const { current: map } = useMap()
-  useEffect(() => {
-    if (!map || map.hasImage("hq-vehicle")) return
-    const size = 28
-    const canvas = document.createElement("canvas")
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    // Forward-pointing triangle (bearing 0 = east, matching icon-rotate).
-    ctx.fillStyle = fill
-    ctx.strokeStyle = stroke
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(24, 14)
-    ctx.lineTo(7, 5)
-    ctx.lineTo(11, 14)
-    ctx.lineTo(7, 23)
-    ctx.closePath()
-    ctx.fill()
-    ctx.stroke()
-    const data = ctx.getImageData(0, 0, size, size)
-    if (map.hasImage("hq-vehicle")) map.updateImage("hq-vehicle", data)
-    else map.addImage("hq-vehicle", { width: size, height: size, data: data.data })
-  }, [map, fill, stroke])
-  return null
-}
-
 export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const [mapError, setMapError] = useState(false)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
-  const liveLocations = useBoardStore(s => s.liveLocations)
-  const liveLocationHistory = useBoardStore(s => s.liveLocationHistory)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null)
   /** Road-following coordinates per stop-chain signature (straight lines until they land). */
   const [roadShapes, setRoadShapes] = useState<Record<string, LngLat[]>>({})
+  const [roadShapeSources, setRoadShapeSources] = useState<Record<string, "road" | "straight-line">>({})
   const [palette, setPalette] = useState<MapPalette>(() => resolvePalette(readComputedTokens()))
 
   // WebGL paints need concrete colors, so the palette re-reads the Tier-1
@@ -188,14 +157,15 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
             properties: {
               techId: tech.id,
               color: palette.people[index % palette.people.length],
-              emphasized: !vanId || vanId === tech.id
+              emphasized: !vanId || vanId === tech.id,
+              geometrySource: roadShapeSources[routeSignature(stops)] ?? "straight-line"
             },
             geometry: { type: "LineString" as const, coordinates: roadShapes[routeSignature(stops)] ?? stops }
           }
         })
         .filter(Boolean)
     }),
-    [technicians, visible, vanId, roadShapes, palette]
+    [technicians, visible, vanId, roadShapes, roadShapeSources, palette]
   )
 
   // Road-following upgrade for the dashed polylines: debounced per board
@@ -220,19 +190,28 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       void Promise.all(
         routeChains.map(async chain => {
           const coords = await fetchRoadShape(chain.stops)
-          return coords ? [routeSignature(chain.stops), coords] as const : null
+          return [routeSignature(chain.stops), coords] as const
         })
       ).then(landed => {
-        const fresh = landed.filter(
-          (entry): entry is readonly [string, LngLat[]] => entry !== null
-        )
-        if (fresh.length === 0) return
         setRoadShapes(prev => {
           let changed = false
           const next = { ...prev }
-          for (const [signature, coords] of fresh) {
+          for (const [signature, coords] of landed) {
+            if (!coords) continue
             if (next[signature] !== coords) {
               next[signature] = coords
+              changed = true
+            }
+          }
+          return changed ? next : prev
+        })
+        setRoadShapeSources(prev => {
+          let changed = false
+          const next = { ...prev }
+          for (const [signature, coords] of landed) {
+            const source = coords ? "road" : "straight-line"
+            if (next[signature] !== source) {
+              next[signature] = source
               changed = true
             }
           }
@@ -245,39 +224,9 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainsSignature])
 
-  const breadcrumbs = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: vehicles.map(vehicle => {
-        const points = (liveLocationHistory[vehicle.id] ?? []).map(ping => [ping.lng, ping.lat])
-        if (points.length < 2) return null
-        return { type: "Feature" as const, properties: { vehicleId: vehicle.id }, geometry: { type: "LineString" as const, coordinates: points } }
-      }).filter(Boolean)
-    }),
-    [vehicles, liveLocationHistory]
-  )
-
-  const fleet = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: vehicles
-        .map(vehicle => {
-          const ping = liveLocations[vehicle.id]
-          if (!ping) return null
-          return {
-            type: "Feature" as const,
-            properties: {
-              vehicleId: vehicle.id,
-              heading: ping.heading,
-              speed: ping.speed
-            },
-            geometry: { type: "Point" as const, coordinates: [ping.lng, ping.lat] }
-          }
-        })
-        .filter(Boolean)
-    }),
-    [vehicles, liveLocations]
-  )
+  // Technician locations are deliberately absent from this map. FieldLoop's
+  // privacy policy permits only point-in-time capture at clock-in/clock-out;
+  // no live fleet positions, breadcrumbs, heading, or speed are rendered.
 
   const pinLayers: LayerProps[] = useMemo(() => {
     const base: LayerProps = {
@@ -331,7 +280,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         }
       }}
     >
-      <VehicleIcon fill={palette.vehicle} stroke={palette.highlightStroke} />
       {hoveredJob && hoveredLocation && (
         <Popup
           longitude={hoveredLocation.lng}
@@ -347,10 +295,9 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         </Popup>
       )}
 
-      <Source id="breadcrumbs" type="geojson" data={breadcrumbs}>
-        <Layer id="breadcrumb-lines" type="line" paint={{ "line-color": palette.breadcrumb, "line-width": 2, "line-opacity": 0.35 }} />
-      </Source>
-
+      <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
+        Route lines: solid = road-routed · dashed = straight-line fallback
+      </div>
       <Source id="job-routes" type="geojson" data={routes}>
         <Layer
           id="route-lines"
@@ -359,7 +306,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
             "line-color": ["get", "color"],
             "line-width": ["case", ["boolean", ["get", "emphasized"], false], 3, 1.5],
             "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.9, 0.2],
-            "line-dasharray": [2, 1.5]
+            "line-dasharray": ["case", ["==", ["get", "geometrySource"], "road"], ["literal", [1, 0]], ["literal", [2, 1.5]]]
           }}
         />
       </Source>
@@ -370,20 +317,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         ))}
       </Source>
 
-      <Source id="fleet" type="geojson" data={fleet}>
-        <Layer
-          id="fleet-vehicles"
-          type="symbol"
-          layout={{
-            "icon-image": "hq-vehicle",
-            "icon-size": 0.7,
-            "icon-rotate": ["get", "heading"],
-            "icon-rotation-alignment": "map",
-            "icon-allow-overlap": true,
-            "icon-ignore-placement": true
-          }}
-        />
-      </Source>
     </Map>
   )
 }

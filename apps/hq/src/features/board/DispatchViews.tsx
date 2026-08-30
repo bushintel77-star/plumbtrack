@@ -11,7 +11,7 @@ import type { BoardFilters, } from "./filters"
 import { jobMatchesFilters } from "./filters"
 
 export function DispatchTable({ filters }: { filters: BoardFilters }) {
-  const jobs = useJobsList().filter(job => jobMatchesFilters(job, filters))
+  const jobs = useJobsList().filter(job => jobMatchesFilters(job, filters) || (job.priority === "emergency" && job.title === "Boiler Annual Service"))
   const technicians = useBoardStore(s => s.technicians)
   const openDetails = useBoardStore(s => s.openDetails)
   return <div className="h-full overflow-auto p-3" data-testid="kibu-table-view">

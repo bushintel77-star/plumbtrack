@@ -27,12 +27,11 @@ import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
 
 import { Board } from "@/features/board/Board"
-import { DashboardModule } from "@/features/dashboard/DashboardModule"
 import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
-import { DispatchTable, DispatchList, DispatchGantt } from "@/features/board/DispatchViews"
+import { ReferenceWorkspace } from "./ReferenceWorkspace"
 
 const NAV: Array<{
   id: AppModule
@@ -45,11 +44,12 @@ const NAV: Array<{
   { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
   { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
   { id: "kanban", label: "Kanban", icon: Network, enabled: true, milestone: "" },
-  { id: "crews", label: "Crews", icon: Users, enabled: false, milestone: "M3" },
-  { id: "jobs", label: "Jobs", icon: Briefcase, enabled: false, milestone: "M2" },
-  { id: "customers", label: "Customers", icon: Building2, enabled: false, milestone: "M2" },
-  { id: "forms", label: "Forms", icon: FileText, enabled: false, milestone: "M3" },
-  { id: "reports", label: "Reports", icon: BarChart3, enabled: false, milestone: "M6" }
+  { id: "crews", label: "Crews", icon: Users, enabled: true, milestone: "" },
+  { id: "jobs", label: "Jobs", icon: Briefcase, enabled: true, milestone: "" },
+  { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
+  { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
+  { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
+  { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" }
 ]
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
@@ -70,6 +70,7 @@ function useWallClock(): string {
   return clock
 }
 
+/* Legacy sidebar removed: ReferenceWorkspace owns the single visible navigation rail. */
 function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: AppModule) => void }) {
   return (
     <aside className="group flex w-14 shrink-0 flex-col border-r border-line bg-recess transition-[width] duration-200 hover:w-[212px] focus-within:w-[212px]">
@@ -159,11 +160,10 @@ function Toolbar({ module }: { module: AppModule }) {
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-recess/60 px-4 backdrop-blur">
       <h1 className="label-mono text-xs text-ink-mid">{label}</h1>
 
-      {module === "dispatch" && (
+      {(module === "dispatch" || module === "crews" || module === "jobs" || module === "customers" || module === "forms" || module === "reports") && (
         <div
           className="flex items-center rounded-md border border-line bg-recess p-0.5"
-          role="tablist"
-          aria-label="Board view"
+          role="tablist"              aria-label="Dispatch workspace view"
         >
           {(
             [
@@ -283,7 +283,7 @@ export function AppShell() {
   // useQueryState("module") instance stays in sync, so the sidebar, palette
   // and dashboard cards all navigate through the URL (shareable, back-button
   // friendly, and immune to bidirectional-sync loops).
-  const [urlModule, setUrlModule] = useQueryState("module", parseAsString.withDefault("dashboard"))
+  const [urlModule, setUrlModule] = useQueryState("module", parseAsString.withDefault("dispatch"))
   const theme = useBoardStore(s => s.theme)
   const activeModule: AppModule = ENABLED.has(urlModule as AppModule)
     ? (urlModule as AppModule)
@@ -304,14 +304,12 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
-      <Sidebar module={activeModule} onNavigate={navigate} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Toolbar module={activeModule} />
         <main className="min-h-0 flex-1">
-          {activeModule === "dashboard" && <DashboardModule />}
-          {activeModule === "dispatch" && <Board />}
+          {(activeModule === "dashboard" || activeModule === "dispatch" || activeModule === "map" || activeModule === "forms" || activeModule === "customers" || activeModule === "reports" || activeModule === "accounting") && <ReferenceWorkspace initialModule={activeModule === "dashboard" ? "dispatch" : activeModule} onNavigate={navigate} />}
           {activeModule === "operations" && <OperationsHub />}
           {activeModule === "kanban" && <Board />}
+          {activeModule === "calendar" && <Board />}
           {!ENABLED.has(activeModule) && (
             <PlaceholderModule
               id={activeModule}

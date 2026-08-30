@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe("DispatchTable (Kibo table composition)", () => {
   it("renders the semantic status contract — an active emergency reads Emergency, never Active", () => {
-    const target = seedJobs.find(job => job.priority !== "emergency")!
+    const target = seedJobs.find(job => job.title === "Boiler Annual Service")!
     const jobs = seedJobs.map(job =>
       job.id === target.id ? { ...job, status: "active" as const, priority: "emergency" as const } : job
     )

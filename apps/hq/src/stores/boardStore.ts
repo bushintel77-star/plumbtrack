@@ -63,7 +63,7 @@ interface BoardState {
   /** Colourway — hardware chassis (dark) default, Soft White toggle. */
   theme: "light" | "dark"
   dataMode: DataMode
-  /** Live fleet telemetry (throttled ingest from the socket hook). */
+  /** Deprecated compatibility fields; never populated by live tracking. */
   liveLocations: Record<string, LiveLocation>
   liveLocationHistory: Record<string, LiveLocation[]>
   /** Test bridges: force the server-persist failure / offline paths. */
@@ -87,7 +87,7 @@ interface BoardState {
   setSimulateFailure: (value: boolean) => void
   setOffline: (value: boolean) => void
 
-  /** Batch-merge throttled telemetry pings into liveLocations. */
+  /** Deprecated no-op retained for compatibility; live tracking is disabled. */
   mergeLiveLocations: (pings: LiveLocation[]) => void
   /** Apply a remote status transition from topic/jobs/status. */
   applyRemoteStatus: (jobId: string, status: JobStatus) => void
@@ -221,17 +221,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   setSimulateFailure: value => set({ simulateFailure: value }),
   setOffline: value => set({ offline: value }),
 
-  mergeLiveLocations: pings => {
-    if (pings.length === 0) return
-    set(s => {
-      const next = { ...s.liveLocations }
-      const history = { ...s.liveLocationHistory }
-      for (const ping of pings) {
-        next[ping.vehicleId] = ping
-        history[ping.vehicleId] = [...(history[ping.vehicleId] ?? []), ping].slice(-100)
-      }
-      return { liveLocations: next, liveLocationHistory: history }
-    })
+  mergeLiveLocations: _pings => {
+    // Deliberately no-op: continuous technician location ingestion is disabled.
   },
 
   applyRemoteStatus: (jobId, status) =>
