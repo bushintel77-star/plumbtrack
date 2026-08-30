@@ -23,6 +23,7 @@ export default defineRailway(() => {
     env: {
       PORT: "8080",
       DATABASE_URL: ref(Postgres, "DATABASE_URL"),
+      PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER: "true",
     },
     replicas: { "us-west2": 1 },
   });
