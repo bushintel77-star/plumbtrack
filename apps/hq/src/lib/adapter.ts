@@ -89,18 +89,18 @@ export function adaptApiBoard(
     const running = hasOpenEntry(apiJob.timeEntries)
     const quote: Quote = apiQuote
       ? {
-          clientName: apiQuote.client,
-          lineItems:
-            apiQuote.lines && apiQuote.lines.length > 0
-              ? apiQuote.lines.map(line => ({
-                  id: line.id,
-                  description: line.description,
-                  qty: line.quantity ?? 1,
-                  unitPrice: line.unitPrice ?? 0
-                }))
-              : null,
-          status: mapQuoteStatus(apiQuote.status)
-        }
+        clientName: apiQuote.client,
+        lineItems:
+          apiQuote.lines && apiQuote.lines.length > 0
+            ? apiQuote.lines.map(line => ({
+              id: line.id,
+              description: line.description,
+              qty: line.quantity ?? 1,
+              unitPrice: line.unitPrice ?? 0
+            }))
+            : null,
+        status: mapQuoteStatus(apiQuote.status)
+      }
       : { clientName: apiJob.client, lineItems: null, status: "draft" }
     return {
       id: apiJob.id,
@@ -123,13 +123,10 @@ export function adaptApiBoard(
   return { jobs: Object.fromEntries(jobs.map(job => [job.id, job])) }
 }
 
-/** Fetch everything the board needs. Throws NetworkError/HttpError upward so
- *  the hydration hook can fall back to demo mode. */
+/** Fetch everything the board needs in a single round-trip (G-1 endpoint).
+ *  Throws NetworkError/HttpError upward so the hydration hook can fall back
+ *  to demo mode. */
 export async function fetchBoardPayload(): Promise<ApiBoardPayload> {
   const { apiGet } = await import("@/lib/api")
-  const [jobs, quotes] = await Promise.all([
-    apiGet<ApiJob[]>("/api/jobs"),
-    apiGet<ApiQuote[]>("/api/quotes")
-  ])
-  return { jobs, quotes }
+  return apiGet<ApiBoardPayload>("/api/board")
 }

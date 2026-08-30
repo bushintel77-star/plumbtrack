@@ -20,6 +20,7 @@ import { streamRoutes } from "./routes/stream";
 import { syncRoutes } from "./routes/sync";
 import { routeRoutes } from "./routes/routes";
 import { paymentWebhookRoutes } from "./routes/paymentWebhook";
+import { boardRoutes } from "./routes/board";
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -51,6 +52,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   app.get("/", async () => ({ service: "plumbtrack-api", status: "ok" }));
 
   await app.register(healthRoutes, { prefix: "/api/health" });
+  await app.register(boardRoutes, { prefix: "/api/board" });
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(organizationRoutes, { prefix: "/api/organizations" });
   await app.register(jobRoutes, { prefix: "/api/jobs" });
