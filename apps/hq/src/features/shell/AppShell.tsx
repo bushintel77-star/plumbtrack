@@ -31,7 +31,7 @@ import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
-import { ReferenceWorkspace } from "./ReferenceWorkspace"
+import { FieldLoopWorkspace } from "@/features/fieldloop/FieldLoopWorkspace"
 
 const NAV: Array<{
   id: AppModule
@@ -54,6 +54,18 @@ const NAV: Array<{
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 
+/* Modules the FieldLoop workspace now owns; it routes between its own surfaces
+   through the `surface` query param rather than the legacy `module` one. */
+const FIELDLOOP_MODULES = new Set<AppModule>([
+  "dashboard",
+  "dispatch",
+  "map",
+  "forms",
+  "customers",
+  "reports",
+  "accounting"
+])
+
 function useWallClock(): string {
   const [clock, setClock] = useState("--:--:--")
   useEffect(() => {
@@ -70,7 +82,7 @@ function useWallClock(): string {
   return clock
 }
 
-/* Legacy sidebar removed: ReferenceWorkspace owns the single visible navigation rail. */
+/* Legacy sidebar removed: FieldLoopWorkspace owns the single visible navigation rail. */
 function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: AppModule) => void }) {
   return (
     <aside className="group flex w-14 shrink-0 flex-col border-r border-line bg-recess transition-[width] duration-200 hover:w-[212px] focus-within:w-[212px]">
@@ -306,7 +318,7 @@ export function AppShell() {
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="min-h-0 flex-1">
-          {(activeModule === "dashboard" || activeModule === "dispatch" || activeModule === "map" || activeModule === "forms" || activeModule === "customers" || activeModule === "reports" || activeModule === "accounting") && <ReferenceWorkspace initialModule={activeModule === "dashboard" ? "dispatch" : activeModule} onNavigate={navigate} />}
+          {FIELDLOOP_MODULES.has(activeModule) && <FieldLoopWorkspace />}
           {activeModule === "operations" && <OperationsHub />}
           {activeModule === "kanban" && <Board />}
           {activeModule === "calendar" && <Board />}

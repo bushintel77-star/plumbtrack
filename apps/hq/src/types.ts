@@ -43,17 +43,53 @@ export interface Quote {
   notes?: string
 }
 
+export const DOC_CATEGORIES = [
+  "Compliance & Licenses",
+  "Vehicles",
+  "Job Records"
+] as const
+export type DocCategory = (typeof DOC_CATEGORIES)[number]
+
 export interface ComplianceDoc {
   id: string
   name: string
   ref: string
-  /** ISO date — vault flags amber ≤30 days out, red once expired. */
-  expiresAt: string
+  /** ISO date — vault flags amber ≤30 days out, red once expired. `null`
+   *  means the record simply has no expiry, which is not an alarm. */
+  expiresAt: string | null
+  category?: DocCategory
+  /** Who or what the record belongs to. */
+  entityType?: "technician" | "vehicle" | "company"
+  entityId?: string
+  /** Human label for the owning entity (technician name, van, company). */
+  owner?: string
+  docType?: string
+  issuedAt?: string
+  linkedJobId?: string
+  /** Signed URL to the stored file — never populated until file storage exists. */
+  fileUrl?: string | null
+}
+
+/** Recurring service commitment against a customer. */
+export interface ServiceAgreement {
+  id: string
+  customerName: string
+  serviceType: string
+  frequency: string
+  lastServiceDate: string
+  /** ISO day — same expiry maths as the document vault. */
+  nextDueDate: string
 }
 
 export interface GeoPoint {
   lat: number
   lng: number
+}
+
+/** A single position captured at clock-in or clock-out. Never a continuous
+ *  feed — see the location policy in the FieldLoop design spec §8. */
+export interface CapturedLocation extends GeoPoint {
+  capturedAt: string
 }
 
 export const REGIONS = ["north", "inner", "west", "south-east"] as const
@@ -89,6 +125,13 @@ export interface Job {
   clockOnCount: number
   quote: Quote
   documents: ComplianceDoc[]
+  /**
+   * Actual labour + materials outlay for the visit, in dollars. `null` until
+   * the office records it — margin is reported as unavailable rather than
+   * estimated from a multiplier, because a fabricated cost makes every
+   * margin figure on the Reports tab meaningless.
+   */
+  cost?: number | null
 }
 
 export interface Technician {
@@ -101,6 +144,30 @@ export interface Technician {
   role: Role
   /** Approved absences — hashed, un-droppable row windows + availability. */
   absences: Absence[]
+  /** Position captured at the last clock-in/clock-out only. Absent when the
+   *  technician has not clocked on, in which case no map pin is drawn. */
+  lastKnownLocation?: CapturedLocation
+}
+
+/** Three visually distinct crew states — on-leave must never read as idle. */
+export type Presence = "on_job" | "available" | "on_leave"
+
+/** The four board states the dispatch surfaces speak, collapsed from the
+ *  internal FSM so every surface colours a job identically. */
+export type DispatchStatus = "urgent" | "scheduled" | "complete" | "unassigned"
+
+export type AttentionKind = "overrun" | "tight-travel" | "unassigned"
+export type Severity = "red" | "amber" | "blue" | "green"
+
+/** Computed, never stored — one definition shared by every surface so the
+ *  board, the inspector and any future client can never drift. */
+export interface AttentionFlag {
+  id: string
+  kind: AttentionKind
+  severity: Exclude<Severity, "green">
+  jobId: string
+  title: string
+  detail: string
 }
 
 export interface ChatMessage {
