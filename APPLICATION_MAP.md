@@ -207,3 +207,17 @@ All timestamps, timers, and money render `tabular-nums` (no jitter). Remote stat
 - Shared checkout: stage only your own hunks; no commits unless asked; `apps/web` is under active parallel work — do not touch.
 - Auth boundary: bearer sessions in prod; org header dev/test only (matches `apps/api` contract).
 - Out of scope (roadmap guard): commercial-construction features; AI never silently certifies/approves/alters signed records.
+
+## 12. Tier-1 GAP (current sprint, production-critical)
+
+| # | Gap | Blocker for | Risk if not closed |
+|---|---|---|---|
+| G-1 | `GET /api/board?date=` endpoint | Real-time dispatch board | `apps/hq` falls back to demo; dispatchers operate on stale/seed data |
+| G-2 | `PATCH /api/jobs/:id/assignment` with server-side conflict + skill validation | Authoritative assignment | Client-validated writes can diverge; multi-dispatcher overwrites |
+| G-3 | Crew aggregate (tech + vehicle + tools) | Multi-crew dispatch, drag as a unit | No shared entity; skill and availability rules stay shallow |
+| G-4 | JSON-schema dynamic forms engine | Compliance checklists, site signatures | Hard-coded forms, cannot roll out new inspection types |
+| T-1 | HQ `apps/hq` Railway service | Dispatch in production | Only `apps/web` is deployed; `apps/hq` and `apps/api` are local-only |
+| T-2 | Object storage / file URLs | Compliance docs, before/after photos | Documents render as unopenable placeholders; no photo persistence |
+| T-3 | Customer portal endpoints (`/track/:token`, quote approval) | Customer self-service | All approval/tracking must go through HQ staff |
+
+This register is ordered: G-1/G-2 are M2 acceptance; T-1/T-2/T-3 are cross-cutting infrastructure that gates production trust.
