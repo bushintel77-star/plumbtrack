@@ -11,26 +11,32 @@ import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job } from "@/types"
 
 import { CrewTree } from "./CrewTree"
+import { Inspector } from "./Inspector"
 
 const MapLibreView = dynamic(() => import("@/features/map/MapLibreView"), {
   ssr: false,
   loading: () => <div className="fl-muted">Loading map…</div>
 })
 
-export function MapSurface({ day }: { day: string }) {
+export function MapSurface({
+  day,
+  selectedJobId,
+  onSelectJob
+}: {
+  day: string
+  /** URL-backed FieldLoop selection, shared with every other surface. */
+  selectedJobId: string
+  onSelectJob: (jobId: string) => void
+}) {
   const jobs = useJobsList()
   const technicians = useBoardStore(s => s.technicians)
-  const openDetails = useBoardStore(s => s.openDetails)
   const [techId, setTechId] = useState("")
-  const [selectedJobId, setSelectedJobId] = useState("")
 
   const technician = technicians.find(item => item.id === techId)
   const plan = computeRouteOrder(techId, jobs, technician, day)
   const visible = jobsOnDay(jobs, day)
-  const selectJob = (job: Job) => {
-    setSelectedJobId(job.id)
-    openDetails(job.id)
-  }
+  const selectedJob = jobs.find(job => job.id === selectedJobId)
+  const selectJob = (job: Job) => onSelectJob(job.id)
 
   return (
     <>
@@ -42,11 +48,10 @@ export function MapSurface({ day }: { day: string }) {
       />
       <div className="fl-map">
         <MapErrorBoundary>
-          <MapLibreView visible={visible} vanId={techId} onSelectJob={openDetails} />
+          <MapLibreView visible={visible} vanId={techId} onSelectJob={onSelectJob} />
         </MapErrorBoundary>
       </div>
-      <aside className="fl-panel fl-inspector" aria-label="Route plan">
-        <div className="fl-kicker">Route plan</div>
+      <Inspector job={selectedJob} onClear={() => onSelectJob("")} title="Route plan">
         {!technician && <div className="fl-muted">Pick a crew member to order their stops.</div>}
         {technician && (
           <>
@@ -87,7 +92,7 @@ export function MapSurface({ day }: { day: string }) {
             </p>
           </>
         )}
-      </aside>
+      </Inspector>
     </>
   )
 }

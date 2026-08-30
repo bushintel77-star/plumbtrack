@@ -14,6 +14,7 @@ import {
   Wifi
 } from "lucide-react"
 
+import { useBoardLifecycle } from "@/features/board/useBoardLifecycle"
 import { dayLabel, todayIsoDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { jobDay } from "@/lib/schedule"
@@ -46,11 +47,15 @@ const CONNECTION_COPY = {
   demo: "Demo data"
 } as const
 
-export function FieldLoopWorkspace() {
-  const [surface, setSurface] = useQueryState(
-    "surface",
-    parseAsStringLiteral(SURFACES).withDefault("dispatch")
-  )
+export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurface?: Surface }) {
+  // Live board data, demo fallback and the timer heartbeat come from the same
+  // lifecycle the legacy Board uses, so FieldLoop is never stuck on seed data.
+  useBoardLifecycle()
+  // The legacy `module` param picks the entry surface; `surface` overrides it
+  // once the dispatcher moves the rail, keeping both history and copied links
+  // pointing at what is on screen.
+  const [surfaceParam, setSurface] = useQueryState("surface", parseAsStringLiteral(SURFACES))
+  const surface: Surface = surfaceParam ?? moduleSurface
   const [day, setDay] = useQueryState("date", parseAsString.withDefault(todayIsoDay()))
   const [zoom, setZoom] = useQueryState("zoom", parseAsStringLiteral(ZOOMS).withDefault("daily"))
   const dataMode = useBoardStore(s => s.dataMode)
@@ -156,7 +161,13 @@ export function FieldLoopWorkspace() {
             onSelectTech={next => void setSelectedTechId(next || null)}
           />
         )}
-        {surface === "map" && <MapSurface day={day} />}
+        {surface === "map" && (
+          <MapSurface
+            day={day}
+            selectedJobId={selectedJobId}
+            onSelectJob={next => void setSelectedJobId(next || null)}
+          />
+        )}
         {surface === "documents" && <DocumentsSurface />}
         {surface === "crm" && <CrmSurface />}
         {surface === "reports" && <ReportsSurface />}

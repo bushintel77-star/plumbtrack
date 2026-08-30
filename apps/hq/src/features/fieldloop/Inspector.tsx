@@ -22,11 +22,14 @@ import { useFailedOps } from "./failedOps"
 export function Inspector({
   job,
   onClear,
+  onAssign,
   title,
   children
 }: {
   job?: Job
   onClear?: () => void
+  /** Placement path; falls back to the raw mutation when a surface has none. */
+  onAssign?: (jobId: string, techId: string, startBlock: number) => Promise<boolean>
   /** Heading for the proactive pane shown when nothing is selected. */
   title: string
   children?: ReactNode
@@ -81,7 +84,9 @@ export function Inspector({
       ) : (
         <div className="fl-assignee">This job has no crew yet.</div>
       )}
-      <AssignControl job={job} />
+      {/* Keyed by the job and its current placement so a different selection
+          never inherits the previous draft crew or start time. */}
+      <AssignControl key={`${job.id}:${job.techId ?? ""}:${job.startBlock}`} job={job} onAssign={onAssign} />
     </aside>
   )
 }
@@ -91,10 +96,18 @@ export function Inspector({
  * path, not the only path: a dispatcher on a keyboard or screen reader has to
  * be able to place a job too.
  */
-function AssignControl({ job }: { job: Job }) {
+function AssignControl({
+  job,
+  onAssign
+}: {
+  job: Job
+  onAssign?: (jobId: string, techId: string, startBlock: number) => Promise<boolean>
+}) {
   const technicians = useBoardStore(s => s.technicians)
   const [techId, setTechId] = useState(job.techId ?? "")
   const [startBlock, setStartBlock] = useState(job.startBlock)
+  // A job cannot start so late that it would run past the end of the board day.
+  const lastStart = TOTAL_BLOCKS - job.spanBlocks
 
   return (
     <div className="fl-assign">
@@ -117,7 +130,7 @@ function AssignControl({ job }: { job: Job }) {
           onChange={event => setStartBlock(Number(event.target.value))}
           aria-label="Start time"
         >
-          {Array.from({ length: TOTAL_BLOCKS }, (_, index) => (
+          {Array.from({ length: lastStart + 1 }, (_, index) => (
             <option key={index} value={index}>
               {blockLabel(index)}
             </option>
@@ -129,7 +142,9 @@ function AssignControl({ job }: { job: Job }) {
         className="fl-assign-go"
         disabled={!techId}
         onClick={() => {
-          void performAssignment(job.id, techId, startBlock)
+          void (onAssign
+            ? onAssign(job.id, techId, startBlock)
+            : performAssignment(job.id, techId, startBlock))
         }}
       >
         Place on board
@@ -177,7 +192,12 @@ export function AttentionPane({
 export function SyncPane({
   onRetry
 }: {
-  onRetry: (jobId: string, techId: string, startBlock: number) => Promise<boolean>
+  onRetry: (
+    jobId: string,
+    techId: string,
+    startBlock: number,
+    existingOpId: string
+  ) => Promise<boolean>
 }) {
   const ops = useFailedOps(s => s.ops)
   const discard = useFailedOps(s => s.discard)
@@ -198,7 +218,7 @@ export function SyncPane({
             <button
               type="button"
               onClick={() => {
-                void onRetry(op.jobId, op.techId, op.startBlock).then(ok => {
+                void onRetry(op.jobId, op.techId, op.startBlock, op.id).then(ok => {
                   if (ok) discard(op.id)
                 })
               }}

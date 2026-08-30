@@ -565,7 +565,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
         )}
         <button
           type="button"
-          onClick={() => setLogoutOpen(true)
+          onClick={() => setLogoutOpen(true)}
           className="w-full py-3 rounded-xl bg-fill text-ink-low text-xs font-semibold border border-line hover:bg-fill-strong transition min-h-[48px]"
         >
           Log Out

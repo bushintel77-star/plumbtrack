@@ -63,7 +63,8 @@ function minutesIntoDay(at: Date): number {
 
 /**
  * The single Needs-Attention definition (design spec §2):
- *   red   — an assigned job still open past its scheduled end time
+ *   red   — an assigned job still open past its scheduled end time; a day in
+ *           the future can never overrun, a day in the past always has
  *   amber — consecutive jobs at different addresses with less gap than the
  *           trip between them needs
  *   blue  — a job nobody is assigned to
@@ -80,6 +81,7 @@ export function computeAttentionFlags(
   const sameDay = jobs.filter(job => jobDay(job) === day)
   const flags: AttentionFlag[] = []
   const clock = minutesIntoDay(now)
+  const nowDay = isoOf(now)
 
   for (const job of sameDay) {
     if (!job.techId) {
@@ -94,16 +96,20 @@ export function computeAttentionFlags(
       continue
     }
     if (job.status === "complete") continue
+    if (day > nowDay) continue
     const endsAt = blockMinutes(job.startBlock + job.spanBlocks)
-    if (clock > endsAt) {
-      const over = clock - endsAt
+    const over = day < nowDay ? null : clock - endsAt
+    if (over === null || over > 0) {
       flags.push({
         id: `overrun-${job.id}`,
         kind: "overrun",
         severity: "red",
         jobId: job.id,
         title: job.title,
-        detail: `${over} min past its scheduled end and still open`
+        detail:
+          over === null
+            ? `Still open after ${day}, past its scheduled end`
+            : `${over} min past its scheduled end and still open`
       })
     }
   }

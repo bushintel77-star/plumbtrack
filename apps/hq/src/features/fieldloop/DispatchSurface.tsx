@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   DndContext,
   PointerSensor,
@@ -33,6 +33,7 @@ import type { Job } from "@/types"
 import { CrewTree } from "./CrewTree"
 import { useFailedOps } from "./failedOps"
 import { AttentionPane, Inspector, SyncPane } from "./Inspector"
+import { useMinuteClock } from "./useMinuteClock"
 
 export type Zoom = "daily" | "weekly" | "monthly"
 
@@ -68,6 +69,11 @@ function DraggableJob({ job, onSelect }: { job: Job; onSelect: (job: Job) => voi
   )
 }
 
+/**
+ * A start block is only a legal target when the dragged job still fits inside
+ * the board day from there, so a late drop is refused outright instead of
+ * being clamped to a time the dispatcher never chose.
+ */
 function DropCell({ techId, index }: { techId: string; index: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: `cell:${techId}:${index}` })
   return (
@@ -103,12 +109,7 @@ function QueueJob({ job, onSelect }: { job: Job; onSelect: (job: Job) => void })
   )
 }
 
-function NowLine({ day }: { day: string }) {
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
+function NowLine({ day, now }: { day: string; now: Date }) {
   const fraction = nowLineFraction(day, now, todayIsoDay())
   if (fraction === null) return null
   return (
@@ -120,10 +121,15 @@ function NowLine({ day }: { day: string }) {
 
 function DayBoard({
   day,
+  now,
+  dragSpanBlocks,
   selectedTechId,
   onSelect
 }: {
   day: string
+  now: Date
+  /** Span of the job currently being dragged; caps the legal start blocks. */
+  dragSpanBlocks: number
   selectedTechId: string
   onSelect: (job: Job) => void
 }) {
@@ -149,8 +155,8 @@ function DayBoard({
               </small>
             </div>
             <div className={cn("fl-lane", presence === "on_leave" && "leave")}>
-              <NowLine day={day} />
-              {Array.from({ length: TOTAL_BLOCKS }, (_, index) => (
+              <NowLine day={day} now={now} />
+              {Array.from({ length: TOTAL_BLOCKS - dragSpanBlocks + 1 }, (_, index) => (
                 <DropCell key={index} techId={tech.id} index={index} />
               ))}
               {today
@@ -293,17 +299,21 @@ export function DispatchSurface({
   const technicians = useBoardStore(s => s.technicians)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
+  const now = useMinuteClock()
   const today = jobsOnDay(jobs, day)
   const flags = useMemo(
-    () => computeAttentionFlags(jobs, technicians, day),
-    [jobs, technicians, day]
+    () => computeAttentionFlags(jobs, technicians, day, now),
+    [jobs, technicians, day, now]
   )
+  const [dragJobId, setDragJobId] = useState("")
+  const dragSpanBlocks = jobs.find(job => job.id === dragJobId)?.spanBlocks ?? 1
   const selectedJob = jobs.find(job => job.id === selectedJobId)
   const queued = today.filter(job => !job.techId)
   const complete = today.filter(job => dispatchStatus(job) === "complete").length
   const step = zoom === "daily" ? 1 : zoom === "weekly" ? 7 : 28
   const syncPaneOpen = useFailedOps(s => s.syncPaneOpen)
   const recordFailure = useFailedOps(s => s.record)
+  const refreshFailure = useFailedOps(s => s.refresh)
   const canAssign = useBoardStore(s => s.canAssign)
 
   /**
@@ -311,10 +321,21 @@ export function DispatchSurface({
    * writes the rejection into the failed-op ledger so it stays visible in the
    * sync pane instead of vanishing with the toast.
    */
-  const applyMove = async (jobId: string, techId: string, startBlock: number): Promise<boolean> => {
+  const applyMove = async (
+    jobId: string,
+    techId: string,
+    startBlock: number,
+    existingOpId?: string
+  ): Promise<boolean> => {
     const reason = canAssign(jobId, techId, startBlock).reason
     const ok = await performAssignment(jobId, techId, startBlock)
     if (!ok) {
+      // A retry keeps its original ledger entry and just restates why it
+      // failed; only a first failure adds a row.
+      if (existingOpId) {
+        refreshFailure(existingOpId, reason ?? "The server rejected this move.")
+        return ok
+      }
       recordFailure({
         jobId,
         jobTitle: jobs.find(job => job.id === jobId)?.title ?? jobId,
@@ -328,18 +349,27 @@ export function DispatchSurface({
   }
 
   const onDragEnd = (event: DragEndEvent) => {
+    setDragJobId("")
     const activeId = String(event.active.id)
     const overId = event.over ? String(event.over.id) : ""
     if (!activeId.startsWith("block:") || !overId.startsWith("cell:")) return
     const jobId = activeId.slice("block:".length)
     const [, techId, block] = overId.split(":")
+    const span = jobs.find(job => job.id === jobId)?.spanBlocks ?? 1
+    if (Number(block) + span > TOTAL_BLOCKS) return
     // Optimistic placement, server-authoritative outcome: performAssignment
     // snapshots, applies, persists, and rolls the board back on rejection.
     void applyMove(jobId, techId, Number(block))
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={pointerWithin}
+      onDragStart={event => setDragJobId(String(event.active.id).slice("block:".length))}
+      onDragCancel={() => setDragJobId("")}
+      onDragEnd={onDragEnd}
+    >
       <CrewTree
         day={day}
         selectedTechId={selectedTechId}
@@ -399,6 +429,8 @@ export function DispatchSurface({
         {zoom === "daily" && (
           <DayBoard
             day={day}
+            now={now}
+            dragSpanBlocks={dragSpanBlocks}
             selectedTechId={selectedTechId}
             onSelect={job => onSelectJob(job.id)}
           />
@@ -421,6 +453,7 @@ export function DispatchSurface({
       <Inspector
         job={syncPaneOpen ? undefined : selectedJob}
         onClear={() => onSelectJob("")}
+        onAssign={applyMove}
         title={syncPaneOpen ? "Connection & sync" : "Needs attention"}
       >
         {syncPaneOpen ? (

@@ -217,6 +217,29 @@ describe("computeAttentionFlags", () => {
     const flags = computeAttentionFlags(jobs, crew, DAY, noon)
     expect(flags.map(flag => flag.severity)).toEqual(["red", "amber", "blue"])
   })
+
+  describe("overrun compares calendar days, not just time of day", () => {
+    const early = job({ id: "j1", techId: "t-dana", startBlock: 0, spanBlocks: 2 })
+    const kinds = (day: string, jobDayIso: string) =>
+      computeAttentionFlags(
+        [{ ...early, scheduledDate: jobDayIso }],
+        crew,
+        day,
+        new Date(`${DAY}T12:00:00`)
+      ).map(flag => flag.kind)
+
+    it("never marks a future day overdue at the same time of day", () => {
+      expect(kinds("2026-03-12", "2026-03-12")).toEqual([])
+    })
+
+    it("marks today overdue once the scheduled end has passed", () => {
+      expect(kinds(DAY, DAY)).toEqual(["overrun"])
+    })
+
+    it("marks an unfinished past day overdue regardless of the clock", () => {
+      expect(kinds("2026-03-10", "2026-03-10")).toEqual(["overrun"])
+    })
+  })
 })
 
 describe("worstSeverity", () => {
