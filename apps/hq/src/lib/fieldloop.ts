@@ -9,6 +9,8 @@ import type {
   Severity,
   Technician
 } from "@/types"
+
+export type { AttentionFlag }
 import { DAY_START_MINUTES, MINUTES_PER_BLOCK, TOTAL_BLOCKS } from "@/lib/format"
 import { absenceFor, jobDay } from "@/lib/schedule"
 import { travelMinutes } from "@/lib/travel"
