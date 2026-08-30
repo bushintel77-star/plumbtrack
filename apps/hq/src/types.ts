@@ -86,11 +86,6 @@ export interface GeoPoint {
   lng: number
 }
 
-/** A single position captured at clock-in or clock-out. Never a continuous
- *  feed — see the location policy in the FieldLoop design spec §8. */
-export interface CapturedLocation extends GeoPoint {
-  capturedAt: string
-}
 
 export const REGIONS = ["north", "inner", "west", "south-east"] as const
 export type Region = (typeof REGIONS)[number]
@@ -137,8 +132,7 @@ export interface Job {
 /** Point-in-time position captured at clock-in/clock-out ONLY.
  *  Continuous tracking is a deliberate non-capability — see
  *  FIELDLOOP_DESIGN_REFERENCES.md and the design spec §8. */
-export interface LastKnownLocation {
-  point: GeoPoint
+export interface LastKnownLocation extends GeoPoint {
   /** ISO timestamp of the clock-in/clock-out that captured it. */
   capturedAt: string
 }
@@ -159,13 +153,9 @@ export interface Technician {
   role: Role
   /** Approved absences — hashed, un-droppable row windows + availability. */
   absences: Absence[]
-  /** Position captured at the last clock-in/clock-out only. Absent when the
-   *  technician has not clocked on, in which case no map pin is drawn. */
-  lastKnownLocation?: CapturedLocation
 }
 
-/** Three visually distinct crew states — on-leave must never read as idle. */
-export type Presence = "on_job" | "available" | "on_leave"
+
 
 /** The four board states the dispatch surfaces speak, collapsed from the
  *  internal FSM so every surface colours a job identically. */

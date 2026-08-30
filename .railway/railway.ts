@@ -14,7 +14,7 @@ export default defineRailway(() => {
     source: github("bushintel77-star/plumbtrack"),
     build: {
       builder: "DOCKERFILE",
-      dockerfilePath: "/apps/api/Dockerfile",
+      dockerfilePath: "apps/api/Dockerfile",
     },
     deploy: {
       healthcheckPath: "/api/health",
@@ -31,7 +31,7 @@ export default defineRailway(() => {
     source: github("bushintel77-star/plumbtrack"),
     build: {
       builder: "DOCKERFILE",
-      dockerfilePath: "/apps/hq/Dockerfile",
+      dockerfilePath: "apps/hq/Dockerfile",
     },
     deploy: {
       healthcheckPath: "/",
