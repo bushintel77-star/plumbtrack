@@ -11,21 +11,17 @@
 export interface CheckoutSessionResult {
   /** Checkout URL the client can open or send to the customer. */
   url: string;
-  /** "live" when backed by a real Stripe API call, "test" for the fallback. */
-  mode: "live" | "test";
+  /** "live" only when backed by a real Stripe API call. */
+  mode: "live";
   /** Whether a Stripe secret key is configured on the server. */
-  configured: boolean;
+  configured: boolean
+  sessionId?: string;
 }
 
 /** True when a Stripe secret key is configured server-side. */
 export function isStripeConfigured(): boolean {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
   return Boolean(key);
-}
-
-/** Test-mode fallback URL — deterministic per job, never a real charge. */
-function testCheckoutUrl(jobId: string): string {
-  return `https://checkout.stripe.com/c/pay/cs_test_plumbtrack_${jobId.replace(/[^A-Za-z0-9-]/g, "")}`;
 }
 
 export interface CreateCheckoutSessionInput {
@@ -44,11 +40,7 @@ export interface CreateCheckoutSessionInput {
 export async function createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CheckoutSessionResult> {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
-    return {
-      url: testCheckoutUrl(input.jobId),
-      mode: "test",
-      configured: false,
-    };
+    throw new Error("Stripe is not configured");
   }
 
   const successUrl = process.env.PAYMENT_SUCCESS_URL ?? "https://app.plumbtrack.example/payments/success";
@@ -77,20 +69,13 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
     });
     if (!response.ok) {
       await response.text();
-      return {
-        url: testCheckoutUrl(input.jobId),
-        mode: "test",
-        configured: true,
-      };
+      throw new Error(`Stripe Checkout failed (${response.status})`);
     }
     const session = (await response.json()) as { url?: string; id?: string };
-    const url = session.url ?? testCheckoutUrl(input.jobId);
-    return { url, mode: "live", configured: true };
-  } catch {
-    return {
-      url: testCheckoutUrl(input.jobId),
-      mode: "test",
-      configured: true,
-    };
+    if (!session.id || !session.url) throw new Error("Stripe returned an incomplete Checkout session");
+    return { url: session.url, mode: "live", configured: true, sessionId: session.id };
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Stripe Checkout request failed");
   }
 }

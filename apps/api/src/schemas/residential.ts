@@ -9,6 +9,16 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = createCustomerSchema.partial();
 
+export const serviceAgreementSchema = z.object({
+  serviceType: z.string().trim().min(1).max(160),
+  frequency: z.string().trim().min(1).max(80),
+  lastServiceDate: z.string().date().nullable().optional(),
+  nextDueDate: z.string().date(),
+  active: z.boolean().optional(),
+});
+
+export const updateServiceAgreementSchema = serviceAgreementSchema.partial();
+
 export const createPropertySchema = z.object({
   address: z.string().trim().min(1).max(240),
   accessCode: z.string().trim().max(120).optional(),

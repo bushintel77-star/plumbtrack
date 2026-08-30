@@ -17,19 +17,19 @@ enum DomainEventOutboxStatus {
 }
 
 model DomainEventOutbox {
-  eventId    String                 @id
+  eventId        String                  @id
   organizationId String
-  type       String
-  payload    Json
-  status     DomainEventOutboxStatus @default(pending)
-  attempts   Int                    @default(0)
-  leaseId    String?
-  lockedAt   DateTime?
-  lockedUntil DateTime?
-  lastError  String?
-  createdAt  DateTime               @default(now())
-  completedAt DateTime?
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           String
+  payload        Json
+  status         DomainEventOutboxStatus @default(pending)
+  attempts       Int                     @default(0)
+  leaseId        String?
+  lockedAt       DateTime?
+  lockedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime                @default(now())
+  completedAt    DateTime?
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([status, lockedUntil])
   @@index([organizationId, createdAt])
@@ -44,21 +44,24 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  domainEvents  DomainEventOutbox[]
-  jobs          Job[]
-  quotes        Quote[]
-  notifications Notification[]
-  memberships   OrganizationMembership[]
-  auditEvents   AuditEvent[]
-  deliveries    IntegrationDelivery[]
-  mediaAssets   MediaAsset[]
-  customers     Customer[]
+  domainEvents       DomainEventOutbox[]
+  jobs               Job[]
+  quotes             Quote[]
+  notifications      Notification[]
+  memberships        OrganizationMembership[]
+  auditEvents        AuditEvent[]
+  deliveries         IntegrationDelivery[]
+  mediaAssets        MediaAsset[]
+  customers          Customer[]
+  serviceAgreements  ServiceAgreement[]
   checklistTemplates ChecklistTemplate[]
-  checklistItems ChecklistItem[]
-  properties    Property[]
-  appointments  Appointment[]
-  documents     JobDocument[]
-  rfis          Rfi[]
+  checklistItems     ChecklistItem[]
+  properties         Property[]
+  appointments       Appointment[]
+  routes             RouteVersion[]
+  routeAudits        RouteRecalculationAudit[]
+  documents          JobDocument[]
+  rfis               Rfi[]
 
   @@map("organizations")
 }
@@ -109,25 +112,25 @@ enum IntegrationDeliveryStatus {
 }
 
 model IntegrationDelivery {
-  id             String                    @id @default(cuid())
-  orgId          String
-  org            Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  notificationId String?
-  notification   Notification?             @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  provider       String
-  payloadJson    String
-  status         IntegrationDeliveryStatus @default(pending)
-  attemptCount   Int                       @default(0)
-  nextAttemptAt  DateTime                  @default(now())
-  leaseId        String?
-  lockedAt       DateTime?
-  lockedUntil    DateTime?
-  lastError      String?
+  id                String                       @id @default(cuid())
+  orgId             String
+  org               Organization                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  notificationId    String?
+  notification      Notification?                @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  provider          String
+  payloadJson       String
+  status            IntegrationDeliveryStatus    @default(pending)
+  attemptCount      Int                          @default(0)
+  nextAttemptAt     DateTime                     @default(now())
+  leaseId           String?
+  lockedAt          DateTime?
+  lockedUntil       DateTime?
+  lastError         String?
   providerMessageId String?
-  deliveredAt    DateTime?
-  createdAt      DateTime                  @default(now())
-  attempts       IntegrationDeliveryAttempt[]
-  updatedAt      DateTime                  @updatedAt
+  deliveredAt       DateTime?
+  createdAt         DateTime                     @default(now())
+  attempts          IntegrationDeliveryAttempt[]
+  updatedAt         DateTime                     @updatedAt
 
   @@index([status, nextAttemptAt])
   @@index([status, lockedUntil])
@@ -153,15 +156,15 @@ model IntegrationDeliveryAttempt {
 }
 
 model AuditEvent {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   orgId        String
-  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   actorUserId  String?
   action       String
   entityType   String
   entityId     String?
   metadataJson String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime     @default(now())
 
   @@index([orgId, createdAt])
   @@index([orgId, entityType, entityId])
@@ -169,17 +172,19 @@ model AuditEvent {
 }
 
 model Notification {
-  id             String    @id @default(cuid())
+  id             String                @id @default(cuid())
   orgId          String
-  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org            Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   channel        String
   author         String
   text           String
-  /** Client outbox key; nullable for legacy notifications. */
-  opId           String?   @unique
-  slackDelivered Boolean   @default(false)
+  /**
+   * Client outbox key; nullable for legacy notifications.
+   */
+  opId           String?               @unique
+  slackDelivered Boolean               @default(false)
   slackError     String?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime              @default(now())
   deliveries     IntegrationDelivery[]
 
   @@index([orgId, createdAt])
@@ -204,34 +209,54 @@ enum AppointmentStatus {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   orgId     String
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   name      String
   phone     String?
   email     String?
   notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  jobs      Job[]
-  properties Property[]
+  jobs              Job[]
+  properties        Property[]
+  serviceAgreements ServiceAgreement[]
 
   @@index([orgId, name])
   @@map("customers")
 }
 
+model ServiceAgreement {
+  id              String       @id @default(cuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceType     String
+  frequency       String
+  lastServiceDate DateTime?
+  nextDueDate     DateTime
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([orgId, nextDueDate])
+  @@index([customerId, active])
+  @@map("service_agreements")
+}
+
 model Property {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   orgId      String
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   address    String
   accessCode String?
   notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   jobs Job[]
 
@@ -258,31 +283,67 @@ model Appointment {
   @@map("appointments")
 }
 
-model Job {
-  id        String   @id @default(cuid())
-  orgId     String
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  trade     String   @default("plumbing")
-  client      String
-  address     String
-  customerId String?
-  propertyId String?
-  scope       String
-  phone       String?
-  accessCode  String?
-  status      JobStatus @default(scheduled)
-  signature String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model RouteVersion {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  routeKey    String
+  version     Int
+  generatedAt DateTime     @default(now())
+  source      String       @default("server")
+  geometry    Json
+  stops       Json
+  createdBy   String?
+  createdAt   DateTime     @default(now())
 
-  timeEntries TimeEntry[]
-  photos      JobPhoto[]
-  mediaAssets MediaAsset[]
-  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  appointments Appointment[]
-  documents   JobDocument[]
-  rfis        Rfi[]
+  @@unique([orgId, routeKey, version])
+  @@index([orgId, routeKey, createdAt])
+  @@map("route_versions")
+}
+
+model RouteRecalculationAudit {
+  id              String       @id @default(cuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  routeKey        String
+  previousVersion Int?
+  nextVersion     Int
+  reason          String
+  actorUserId     String?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+
+  @@index([orgId, routeKey, createdAt])
+  @@map("route_recalculation_audits")
+}
+
+model Job {
+  id              String       @id @default(cuid())
+  orgId           String
+  org             Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  trade           String       @default("plumbing")
+  client          String
+  address         String
+  customerId      String?
+  propertyId      String?
+  scope           String
+  phone           String?
+  accessCode      String?
+  stripeSessionId String?      @unique
+  paymentStatus   String       @default("unpaid")
+  status          JobStatus    @default(scheduled)
+  signature       String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  timeEntries    TimeEntry[]
+  photos         JobPhoto[]
+  mediaAssets    MediaAsset[]
+  customer       Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  property       Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  appointments   Appointment[]
+  documents      JobDocument[]
+  rfis           Rfi[]
   checklistItems ChecklistItem[]
 
   @@index([orgId, status])
@@ -294,25 +355,25 @@ model Job {
 /// Org-scoped checklist template keyed by job type (null = org default).
 /// Instantiated per job at creation so dispatchers can edit per-site.
 model ChecklistTemplate {
-  id        String   @id @default(cuid())
+  id        String                  @id @default(cuid())
   orgId     String
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org       Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jobType   String?
   name      String
   items     ChecklistTemplateItem[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
 
   @@unique([orgId, jobType])
   @@map("checklist_templates")
 }
 
 model ChecklistTemplateItem {
-  id         String   @id @default(cuid())
+  id         String            @id @default(cuid())
   templateId String
   template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   label      String
-  sortOrder  Int      @default(0)
+  sortOrder  Int               @default(0)
 
   @@index([templateId])
   @@map("checklist_template_items")
@@ -320,17 +381,17 @@ model ChecklistTemplateItem {
 
 /// The per-job instantiated checklist — completion evidence lives here.
 model ChecklistItem {
-  id          String    @id @default(cuid())
+  id          String       @id @default(cuid())
   jobId       String
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   orgId       String
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   label       String
-  sortOrder   Int       @default(0)
+  sortOrder   Int          @default(0)
   completedAt DateTime?
   completedBy String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([jobId])
   @@index([orgId])
@@ -385,16 +446,18 @@ model MediaAsset {
 }
 
 model JobPhoto {
-  id      String   @id @default(cuid())
+  id      String      @id @default(cuid())
   jobId   String
-  job     Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  assetId String?  @unique
+  job     Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  assetId String?     @unique
   asset   MediaAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
   label   String
   url     String
-  /** Client outbox key; nullable for photos created by legacy clients. */
-  opId    String?  @unique
-  takenAt DateTime @default(now())
+  /**
+   * Client outbox key; nullable for photos created by legacy clients.
+   */
+  opId    String?     @unique
+  takenAt DateTime    @default(now())
 
   @@index([jobId])
   @@map("job_photos")
@@ -407,17 +470,17 @@ enum QuoteStatus {
 }
 
 model Quote {
-  id          String     @id @default(cuid())
+  id          String       @id @default(cuid())
   orgId       String
   org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  trade       String     @default("plumbing")
+  trade       String       @default("plumbing")
   client      String
   address     String
   description String
-  status      QuoteStatus @default(draft)
+  status      QuoteStatus  @default(draft)
   signature   String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   lines QuoteLine[]
 
@@ -426,14 +489,14 @@ model Quote {
 }
 
 model QuoteLine {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   quoteId   String
-  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote     Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   desc      String
-  qty       Float    @default(1)
-  unit      String   @default("ea")
-  rate      Float    @default(0)
-  sortOrder Int      @default(0)
+  qty       Float  @default(1)
+  unit      String @default("ea")
+  rate      Float  @default(0)
+  sortOrder Int    @default(0)
 
   @@index([quoteId])
   @@map("quote_lines")
@@ -447,25 +510,33 @@ model QuoteLine {
  * history as JSON) lives here so the vault is queryable server-side.
  */
 model JobDocument {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   orgId          String
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jobId          String?
-  job            Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job            Job?         @relation(fields: [jobId], references: [id], onDelete: Cascade)
   name           String
-  category       String   @default("other")
-  /** JSON array of tag strings. */
-  tags           Json     @default("[]")
-  /** Compliance docs lapse — surfaced by the dashboard before they cost a job. */
+  category       String       @default("other")
+  /**
+   * JSON array of tag strings.
+   */
+  tags           Json         @default("[]")
+  /**
+   * Compliance docs lapse — surfaced by the dashboard before they cost a job.
+   */
   expiresOn      DateTime?
-  notes          String   @default("")
-  /** JSON: { fileName, size, mimeType, url, sha256?, uploadedAt, uploadedBy }. */
+  notes          String       @default("")
+  /**
+   * JSON: { fileName, size, mimeType, url, sha256?, uploadedAt, uploadedBy }.
+   */
   currentVersion Json
-  /** JSON array of the same version shape (newest last). */
-  versions       Json     @default("[]")
+  /**
+   * JSON array of the same version shape (newest last).
+   */
+  versions       Json         @default("[]")
   createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([orgId, category])
   @@index([orgId, expiresOn])
@@ -473,24 +544,28 @@ model JobDocument {
   @@map("job_documents")
 }
 
-/** Request-for-information against a job — field ↔ office loop. */
+/**
+ * Request-for-information against a job — field ↔ office loop.
+ */
 model Rfi {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   orgId        String
   org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   jobId        String
-  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job          Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   question     String
-  /** Linked JobDocument id (spec, plan, evidence bundle). */
+  /**
+   * Linked JobDocument id (spec, plan, evidence bundle).
+   */
   attachmentId String?
-  status       String   @default("raised")
+  status       String       @default("raised")
   raisedBy     String
-  raisedAt     DateTime @default(now())
-  answer       String   @default("")
+  raisedAt     DateTime     @default(now())
+  answer       String       @default("")
   answeredBy   String?
   answeredAt   DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([jobId, status])
   @@index([orgId, status])

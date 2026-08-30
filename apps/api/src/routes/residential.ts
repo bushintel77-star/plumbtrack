@@ -11,6 +11,8 @@ import {
   updateAppointmentSchema,
   updateCustomerSchema,
   updatePropertySchema,
+  serviceAgreementSchema,
+  updateServiceAgreementSchema,
 } from "../schemas/residential";
 
 const operationalRoles = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
@@ -38,6 +40,45 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     const customer = await prisma.customer.create({ data: { ...parsed.data, orgId } });
     recordAuditEvent(request, { action: "customer.created", entityType: "customer", entityId: customer.id });
     return reply.code(201).send(customer);
+  });
+
+  app.get("/:id/agreements", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const { id } = request.params as { id: string };
+    const customer = await prisma.customer.findFirst({ where: { id, orgId } });
+    if (!customer) return reply.code(404).send({ message: "Customer not found" });
+    return prisma.serviceAgreement.findMany({ where: { customerId: id, orgId }, orderBy: { nextDueDate: "asc" } });
+  });
+
+  app.post("/:id/agreements", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, officeRoles);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const customer = await prisma.customer.findFirst({ where: { id, orgId } });
+    if (!customer) return reply.code(404).send({ message: "Customer not found" });
+    const parsed = parseBody(serviceAgreementSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const agreement = await prisma.serviceAgreement.create({ data: { ...parsed.data, orgId, customerId: id, lastServiceDate: parsed.data.lastServiceDate ? new Date(parsed.data.lastServiceDate) : null, nextDueDate: new Date(parsed.data.nextDueDate) } });
+    recordAuditEvent(request, { action: "service_agreement.created", entityType: "service_agreement", entityId: agreement.id, metadata: { customerId: id } });
+    return reply.code(201).send(agreement);
+  });
+
+  app.put("/:customerId/agreements/:agreementId", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, officeRoles);
+    if (roleFailure) return roleFailure;
+    const { customerId, agreementId } = request.params as { customerId: string; agreementId: string };
+    const parsed = parseBody(updateServiceAgreementSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const data = { ...(parsed.data.serviceType !== undefined ? { serviceType: parsed.data.serviceType } : {}), ...(parsed.data.frequency !== undefined ? { frequency: parsed.data.frequency } : {}), ...(parsed.data.active !== undefined ? { active: parsed.data.active } : {}), ...(parsed.data.lastServiceDate !== undefined ? { lastServiceDate: parsed.data.lastServiceDate ? new Date(parsed.data.lastServiceDate) : null } : {}), ...(parsed.data.nextDueDate !== undefined ? { nextDueDate: new Date(parsed.data.nextDueDate) } : {}) };
+    const result = await prisma.serviceAgreement.updateMany({ where: { id: agreementId, customerId, orgId }, data });
+    if (result.count === 0) return reply.code(404).send({ message: "Service agreement not found" });
+    recordAuditEvent(request, { action: "service_agreement.updated", entityType: "service_agreement", entityId: agreementId, metadata: { customerId, ...parsed.data } });
+    return prisma.serviceAgreement.findFirst({ where: { id: agreementId, customerId, orgId } });
   });
 
   app.get("/:id/properties", async (request, reply) => {
@@ -68,7 +109,7 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
     const { id } = request.params as { id: string };
-    const customer = await prisma.customer.findFirst({ where: { id, orgId }, include: { properties: true, jobs: true } });
+    const customer = await prisma.customer.findFirst({ where: { id, orgId }, include: { properties: true, jobs: { orderBy: { createdAt: "desc" }, include: { appointments: { orderBy: { scheduledStart: "desc" }, take: 1 } } }, serviceAgreements: { where: { active: true }, orderBy: { nextDueDate: "asc" } } } });
     if (!customer) return reply.code(404).send({ message: "Customer not found" });
     return customer;
   });

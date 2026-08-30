@@ -9,16 +9,13 @@ afterEach(() => {
 });
 
 describe("createCheckoutSession", () => {
-  it("returns a deterministic test URL when no key is configured", async () => {
-    const result = await createCheckoutSession({
+  it("fails closed when Stripe is not configured", async () => {
+    await expect(createCheckoutSession({
       jobId: "J-1043",
       client: "OC 4021",
       amountCents: 29500,
       description: "Riser leak repair",
-    });
-    expect(result.mode).toBe("test");
-    expect(result.configured).toBe(false);
-    expect(result.url).toContain("cs_test_plumbtrack_J-1043");
+    })).rejects.toThrow("Stripe is not configured");
   });
 
   it("calls the Stripe Checkout API when a key is configured", async () => {
@@ -49,7 +46,7 @@ describe("createCheckoutSession", () => {
     expect(result.url).toBe("https://checkout.stripe.com/c/pay/cs_live_abc");
   });
 
-  it("falls back to test mode when the Stripe call fails", async () => {
+  it("fails when the Stripe call fails", async () => {
     process.env.STRIPE_SECRET_KEY = "sk_test_123";
     globalThis.fetch = (async () => ({
       ok: false,
@@ -57,14 +54,12 @@ describe("createCheckoutSession", () => {
       text: async () => "Invalid API Key",
     }) as Response) as typeof fetch;
 
-    const result = await createCheckoutSession({
+    await expect(createCheckoutSession({
       jobId: "J-1043",
       client: "OC 4021",
       amountCents: 100,
       description: "Test",
-    });
-    expect(result.mode).toBe("test");
-    expect(result.configured).toBe(true);
+    })).rejects.toThrow("Stripe Checkout failed (401)");
   });
 
   it("isStripeConfigured reflects the environment", () => {

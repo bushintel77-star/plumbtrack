@@ -97,14 +97,19 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const parsed = parseBody(assignmentSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
-    const job = await prisma.job.findFirst({ where: { id, orgId } });
+    const job = await prisma.job.findFirst({ where: { id, orgId }, include: { appointments: { orderBy: { scheduledStart: "asc" }, take: 1 } } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
+    const technician = await prisma.user.findFirst({ where: { id: parsed.data.technicianId, memberships: { some: { organizationId: orgId } } } });
+    if (!technician) return reply.code(409).send({ message: "Technician is not available in this organization" });
+    const appointment = job.appointments[0];
+    if (!appointment) return reply.code(409).send({ message: "Job has no schedulable appointment" });
+    const conflict = await prisma.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: new Date(appointment.scheduledEnd?.getTime() ?? appointment.scheduledStart.getTime() + 30 * 60000) }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: appointment.scheduledStart } }] } });
+    if (conflict) return reply.code(409).send({ message: "Technician has an overlapping appointment" });
     const updated = await prisma.appointment.updateMany({
-      where: { jobId: id, orgId },
+      where: { id: appointment.id, jobId: id, orgId },
       data: { assignedStaffId: parsed.data.technicianId, updatedAt: new Date() }
     });
     if (updated.count === 0) return reply.code(409).send({ message: "Job has no schedulable appointment" });
-    if (updated.count === 0) return reply.code(404).send({ message: "Job not found" });
     recordAuditEvent(request, { action: "job.assigned", entityType: "job", entityId: id, metadata: parsed.data });
     publishToOrg({
       topic: "topic/jobs/updated",
@@ -394,7 +399,9 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       amountCents,
       description: job.scope || `Invoice — ${job.id}`,
     });
-    recordAuditEvent(request, { action: "payment_link.created", entityType: "job", entityId: job.id, metadata: { mode: result.mode } });
-    return reply.send({ url: result.url, mode: result.mode, configured: result.configured, amount: amountCents / 100, currency: "AUD" });
+    if (!result.configured || !result.url || !result.sessionId) return reply.code(503).send({ message: "Stripe payments are not configured" });
+    await prisma.job.update({ where: { id: job.id }, data: { stripeSessionId: result.sessionId, paymentStatus: "unpaid" } });
+    recordAuditEvent(request, { action: "payment_link.created", entityType: "job", entityId: job.id, metadata: { mode: result.mode, sessionId: result.sessionId } });
+    return reply.send({ url: result.url, mode: result.mode, configured: result.configured, sessionId: result.sessionId, amount: amountCents / 100, currency: "AUD" });
   });
 }
