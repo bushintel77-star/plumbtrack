@@ -19,6 +19,7 @@ export default defineRailway(() => {
     deploy: {
       healthcheckPath: "/api/health",
       startCommand: "node apps/api/dist/index.js",
+      preDeployCommand: "pnpm --filter @plumbtrack/database db:migrate",
     },
     env: {
       PORT: "8080",
