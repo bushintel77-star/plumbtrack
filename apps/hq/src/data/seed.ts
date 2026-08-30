@@ -81,8 +81,7 @@ export const jobs: Job[] = [
     },
     documents: [
       { id: "d-1002-a", name: "Gas Safe Certification", ref: "GS-5518", expiresAt: daysFromNowIso(74), category: "Compliance & Licenses", docType: "Certification", entityType: "technician", entityId: "t-mike", owner: "Mike Reyes" }
-    ],
-    cost: 74
+    ]
   },
   {
     id: "j-1003",
@@ -142,8 +141,7 @@ export const jobs: Job[] = [
     documents: [
       { id: "d-1004-a", name: "Plumbing Permit", ref: "PP-88901", expiresAt: daysFromNowIso(9), category: "Job Records", docType: "Permit", linkedJobId: "j-1004", owner: "Sable Court HOA" },
       { id: "d-1004-b", name: "Site Induction Record", ref: "SIR-4410", expiresAt: null, category: "Job Records", docType: "Induction", linkedJobId: "j-1004", owner: "Sable Court HOA" }
-    ],
-    cost: 402
+    ]
   },
   {
     id: "j-1005",
@@ -195,8 +193,7 @@ export const jobs: Job[] = [
     },
     documents: [
       { id: "d-1006-a", name: "Gas Safe Certification", ref: "GS-7702", expiresAt: daysFromNowIso(-3), category: "Compliance & Licenses", docType: "Certification", entityType: "technician", entityId: "t-priya", owner: "Priya Nair" }
-    ],
-    cost: 128
+    ]
   },
   {
     id: "j-1007",
