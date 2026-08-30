@@ -14,13 +14,15 @@ import { Avatar } from "./common"
 const PRESENCE_LABEL: Record<Presence, string> = {
   on_job: "On job",
   available: "Available",
-  on_leave: "On leave"
+  on_leave: "On leave",
+  offline: "Offline"
 }
 
 const PRESENCE_CLASS: Record<Presence, string> = {
   on_job: "on-job",
   available: "available",
-  on_leave: "on-leave"
+  on_leave: "on-leave",
+  offline: "offline"
 }
 
 export function CrewTree({
