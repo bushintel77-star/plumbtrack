@@ -23,6 +23,13 @@ RUN pnpm install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
 ENV NEXT_OUTPUT_STANDALONE=true
+# NEXT_PUBLIC_* vars must be present at build time for Next.js to inline them
+# into the client bundle. Railway service variables are not automatically
+# available during Docker builds, so accept them as build args.
+ARG NEXT_PUBLIC_HQ_API_URL
+ARG NEXT_PUBLIC_HQ_DEV_ORG_ID
+ENV NEXT_PUBLIC_HQ_API_URL=$NEXT_PUBLIC_HQ_API_URL
+ENV NEXT_PUBLIC_HQ_DEV_ORG_ID=$NEXT_PUBLIC_HQ_DEV_ORG_ID
 RUN pnpm turbo run build --filter=@plumbtrack/hq
 
 # ---------------------------------------------------------------------------
