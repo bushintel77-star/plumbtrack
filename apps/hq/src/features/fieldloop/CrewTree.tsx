@@ -1,0 +1,111 @@
+"use client"
+
+import { useState } from "react"
+import { Search } from "lucide-react"
+
+import { blockLabel } from "@/lib/format"
+import { dispatchStatus, jobsOnDay, presenceFor } from "@/lib/fieldloop"
+import { cn } from "@/lib/utils"
+import { useBoardStore, useJobsList } from "@/stores/boardStore"
+import type { Job, Presence } from "@/types"
+
+import { Avatar } from "./common"
+
+const PRESENCE_LABEL: Record<Presence, string> = {
+  on_job: "On job",
+  available: "Available",
+  on_leave: "On leave"
+}
+
+const PRESENCE_CLASS: Record<Presence, string> = {
+  on_job: "on-job",
+  available: "available",
+  on_leave: "on-leave"
+}
+
+export function CrewTree({
+  day,
+  selectedTechId,
+  onSelectTech,
+  onSelectJob
+}: {
+  day: string
+  selectedTechId: string
+  onSelectTech: (techId: string) => void
+  onSelectJob: (job: Job) => void
+}) {
+  const technicians = useBoardStore(s => s.technicians)
+  const jobs = useJobsList()
+  const [query, setQuery] = useState("")
+  const today = jobsOnDay(jobs, day)
+  const visible = technicians.filter(tech =>
+    tech.name.toLowerCase().includes(query.trim().toLowerCase())
+  )
+
+  return (
+    <aside className="fl-panel fl-tree" aria-label="Crew">
+      <label className="fl-input">
+        <Search size={13} />
+        <input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="Filter crew…"
+          aria-label="Filter crew"
+        />
+      </label>
+      <div className="fl-kicker">
+        Crew
+        <button type="button" onClick={() => onSelectTech("")}>
+          Show all
+        </button>
+      </div>
+      {visible.map(tech => {
+        const row = today.filter(job => job.techId === tech.id)
+        const presence = presenceFor(tech, jobs, day)
+        return (
+          <button
+            type="button"
+            key={tech.id}
+            aria-pressed={selectedTechId === tech.id}
+            className={cn("fl-crew", selectedTechId === tech.id && "selected")}
+            onClick={() => onSelectTech(selectedTechId === tech.id ? "" : tech.id)}
+          >
+            <Avatar name={tech.name} />
+            <div>
+              <strong>{tech.name}</strong>
+              <span>
+                {tech.role} · {tech.van} · {row.length} job{row.length === 1 ? "" : "s"}
+              </span>
+              <span className={cn("fl-presence", PRESENCE_CLASS[presence])}>
+                <i />
+                {PRESENCE_LABEL[presence]}
+              </span>
+              {row.slice(0, 3).map(job => (
+                <span
+                  key={job.id}
+                  role="button"
+                  tabIndex={0}
+                  data-testid={`crew-job-${job.id}`}
+                  className={cn("fl-crew-job", dispatchStatus(job))}
+                  onClick={event => {
+                    event.stopPropagation()
+                    onSelectJob(job)
+                  }}
+                  onKeyDown={event => {
+                    if (event.key !== "Enter" && event.key !== " ") return
+                    event.stopPropagation()
+                    event.preventDefault()
+                    onSelectJob(job)
+                  }}
+                >
+                  {blockLabel(job.startBlock)} · {job.title}
+                </span>
+              ))}
+            </div>
+          </button>
+        )
+      })}
+      {visible.length === 0 && <div className="fl-muted">No crew matches “{query}”.</div>}
+    </aside>
+  )
+}

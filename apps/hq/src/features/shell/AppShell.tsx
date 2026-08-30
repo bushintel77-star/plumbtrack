@@ -31,7 +31,7 @@ import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
-import { ReferenceWorkspace } from "./ReferenceWorkspace"
+import { FieldLoopWorkspace, type Surface } from "@/features/fieldloop/FieldLoopWorkspace"
 
 const NAV: Array<{
   id: AppModule
@@ -54,6 +54,23 @@ const NAV: Array<{
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 
+/* Modules the FieldLoop workspace now owns. The legacy `module` value still
+   decides which surface opens, so existing links and redirects keep landing
+   where they always did; `surface` then takes over inside the workspace. */
+const FIELDLOOP_MODULES: Partial<Record<AppModule, Surface>> = {
+  dashboard: "dispatch",
+  dispatch: "dispatch",
+  crews: "dispatch",
+  jobs: "dispatch",
+  map: "map",
+  forms: "documents",
+  customers: "crm",
+  // Accounting has no backend of its own; revenue, recorded cost and margin
+  // live on Reports, which is the only honest destination for it today.
+  accounting: "reports",
+  reports: "reports"
+}
+
 function useWallClock(): string {
   const [clock, setClock] = useState("--:--:--")
   useEffect(() => {
@@ -70,7 +87,7 @@ function useWallClock(): string {
   return clock
 }
 
-/* Legacy sidebar removed: ReferenceWorkspace owns the single visible navigation rail. */
+/* Legacy sidebar removed: FieldLoopWorkspace owns the single visible navigation rail. */
 function Sidebar({ module, onNavigate }: { module: AppModule; onNavigate: (id: AppModule) => void }) {
   return (
     <aside className="group flex w-14 shrink-0 flex-col border-r border-line bg-recess transition-[width] duration-200 hover:w-[212px] focus-within:w-[212px]">
@@ -291,6 +308,7 @@ export function AppShell() {
   const navigate = (id: AppModule): void => {
     void setUrlModule(id)
   }
+  const fieldLoopSurface = FIELDLOOP_MODULES[activeModule]
 
   // Adopt the persisted theme after hydration, then keep the class in sync
   // with the store. The server and first client render intentionally match.
@@ -306,7 +324,7 @@ export function AppShell() {
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="min-h-0 flex-1">
-          {(activeModule === "dashboard" || activeModule === "dispatch" || activeModule === "map" || activeModule === "forms" || activeModule === "customers" || activeModule === "reports" || activeModule === "accounting") && <ReferenceWorkspace initialModule={activeModule === "dashboard" ? "dispatch" : activeModule} onNavigate={navigate} />}
+          {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
           {activeModule === "operations" && <OperationsHub />}
           {activeModule === "kanban" && <Board />}
           {activeModule === "calendar" && <Board />}

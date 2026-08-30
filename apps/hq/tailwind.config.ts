@@ -12,10 +12,11 @@ const config: Config = {
         "2xs": ["10px", { lineHeight: "14px" }]
       },
       fontFamily: {
-        sans: ["var(--font-lato)", "Lato", "Trebuchet MS", "sans-serif"],
+        sans: ["var(--font-plex-sans)", "IBM Plex Sans", "Trebuchet MS", "sans-serif"],
+        display: ["var(--font-big-shoulders)", "Big Shoulders Display", "sans-serif"],
         mono: [
-          "var(--font-jetbrains)",
-          "JetBrains Mono",
+          "var(--font-plex-mono)",
+          "IBM Plex Mono",
           "SF Mono",
           "Cascadia Code",
           "monospace"

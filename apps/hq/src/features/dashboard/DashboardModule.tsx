@@ -64,6 +64,7 @@ export function DashboardModule() {
   const alerts: DocAlert[] = []
   for (const job of jobs) {
     for (const doc of job.documents) {
+      if (!doc.expiresAt) continue
       const target = new Date(doc.expiresAt)
       const startOfTarget = new Date(
         target.getFullYear(),

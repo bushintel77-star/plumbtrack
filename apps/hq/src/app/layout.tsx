@@ -1,22 +1,32 @@
 import type { Metadata } from "next"
-import { Lato, JetBrains_Mono } from "next/font/google"
+import { Big_Shoulders, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
 
 import "./globals.css"
 
 import { Providers } from "./providers"
 
-const lato = Lato({
-  weight: ["400", "700", "900"],
+/** Display face — wordmarks, hero numerals and panel headings only. */
+const bigShoulders = Big_Shoulders({
+  weight: ["700", "800"],
   subsets: ["latin"],
-  variable: "--font-lato",
+  variable: "--font-big-shoulders",
   display: "swap"
 })
 
-const jetbrains = JetBrains_Mono({
-  weight: ["400", "600", "700"],
+/** Body and UI text. */
+const plexSans = IBM_Plex_Sans({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
-  variable: "--font-jetbrains",
+  variable: "--font-plex-sans",
+  display: "swap"
+})
+
+/** Every changing or column-aligned value: times, dates, IDs, currency. */
+const plexMono = IBM_Plex_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-plex-mono",
   display: "swap"
 })
 
@@ -30,7 +40,11 @@ export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-AU" className={`${lato.variable} ${jetbrains.variable}`} translate="no">
+    <html
+      lang="en-AU"
+      className={`${bigShoulders.variable} ${plexSans.variable} ${plexMono.variable}`}
+      translate="no"
+    >
       <head>
         {/* Native Chrome/Edge translate prompt suppressed — the console is
             English-only operations UI and the popup steals focus on load. */}

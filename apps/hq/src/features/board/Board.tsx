@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
 import {
   DndContext,
   DragOverlay,
@@ -30,11 +29,8 @@ import { CrewRouteJobTree } from "./CrewRouteJobTree"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { FORCE_DEMO } from "@/lib/api"
-import { fetchBoardPayload } from "@/lib/adapter"
 import { todayIsoDay } from "@/lib/format"
 import { rankCrews } from "@/lib/assignment"
-import { cacheJobs } from "@/lib/offline"
 import { primeRoadMatrix } from "@/lib/roadTime"
 import { travelMinutes } from "@/lib/travel"
 import { DEPOT } from "@/lib/optimize"
@@ -54,6 +50,7 @@ import { JobDetailsDialog } from "@/features/right/JobDetailsDialog"
 import { ClosedLoopHub } from "@/features/office/ClosedLoopHub"
 import { QueueCardVisual } from "@/features/left/QueueCardVisual"
 import { performAssignment } from "./actions"
+import { useBoardLifecycle } from "./useBoardLifecycle"
 
 interface DragState {
   jobId: string
@@ -74,10 +71,8 @@ export function Board() {
   useEffect(() => {
     void primeRoadMatrix([DEPOT, ...jobs.flatMap(j => (j.location ? [j.location] : []))])
   }, [jobs])
+  useBoardLifecycle()
   const technicians = useBoardStore(s => s.technicians)
-  const dataMode = useBoardStore(s => s.dataMode)
-  const hydrateFromApi = useBoardStore(s => s.hydrateFromApi)
-  const enterDemo = useBoardStore(s => s.enterDemo)
   const setPaletteOpen = useBoardStore(s => s.setPaletteOpen)
   const selectJob = useBoardStore(s => s.selectJob)
   const openDetails = useBoardStore(s => s.openDetails)
@@ -120,12 +115,6 @@ export function Board() {
     return { techId: best.tech.id, block: best.firstFreeBlock, spanBlocks: selectedJob.spanBlocks }
   }, [showSuggestions, selectedJob, technicians, jobs])
 
-  // Global 1s heartbeat driving every running timer.
-  useEffect(() => {
-    const interval = setInterval(() => useBoardStore.getState().tick(), 1000)
-    return () => clearInterval(interval)
-  }, [])
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -136,28 +125,6 @@ export function Board() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [setPaletteOpen])
-
-  // Data hydration: live API first, seeded demo fallback (5s polling).
-  const boardQuery = useQuery({
-    queryKey: ["board"],
-    queryFn: fetchBoardPayload,
-    refetchInterval: 5_000,
-    enabled: !FORCE_DEMO && dataMode !== "demo"
-  })
-
-  useEffect(() => {
-    if (FORCE_DEMO) {
-      enterDemo()
-      void cacheJobs(Object.values(useBoardStore.getState().jobs))
-      return
-    }
-    if (boardQuery.data && boardQuery.data.jobs.length > 0) {
-      hydrateFromApi(boardQuery.data)
-      void cacheJobs(Object.values(useBoardStore.getState().jobs))
-    } else if (boardQuery.isError && dataMode === "connecting") {
-      enterDemo()
-    }
-  }, [boardQuery.data, boardQuery.isError, dataMode, hydrateFromApi, enterDemo])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
