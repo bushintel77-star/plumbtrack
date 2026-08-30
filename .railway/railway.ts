@@ -1,17 +1,50 @@
-import { defineRailway, postgres, project, service } from "railway/iac";
+import { defineRailway, github, postgres, preserve, project, ref, service, volume } from "railway/iac";
 
-// PlumbTrack — web-only deployment. The web service builds from the repo root
-// via the root Dockerfile (turbo prune → Next.js standalone), so it must NOT
-// be scoped to a subdirectory: the full monorepo context is what pnpm
-// workspaces and turbo prune require.
 export default defineRailway(() => {
-  const db = postgres("postgres");
+  const Postgres = postgres("Postgres", { region: "us-west2" });
+  const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "us-west2", sizeMB: 5000 });
 
   const web = service("web", {
-    healthcheck: "/",
+    source: github("bushintel77-star/plumbtrack"),
+    replicas: { "us-west2": 1 },
+    env: { PORT: preserve() },
+  });
+
+  const api = service("api", {
+    source: github("bushintel77-star/plumbtrack"),
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/api/Dockerfile",
+    },
+    deploy: {
+      healthcheckPath: "/api/health",
+      startCommand: "node apps/api/dist/index.js",
+    },
+    env: {
+      PORT: "8080",
+      DATABASE_URL: ref(Postgres, "DATABASE_URL"),
+    },
+    replicas: { "us-west2": 1 },
+  });
+
+  const hq = service("hq", {
+    source: github("bushintel77-star/plumbtrack"),
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "/apps/hq/Dockerfile",
+    },
+    deploy: {
+      healthcheckPath: "/",
+      startCommand: "node apps/hq/server.js",
+    },
+    env: {
+      PORT: "3000",
+      NEXT_PUBLIC_HQ_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
+    },
+    replicas: { "us-west2": 1 },
   });
 
   return project("plumbtrack", {
-    resources: [db, web],
+    resources: [Postgres, web, api, hq, postgresVolume],
   });
 });

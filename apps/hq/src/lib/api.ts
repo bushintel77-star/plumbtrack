@@ -4,8 +4,13 @@
  * The board never blocks on the API: a failure flips the board to demo data.
  */
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_HQ_API_URL ?? "http://localhost:8080"
+function buildApiUrl(raw?: string): string {
+  if (!raw) return "http://localhost:8080"
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
+  return `https://${raw}`
+}
+
+export const API_URL = buildApiUrl(process.env.NEXT_PUBLIC_HQ_API_URL)
 
 /** Dev/test-only tenancy header, matching the API's local fallback contract. */
 const ORG_HEADER = "x-organization-id"
