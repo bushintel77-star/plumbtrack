@@ -43,4 +43,4 @@ COPY --from=installer /app/apps/hq/public ./apps/hq/public
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "apps/hq/server.js"]
