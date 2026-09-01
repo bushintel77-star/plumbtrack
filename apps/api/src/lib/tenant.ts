@@ -25,11 +25,12 @@ export const tenantPlugin = fp(
     app.addHook("onRequest", async (request, reply) => {
       const url = request.url.split("?")[0];
 
-      // Device enrollment is intentionally public: the route enforces the
-      // deployment bootstrap secret (production) or the legacy dev header.
-      // Production enrollment presents its raw secret as a bearer token, so
-      // the signed-session checks below must not run against it.
-      if (url === "/api/auth/device") {
+      // Device enrollment and HQ operator sign-in are intentionally public:
+      // the routes enforce the deployment bootstrap secrets (production) or
+      // the legacy dev header. Production callers present their raw secret as
+      // a bearer token, so the signed-session checks below must not run
+      // against them.
+      if (url === "/api/auth/device" || url === "/api/auth/hq-session") {
         if (!isLegacyTenantFallbackAllowed()) return; // route enforces bootstrap
         const legacyValue = request.headers[ORG_HEADER];
         if (typeof legacyValue === "string" && legacyValue.trim().length > 0) {

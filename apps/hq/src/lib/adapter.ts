@@ -1,5 +1,5 @@
 import type { Job, JobPriority, JobStatus, Quote, Technician } from "@/types"
-import { isoDay } from "@/lib/format"
+import { DAY_START_MINUTES, isoDay, MINUTES_PER_BLOCK, TOTAL_BLOCKS } from "@/lib/format"
 
 /**
  * Shapes returned by apps/api (see apps/api/src/schemas/job.ts, quote.ts).
@@ -20,6 +20,20 @@ export interface ApiJob {
   status: "scheduled" | "in_progress" | "completed"
   timeEntries: ApiTimeEntry[]
   createdAt: string
+  /** Server-authoritative assignment (G-1/G-2 round-trip). `null` when the
+   *  job has no schedulable appointment yet. */
+  appointment?: ApiAppointment | null
+}
+
+/** The schedulable appointment `/api/board` attaches to each job — the same
+ *  record `PATCH /api/jobs/:id/assignment` mutates. */
+export interface ApiAppointment {
+  id: string
+  assignedStaffId: string | null
+  assignedStaffName?: string | null
+  scheduledStart: string
+  scheduledEnd: string | null
+  status: string
 }
 
 export interface ApiQuoteLine {
@@ -67,24 +81,72 @@ function mapQuoteStatus(status: ApiQuote["status"]): Quote["status"] {
 }
 
 /** Deterministic pseudo-slot so live jobs land somewhere readable on the matrix
- *  until the board day-view feed (gap G-1) provides real scheduling windows. */
+ *  when the server has no schedulable appointment for them yet. */
 function slotForIndex(index: number): { startBlock: number; spanBlocks: number } {
   const startBlock = (index * 5) % 16
   const spanBlocks = 3
   return { startBlock, spanBlocks }
 }
 
-/** Map API entities onto board view models. Technicians stay seeded for now —
- *  the resource skill matrix is gap G-3; round-robin assignment keeps the
- *  matrix legible without inventing server-side assignments the API lacks.
- *  Returns the normalized dictionary the store consumes. */
+/** Wall-clock minutes since midnight, parsed straight from the ISO string.
+ *  `Appointment.scheduledStart` is a naive TIMESTAMP(3) column — Prisma
+ *  serializes it with a Z suffix regardless of server timezone — so string
+ *  parsing (not `new Date`) keeps board blocks timezone-stable. */
+function wallClockMinutes(iso: string): number | null {
+  const match = /T(\d{2}):(\d{2})/.exec(iso)
+  if (!match) return null
+  return Number(match[1]) * 60 + Number(match[2])
+}
+
+/** Server schedule → board geometry. `null` when the job has no appointment. */
+function slotFromAppointment(
+  appointment: ApiAppointment | null | undefined
+): { startBlock: number; spanBlocks: number; scheduledDate: string } | null {
+  if (!appointment) return null
+  const startMinutes = wallClockMinutes(appointment.scheduledStart)
+  if (startMinutes === null) return null
+  const startBlock = Math.max(
+    0,
+    Math.min(TOTAL_BLOCKS - 1, Math.round((startMinutes - DAY_START_MINUTES) / MINUTES_PER_BLOCK))
+  )
+  const endMinutes = appointment.scheduledEnd ? wallClockMinutes(appointment.scheduledEnd) : null
+  const spanBlocks =
+    endMinutes !== null && endMinutes > startMinutes
+      ? Math.max(1, Math.min(TOTAL_BLOCKS - startBlock, Math.round((endMinutes - startMinutes) / MINUTES_PER_BLOCK)))
+      : 1
+  return { startBlock, spanBlocks, scheduledDate: appointment.scheduledStart.slice(0, 10) }
+}
+
+/** The server-authoritative assignee when it resolves to a known board
+ *  technician (id match first, then name); round-robin keeps unassigned or
+ *  unknown-staff jobs legible on the matrix. */
+function techForJob(apiJob: ApiJob, technicians: Technician[], index: number): Technician | undefined {
+  const appointment = apiJob.appointment
+  if (appointment?.assignedStaffId) {
+    const byId = technicians.find(tech => tech.id === appointment.assignedStaffId)
+    if (byId) return byId
+  }
+  if (appointment?.assignedStaffName) {
+    const name = appointment.assignedStaffName.toLowerCase()
+    const byName = technicians.find(tech => tech.name.toLowerCase() === name)
+    if (byName) return byName
+  }
+  return technicians.length > 0 ? technicians[index % technicians.length] : undefined
+}
+
+/** Map API entities onto board view models. The server-authoritative assignee
+ *  (`appointment.assignedStaffId` / `assignedStaffName`) wins when it resolves
+ *  to a known technician; otherwise round-robin keeps the matrix legible.
+ *  Jobs without a schedulable appointment fall back to deterministic
+ *  pseudo-slots on today's board. Returns the normalized dictionary the store
+ *  consumes. */
 export function adaptApiBoard(
   payload: ApiBoardPayload,
   technicians: Technician[]
 ): { jobs: Record<string, Job> } {
   const jobs: Job[] = payload.jobs.map((apiJob, index) => {
-    const tech = technicians[index % technicians.length]
-    const { startBlock, spanBlocks } = slotForIndex(index)
+    const tech = techForJob(apiJob, technicians, index)
+    const slot = slotFromAppointment(apiJob.appointment) ?? { ...slotForIndex(index), scheduledDate: isoDay(0) }
     const apiQuote = payload.quotes.find(q => q.client === apiJob.client)
     const running = hasOpenEntry(apiJob.timeEntries)
     const quote: Quote = apiQuote
@@ -108,10 +170,10 @@ export function adaptApiBoard(
       client: apiJob.client,
       address: apiJob.address,
       priority: "normal" as JobPriority,
-      techId: tech.id,
-      startBlock,
-      spanBlocks,
-      scheduledDate: isoDay(0),
+      techId: tech?.id ?? null,
+      startBlock: slot.startBlock,
+      spanBlocks: slot.spanBlocks,
+      scheduledDate: slot.scheduledDate,
       status: STATUS_MAP[apiJob.status],
       elapsedSeconds: Math.floor(elapsedFromEntries(apiJob.timeEntries)),
       timerRunning: running,

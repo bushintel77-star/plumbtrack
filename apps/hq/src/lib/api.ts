@@ -86,9 +86,10 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
 }
 
-/** Server persistence for board mutations. Assignment sync is gap G-2 in the
- *  application map — until the endpoint exists we persist status transitions
- *  only, and assignment stays client-authoritative with a visible notice. */
+/** Server persistence for board mutations. Assignments persist through
+ *  `authApi.assignment` (PATCH /api/jobs/:id/assignment, gap G-2): the endpoint
+ *  requires a schedulable appointment and enforces org membership plus the
+ *  job's `requiredSkill` against the technician. */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
@@ -131,7 +132,18 @@ export const authApi = {
       body: JSON.stringify({ technicianId, startBlock })
     }),
   renew: () => apiRequest<HqSession>("/api/auth/renew", { method: "POST" }),
-  signOut: () => apiRequest<void>("/api/auth/sign-out", { method: "POST" })
+  signOut: () => apiRequest<void>("/api/auth/sign-out", { method: "POST" }),
+  /**
+   * HQ operator sign-in: presents the deployment's `HQ_BOOTSTRAP_TOKEN` to
+   * mint a station-role session (dispatcher/manager/accountant/admin/owner).
+   * The secret is typed by the operator at runtime — never baked into the
+   * web bundle.
+   */
+  hqLogin: (bootstrapToken: string) =>
+    apiRequest<HqSession>("/api/auth/hq-session", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${bootstrapToken}` }
+    })
 }
 
 export async function persistJobStatus(

@@ -43,6 +43,72 @@ const CALLOUT_FEE = envNum("SEED_CALLOUT_FEE", 85);
 // demo rows (see the guard below).
 const SEED_DEMO_DATA = envBool("SEED_DEMO_DATA", process.env.NODE_ENV !== "production");
 
+/**
+ * Field crew aligned with the HQ board's seeded technicians (apps/hq/src/
+ * data/seed.ts): explicit user ids match the board's technician ids so a
+ * server-side assignment renders on the live board instead of the round-robin
+ * fallback. Skills mirror the board's BR-04 drag constraints and feed the
+ * G-2 requiredSkill check.
+ */
+const FIELD_TECHNICIANS = [
+  { id: "t-mike", email: "mike@caulfieldsouth.example", name: "Mike Reyes", skills: ["gas", "hot-water", "general"] },
+  { id: "t-dana", email: "dana@caulfieldsouth.example", name: "Dana Whitfield", skills: ["drainage", "general"] },
+  { id: "t-carlos", email: "carlos@caulfieldsouth.example", name: "Carlos Mendes", skills: ["general", "hot-water"] },
+  { id: "t-priya", email: "priya@caulfieldsouth.example", name: "Priya Nair", skills: ["leak-detection", "drainage", "general"] },
+] as const;
+
+/** Idempotent by unique email and the composite membership key. */
+async function ensureTechnicians(orgId: string): Promise<void> {
+  for (const tech of FIELD_TECHNICIANS) {
+    const user = await prisma.user.upsert({
+      where: { email: tech.email },
+      update: { name: tech.name },
+      create: { id: tech.id, email: tech.email, name: tech.name },
+    });
+    await prisma.organizationMembership.upsert({
+      where: { organizationId_userId: { organizationId: orgId, userId: user.id } },
+      update: { role: "technician", skills: [...tech.skills] },
+      create: { organizationId: orgId, userId: user.id, role: "technician", skills: [...tech.skills] },
+    });
+  }
+}
+
+/**
+ * Schedulable appointments for the demo jobs — created only when the job
+ * exists and has none, so re-running the seed never duplicates.
+ */
+const DEMO_APPOINTMENTS = [
+  { jobId: "J-1042", assignedStaffId: "t-mike", startHour: 9, durationHours: 2 },
+  { jobId: "J-1043", assignedStaffId: "t-dana", startHour: 11, durationHours: 2 },
+] as const;
+
+async function ensureDemoAppointments(orgId: string): Promise<void> {
+  for (const fixture of DEMO_APPOINTMENTS) {
+    const job = await prisma.job.findFirst({ where: { id: fixture.jobId, orgId } });
+    if (!job) continue;
+    const existing = await prisma.appointment.count({ where: { jobId: fixture.jobId } });
+    if (existing > 0) continue;
+    // Naive wall-clock semantics: `Appointment.scheduledStart` is a TIMESTAMP(3)
+    // column and the board parses the serialized wall-clock string, so build a
+    // Date whose UTC components ARE the intended wall-clock time — 09:00 local
+    // reads back as 09:00Z regardless of where the seed process runs.
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), fixture.startHour, 0, 0));
+    const end = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), fixture.startHour + fixture.durationHours, 0, 0));
+    await prisma.appointment.create({
+      data: {
+        id: `${fixture.jobId}-sched`,
+        orgId,
+        jobId: fixture.jobId,
+        assignedStaffId: fixture.assignedStaffId,
+        scheduledStart: start,
+        scheduledEnd: end,
+        status: "assigned",
+      },
+    });
+  }
+}
+
 async function main() {
   const org = await prisma.organization.upsert({
     where: { slug: ORG_SLUG },
@@ -57,7 +123,15 @@ async function main() {
 
   const existingJobs = await prisma.job.count({ where: { orgId: org.id } });
 
+  // The field crew is upserted regardless of demo-data mode: assignment
+  // round-trips (G-1/G-2) need org members whose ids the board knows.
+  await ensureTechnicians(org.id);
+
   if (!SEED_DEMO_DATA || existingJobs > 0) {
+    // Live org with existing rows: never inject demo records, but backfill
+    // schedulable appointments for the known demo jobs so the dispatch
+    // assignment loop works end-to-end.
+    if (existingJobs > 0) await ensureDemoAppointments(org.id);
     console.log(
       existingJobs > 0
         ? `Organization already has ${existingJobs} job(s) — demo fixtures skipped to protect live data.`
@@ -113,6 +187,8 @@ async function main() {
       },
     },
   });
+
+  await ensureDemoAppointments(org.id);
 
   console.log("Seed complete.");
   console.log(`Organization id: ${org.id}`);

@@ -99,8 +99,20 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
     const job = await prisma.job.findFirst({ where: { id, orgId }, include: { appointments: { orderBy: { scheduledStart: "asc" }, take: 1 } } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
-    const technician = await prisma.user.findFirst({ where: { id: parsed.data.technicianId, memberships: { some: { organizationId: orgId } } } });
+    const technician = await prisma.user.findFirst({
+      where: { id: parsed.data.technicianId, memberships: { some: { organizationId: orgId } } },
+      include: { memberships: true },
+    });
     if (!technician) return reply.code(409).send({ message: "Technician is not available in this organization" });
+    // BR-04 / G-2: a job that declares a required skill may only be assigned to
+    // a technician whose org membership carries that skill tag.
+    if (job.requiredSkill) {
+      const membership = technician.memberships.find(m => m.organizationId === orgId);
+      const skills = membership?.skills ?? [];
+      if (!skills.includes(job.requiredSkill)) {
+        return reply.code(409).send({ message: `Technician lacks the required skill: ${job.requiredSkill}` });
+      }
+    }
     const appointment = job.appointments[0];
     if (!appointment) return reply.code(409).send({ message: "Job has no schedulable appointment" });
     const conflict = await prisma.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: new Date(appointment.scheduledEnd?.getTime() ?? appointment.scheduledStart.getTime() + 30 * 60000) }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: appointment.scheduledStart } }] } });

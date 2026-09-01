@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { authApi } from "@/lib/api"
+import { authApi, FORCE_DEMO, HttpError } from "@/lib/api"
 import { useQueryState, parseAsString } from "nuqs"
 import {
   BarChart3,
@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
 import { type FieldLoopMode } from "@/features/fieldloop/context"
+import { HqSignIn } from "@/features/auth/HqSignIn"
 
 import { Board } from "@/features/board/Board"
 import { CommandPalette } from "@/features/board/CommandPalette"
@@ -344,22 +345,58 @@ export function AppShell() {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
 
+  // Station session gate. A 401 from the API means production auth is on and
+  // this browser has no session — show sign-in instead of falling back to
+  // demo data. Network failures keep the demo fallback so the offline board
+  // stays usable, and FORCE_DEMO (Playwright/demos) never gates.
+  const [authGate, setAuthGate] = useState<"checking" | "open" | "signed-in">("checking")
+  useEffect(() => {
+    if (FORCE_DEMO) {
+      setAuthGate("signed-in")
+      return
+    }
+    let alive = true
+    authApi
+      .session()
+      .then(() => {
+        if (alive) setAuthGate("signed-in")
+      })
+      .catch((error: unknown) => {
+        if (!alive) return
+        setAuthGate(error instanceof HttpError && error.status === 401 ? "open" : "signed-in")
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const handleSignedIn = (): void => {
+    // Re-arm the board query: a previous 401 may have flipped dataMode to
+    // demo, which suspends refetching; "connecting" re-enables live hydration.
+    useBoardStore.setState({ dataMode: "connecting" })
+    setAuthGate("signed-in")
+  }
+
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="min-h-0 flex-1">
-          {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
-          {activeModule === "operations" && <OperationsHub />}
-          {activeModule === "kanban" && <Board />}
-          {activeModule === "calendar" && <Board />}
-          {!ENABLED.has(activeModule) && (
-            <PlaceholderModule
-              id={activeModule}
-              milestone={NAV.find(n => n.id === activeModule)?.milestone ?? "later"}
-            />
-          )}
-        </main>
-      </div>
+      {authGate === "open" ? (
+        <HqSignIn onSignedIn={handleSignedIn} />
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="min-h-0 flex-1">
+            {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
+            {activeModule === "operations" && <OperationsHub />}
+            {activeModule === "kanban" && <Board />}
+            {activeModule === "calendar" && <Board />}
+            {!ENABLED.has(activeModule) && (
+              <PlaceholderModule
+                id={activeModule}
+                milestone={NAV.find(n => n.id === activeModule)?.milestone ?? "later"}
+              />
+            )}
+          </main>
+        </div>
+      )}
       <CommandPalette />
       <SlackCommsPanel />
       <Toaster />

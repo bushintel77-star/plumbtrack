@@ -2,9 +2,14 @@ import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { getBearerToken, isLegacyTenantFallbackAllowed, issueAuthToken, sendUnauthorized, type OrganizationRole } from "../lib/auth";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
+import { recordAuditEvent } from "../lib/audit";
 
 /** Field devices re-enroll at most daily; a 30-day session survives quiet periods. */
 const DEVICE_SESSION_SECONDS = 30 * 24 * 60 * 60;
+/** HQ station sessions are shift-length; the toolbar renews every 15 minutes. */
+const HQ_SESSION_SECONDS = 12 * 60 * 60;
+/** Roles an HQ operator session may carry — never the field `technician` role. */
+const HQ_STATION_ROLES = ["dispatcher", "manager", "accountant", "admin", "owner"] as const;
 const SESSION_COOKIE = "plumbtrack_hq_session";
 const COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
 
@@ -82,6 +87,76 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
 
     reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: DEVICE_SESSION_SECONDS });
+    return reply.code(201).send({ token, organizationId: orgId, role, expiresAt });
+  });
+
+  /**
+   * HQ operator sign-in — the station counterpart of device enrollment and
+   * the prerequisite for disabling the legacy tenant header in production.
+   *
+   * Development/test: the legacy `x-organization-id` header signs in an
+   * owner-level session, preserving the local demo and test fixtures.
+   *
+   * Production: the operator presents the deployment's shared bootstrap
+   * secret (`HQ_BOOTSTRAP_TOKEN`) as a bearer token; the minted session
+   * carries `HQ_OPERATOR_ROLE` (default `owner`) for `HQ_ORG_ID` (fallback
+   * `DEVICE_ORG_ID`). The secret is a station-access key entered at the
+   * keyboard — never baked into the web bundle — not an account.
+   */
+  app.post("/hq-session", async (request, reply) => {
+    const production = !isLegacyTenantFallbackAllowed();
+
+    let orgId: string | undefined;
+    let role: OrganizationRole;
+
+    if (production) {
+      const bootstrapToken = process.env.HQ_BOOTSTRAP_TOKEN?.trim();
+      const presented = getBearerToken(request);
+      if (!bootstrapToken || !presented || !safeEqual(presented, bootstrapToken)) {
+        return sendUnauthorized(reply);
+      }
+      orgId = (process.env.HQ_ORG_ID ?? process.env.DEVICE_ORG_ID)?.trim();
+      if (!orgId) {
+        return reply.code(500).send({
+          statusCode: 500,
+          error: "Server Error",
+          message: "HQ_ORG_ID (or DEVICE_ORG_ID) must be configured for HQ sign-in",
+        });
+      }
+      const configuredRole = (process.env.HQ_OPERATOR_ROLE ?? "owner").trim() as (typeof HQ_STATION_ROLES)[number];
+      if (!HQ_STATION_ROLES.includes(configuredRole)) {
+        return reply.code(500).send({
+          statusCode: 500,
+          error: "Server Error",
+          message: `HQ_OPERATOR_ROLE must be one of: ${HQ_STATION_ROLES.join(", ")}`,
+        });
+      }
+      role = configuredRole;
+    } else {
+      orgId = getOrgId(request);
+      if (!orgId) return sendMissingOrg(reply);
+      role = "owner";
+    }
+
+    const expiresAt = Math.floor(Date.now() / 1000) + HQ_SESSION_SECONDS;
+    const token = issueAuthToken({
+      userId: "hq-operator",
+      organizationId: orgId,
+      role,
+      expiresInSeconds: HQ_SESSION_SECONDS,
+    });
+
+    reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: HQ_SESSION_SECONDS });
+
+    // The tenant hook deliberately skips this path, so attach the verified
+    // claims manually to keep the audit event actor-scoped.
+    request.auth = { userId: "hq-operator", organizationId: orgId, role, expiresAt };
+    recordAuditEvent(request, {
+      action: "auth.hq_sign_in",
+      entityType: "session",
+      metadata: { role, organizationId: orgId },
+    });
+
     return reply.code(201).send({ token, organizationId: orgId, role, expiresAt });
   });
 

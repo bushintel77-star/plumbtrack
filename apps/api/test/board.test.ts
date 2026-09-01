@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { jobFindMany, quoteFindMany } = vi.hoisted(() => ({
+const { jobFindMany, quoteFindMany, userFindMany } = vi.hoisted(() => ({
   jobFindMany: vi.fn(),
   quoteFindMany: vi.fn(),
+  userFindMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
     job: { findMany: jobFindMany },
     quote: { findMany: quoteFindMany },
+    user: { findMany: userFindMany },
   },
 }));
 
@@ -31,9 +33,10 @@ describe("GET /api/board", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    userFindMany.mockResolvedValue([]);
   });
 
-  it("returns jobs and quotes mapped to the board payload shape", async () => {
+  it("returns jobs, quotes, and the job's schedulable appointment with the staff name", async () => {
     jobFindMany.mockResolvedValue([
       {
         id: "job-1",
@@ -46,6 +49,17 @@ describe("GET /api/board", () => {
         timeEntries: [
           { id: "te-1", jobId: "job-1", staffId: "sarah", start: new Date("2026-01-01T08:00:00.000Z"), end: null },
         ],
+        appointments: [
+          {
+            id: "ap-1",
+            orgId: ORG,
+            jobId: "job-1",
+            assignedStaffId: "t-dana",
+            scheduledStart: new Date("2026-01-02T09:00:00.000Z"),
+            scheduledEnd: new Date("2026-01-02T10:30:00.000Z"),
+            status: "assigned",
+          },
+        ],
       },
     ]);
     quoteFindMany.mockResolvedValue([
@@ -57,6 +71,7 @@ describe("GET /api/board", () => {
         lines: [{ id: "line-1", desc: "Replace pipe", qty: 2, rate: 50, sortOrder: 0 }],
       },
     ]);
+    userFindMany.mockResolvedValue([{ id: "t-dana", name: "Dana Whitfield" }]);
 
     const response = await app.inject({
       method: "GET",
@@ -76,6 +91,14 @@ describe("GET /api/board", () => {
       status: "scheduled",
       createdAt: "2026-01-01T00:00:00.000Z",
       timeEntries: [{ id: "te-1", staffId: "sarah", start: "2026-01-01T08:00:00.000Z", end: null }],
+      appointment: {
+        id: "ap-1",
+        assignedStaffId: "t-dana",
+        assignedStaffName: "Dana Whitfield",
+        scheduledStart: "2026-01-02T09:00:00.000Z",
+        scheduledEnd: "2026-01-02T10:30:00.000Z",
+        status: "assigned",
+      },
     });
 
     expect(body.quotes).toHaveLength(1);
@@ -85,6 +108,33 @@ describe("GET /api/board", () => {
       status: "draft",
       lines: [{ id: "line-1", description: "Replace pipe", quantity: 2, unitPrice: 50 }],
     });
+  });
+
+  it("returns appointment: null for jobs without a schedulable appointment", async () => {
+    jobFindMany.mockResolvedValue([
+      {
+        id: "job-2",
+        orgId: ORG,
+        client: "Bob",
+        address: "2 Side St",
+        scope: "Fix drain",
+        status: "scheduled",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        timeEntries: [],
+        appointments: [],
+      },
+    ]);
+    quoteFindMany.mockResolvedValue([]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/board",
+      headers: { "x-organization-id": ORG },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.jobs[0].appointment).toBeNull();
   });
 
   it("scopes queries to the requesting org", async () => {

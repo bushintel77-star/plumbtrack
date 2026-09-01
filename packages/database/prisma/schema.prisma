@@ -92,6 +92,9 @@ model OrganizationMembership {
   organizationId String
   userId         String
   role           OrganizationRole @default(technician)
+  /// Skills this member holds within the org (BR-04 drag constraint, enforced
+  /// server-side when a job declares a `requiredSkill`). Empty = no skill tags.
+  skills         String[]         @default([])
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -327,6 +330,8 @@ model Job {
   customerId      String?
   propertyId      String?
   scope           String
+  /// Skill tag the assigned technician must hold (null = no constraint).
+  requiredSkill   String?
   phone           String?
   accessCode      String?
   stripeSessionId String?      @unique

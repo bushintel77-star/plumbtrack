@@ -42,8 +42,14 @@ function num(value: string | undefined, fallback: number, name: string): number 
   return parsed;
 }
 
-const env = (key: string): string | undefined =>
-  typeof process !== "undefined" ? process.env[key] : undefined;
+/** Empty strings count as unset — Docker builds pass NEXT_PUBLIC_* build args
+ *  as possibly-empty env values, and an empty value must fall back to the
+ *  code default rather than override it. */
+const env = (key: string): string | undefined => {
+  if (typeof process === "undefined") return undefined;
+  const value = process.env[key];
+  return value === undefined || value === "" ? undefined : value;
+};
 
 export const config: AppConfig = {
   appName: env("NEXT_PUBLIC_APP_NAME") ?? "PlumbTrack",
