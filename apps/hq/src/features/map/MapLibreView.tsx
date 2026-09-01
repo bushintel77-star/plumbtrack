@@ -43,6 +43,22 @@ function statusColor(job: Job, palette: MapPalette): string {
   return palette.neutral
 }
 
+/**
+ * Only genuinely-fatal map errors blank the surface. MapLibre fires `error`
+ * for every failed tile/sprite while it keeps retrying those; a single 404 or
+ * network abort must not collapse the whole map and lose dispatch. We treat as
+ * fatal: WebGL unavailable, an explicit auth failure (401/403), or a style
+ * that outright failed to load.
+ */
+function isFatalMapError(event: { error?: unknown }): boolean {
+  const error = event.error as { message?: string; status?: number } | undefined
+  const message = (error?.message ?? "").toLowerCase()
+  if (message.includes("webgl")) return true
+  if (error?.status === 401 || error?.status === 403) return true
+  if (message.includes("style") && message.includes("failed")) return true
+  return false
+}
+
 function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => void }) {
   const tech = useBoardStore(s => s.technicians.find(item => item.id === job.techId))
   const isUnassigned = job.status === "unassigned"
@@ -77,6 +93,7 @@ interface MapLibreViewProps {
 export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const [mapError, setMapError] = useState(false)
+  const [styleLoaded, setStyleLoaded] = useState(false)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
@@ -92,6 +109,15 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     const frame = requestAnimationFrame(() => setPalette(resolvePalette(readComputedTokens())))
     return () => cancelAnimationFrame(frame)
   }, [theme])
+
+  // Backstop: if the style ever fails to become ready, don't sit on a blank
+  // canvas — surface the fallback so dispatch continues via the Map Jobs list.
+  // Transient tile/sprite errors below never trip this.
+  useEffect(() => {
+    if (styleLoaded || mapError) return
+    const timer = window.setTimeout(() => setMapError(true), 10_000)
+    return () => window.clearTimeout(timer)
+  }, [styleLoaded, mapError])
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
@@ -262,7 +288,10 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       style={{ width: "100%", height: "100%" }}
       mapStyle={MAP_STYLES[theme]}
       interactiveLayerIds={["job-pins"]}
-      onError={() => setMapError(true)}
+      onLoad={() => setStyleLoaded(true)}
+      onError={(event: { error?: unknown }) => {
+        if (isFatalMapError(event)) setMapError(true)
+      }}
       onMouseMove={(event: MapLayerMouseEvent) => {
         const feature = event.features?.find(f => f.properties?.jobId)
         if (feature?.properties?.jobId) setHoveredJobId(String(feature.properties.jobId))

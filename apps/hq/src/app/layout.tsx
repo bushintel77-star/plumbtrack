@@ -1,10 +1,7 @@
 import type { Metadata } from "next"
 import { Big_Shoulders, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google"
-import { NuqsAdapter } from "nuqs/adapters/next/app"
 
 import "./globals.css"
-
-import { Providers } from "./providers"
 
 /** Display face — wordmarks, hero numerals and panel headings only. */
 const bigShoulders = Big_Shoulders({
@@ -36,6 +33,12 @@ export const metadata: Metadata = {
     "Dispatcher command center: dashboard, schedule board, live technician timers, quotes and compliance."
 }
 
+/**
+ * Root layout provides the type system for the whole app. Console-only
+ * bootstrap (query client, Slack bridge, sync worker) lives in the
+ * `(console)` route group so static surfaces — like the landing page — stay
+ * lean and never start console machinery.
+ */
 export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
@@ -50,11 +53,7 @@ export default function RootLayout({
             English-only operations UI and the popup steals focus on load. */}
         <meta name="google" content="notranslate" />
       </head>
-      <body>
-        <NuqsAdapter>
-          <Providers>{children}</Providers>
-        </NuqsAdapter>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
