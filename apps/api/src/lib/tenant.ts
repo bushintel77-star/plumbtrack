@@ -53,6 +53,21 @@ export const tenantPlugin = fp(
         return;
       }
 
+      // Media file reads are public <img>/<Image> loads: the route is keyed
+      // by the asset cuid, an unguessable capability token (like a signed URL
+      // but stable for caching). No auth header exists on a browser image
+      // request, so the hook must not 401 here.
+      if (request.method === "GET" && /^\/api\/media\/[^/]+\/file$/.test(url)) {
+        return;
+      }
+
+      // Healthchecks (Railway and load balancers) hit /api/health with no
+      // session — a 401 there fails the deployment's health probe. The route
+      // exposes only service liveness, never tenant data.
+      if (request.method === "GET" && url === "/api/health") {
+        return;
+      }
+
       const bearer = getBearerToken(request) ?? request.cookies?.[SESSION_COOKIE] ?? null;
       if (bearer) {
         const claims = verifyAuthToken(bearer);
