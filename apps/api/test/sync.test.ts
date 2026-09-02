@@ -63,6 +63,7 @@ describe("GET /api/sync (WatermelonDB pull contract)", () => {
       id: "j-1",
       access_code: null,
       job_type: "blocked_drain",
+      assigned_staff_id: null,
       time_entries: [{ id: "te-j-1", end: null }]
     })
     expect(typeof body.timestamp).toBe("number")
@@ -93,6 +94,16 @@ describe("GET /api/sync (WatermelonDB pull contract)", () => {
         where: expect.objectContaining({ orgId: ORG, updatedAt: { gt: new Date(cursorSeconds * 1000) } })
       })
     )
+  })
+
+  it("ships the server-authoritative assignee from the earliest appointment", async () => {
+    const assigned = { ...JOB("j-3", 2), appointments: [{ assignedStaffId: "staff-7" }] }
+    prismaMock.job.findMany.mockResolvedValue([assigned])
+
+    const res = await app.inject({ method: "GET", url: "/api/sync", headers: { "x-organization-id": ORG } })
+    const created = res.json().changes.jobs.created
+
+    expect(created[0].assigned_staff_id).toBe("staff-7")
   })
 
   it("requires an org context", async () => {

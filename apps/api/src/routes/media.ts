@@ -1,45 +1,32 @@
-import { createHmac, randomUUID } from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import { randomUUID } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { createUploadIntentSchema, completeUploadSchema } from "../schemas/media";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { createUploadUrl, readObject, storageConfigured } from "../lib/storage";
 
 const INTENT_TTL_SECONDS = 15 * 60;
 
-function mediaSigningSecret(): string | null {
-  return process.env.MEDIA_SIGNING_SECRET?.trim() || process.env.AUTH_SECRET?.trim() || null;
+/** Absolute photo read URL for the API-served read route. The asset cuid is
+ *  the unguessable capability token; the URL is built from the request's
+ *  host so HQ `<img>` and mobile `<Image>` can load it cross-origin. */
+function readUrlFor(request: FastifyRequest, assetId: string): string {
+  const proto = request.protocol === "https" || request.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+  const host = (request.headers["x-forwarded-host"] as string | undefined)?.split(",")[0]?.trim() ?? request.headers.host ?? "localhost:8080";
+  return `${proto}://${host}/api/media/${assetId}/file`;
 }
 
-function encodeObjectKey(objectKey: string): string {
-  return objectKey.split("/").map((segment) => encodeURIComponent(segment)).join("/");
-}
-
-function createUploadUrl(objectKey: string, expiresAt: number): string | null {
-  const baseUrl = process.env.MEDIA_UPLOAD_BASE_URL?.trim();
-  const secret = mediaSigningSecret();
-  if (!baseUrl || !secret) return null;
-  const encodedKey = encodeObjectKey(objectKey);
-  const signature = createHmac("sha256", secret).update(`${objectKey}:${expiresAt}`).digest("base64url");
-  return `${baseUrl.replace(/\/$/, "")}/${encodedKey}?expires=${expiresAt}&signature=${signature}`;
-}
-
-function publicUrlFor(objectKey: string): string | null {
-  const baseUrl = process.env.MEDIA_PUBLIC_BASE_URL?.trim();
-  if (!baseUrl) return null;
-  return `${baseUrl.replace(/\/$/, "")}/${encodeObjectKey(objectKey)}`;
-}
-
-function intentResponse(asset: {
+async function intentResponse(asset: {
   id: string;
   objectKey: string;
   contentType: string;
   byteSize: number;
   expiresAt: Date;
 }) {
-  const uploadUrl = createUploadUrl(asset.objectKey, Math.floor(asset.expiresAt.getTime() / 1000));
+  const uploadUrl = await createUploadUrl(asset.objectKey, asset.contentType);
   if (!uploadUrl) return null;
   return {
     assetId: asset.id,
@@ -66,7 +53,7 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     const existing = await prisma.mediaAsset.findFirst({ where: { orgId, opId: parsed.data.opId, jobId: job.id } });
     if (existing) {
       if (existing.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });
-      const existingResponse = intentResponse(existing);
+      const existingResponse = await intentResponse(existing);
       if (!existingResponse) return reply.code(503).send({ message: "Media storage is not configured" });
       return reply.code(200).send(existingResponse);
     }
@@ -74,7 +61,7 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     const assetId = randomUUID();
     const expiresAt = new Date(Date.now() + INTENT_TTL_SECONDS * 1000);
     const objectKey = `${orgId}/jobs/${job.id}/${assetId}`;
-    if (!createUploadUrl(objectKey, Math.floor(expiresAt.getTime() / 1000))) {
+    if (!storageConfigured()) {
       return reply.code(503).send({ message: "Media storage is not configured" });
     }
 
@@ -99,7 +86,7 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
       metadata: { jobId: job.id, contentType: asset.contentType, byteSize: asset.byteSize },
     });
 
-    const response = intentResponse(asset);
+    const response = await intentResponse(asset);
     if (!response) return reply.code(503).send({ message: "Media storage is not configured" });
     return reply.code(201).send(response);
   });
@@ -119,8 +106,8 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     if (asset.status !== "pending") return reply.code(409).send({ message: "Media asset cannot be completed" });
     if (asset.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });
 
-    const publicUrl = publicUrlFor(asset.objectKey);
-    if (!publicUrl) return reply.code(503).send({ message: "Media public URL is not configured" });
+    // Reads are served by the API itself — no public bucket URL needed.
+    const publicUrl = readUrlFor(request, asset.id);
     const updated = await prisma.mediaAsset.updateMany({
       where: { id: asset.id, orgId, status: "pending" },
       data: { status: "uploaded", publicUrl },
@@ -138,5 +125,22 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
       metadata: { jobId: asset.jobId, photoId: photo.id },
     });
     return { assetId: asset.id, photoId: photo.id, photoUrl: publicUrl };
+  });
+
+  // Public read route — the browser <img>/<Image> tags load this without auth
+  // headers. The asset cuid is an unguessable capability token; the tenant
+  // hook exempts this path like /api/stream. Streams the object from storage.
+  app.get("/:assetId/file", async (request, reply) => {
+    const { assetId } = request.params as { assetId: string };
+    const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, status: "uploaded" } });
+    if (!asset) return reply.code(404).send({ message: "Media asset not found" });
+    const object = await readObject(asset.objectKey);
+    if (!object) return reply.code(404).send({ message: "Media object not found" });
+    const contentType = object.contentType ?? asset.contentType ?? "application/octet-stream";
+    return reply
+      .code(200)
+      .header("Content-Type", contentType)
+      .header("Cache-Control", "public, max-age=31536000, immutable")
+      .send(Buffer.from(object.body));
   });
 }

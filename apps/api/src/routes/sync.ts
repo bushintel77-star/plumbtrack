@@ -29,6 +29,8 @@ interface SyncJobRow {
   access_code: string | null;
   job_type: string | null;
   status: string;
+  assigned_staff_id: string | null;
+  field_note: string | null;
   checklist_items: Array<{ id: string; label: string; sort_order: number; completed_at: string | null; completed_by: string | null }>;
   time_entries: unknown[];
   created_at: number;
@@ -44,6 +46,8 @@ function toRow(job: {
   accessCode: string | null;
   status: string;
   jobType?: string | null;
+  fieldNote?: string | null;
+  appointments?: Array<{ assignedStaffId: string | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
   createdAt: Date;
@@ -58,6 +62,11 @@ function toRow(job: {
     access_code: job.accessCode,
     job_type: job.jobType ?? null,
     status: job.status,
+    // Server-authoritative assignment from the earliest schedulable
+    // appointment, so a freshly-booted device knows its assigned jobs without
+    // needing a live frame first.
+    assigned_staff_id: job.appointments?.[0]?.assignedStaffId ?? null,
+    field_note: job.fieldNote ?? null,
     checklist_items: (job.checklistItems ?? []).map(item => ({
       id: item.id,
       label: item.label,
@@ -93,7 +102,7 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         orgId,
         ...(isFirstPull ? {} : { updatedAt: { gt: new Date(cursorMs) } })
       },
-      include: { timeEntries: true, checklistItems: { orderBy: { sortOrder: "asc" } } },
+      include: { timeEntries: true, checklistItems: { orderBy: { sortOrder: "asc" } }, appointments: { orderBy: { scheduledStart: "asc" }, take: 1 } },
       orderBy: { updatedAt: "asc" }
     });
 

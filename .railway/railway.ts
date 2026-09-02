@@ -1,23 +1,13 @@
-import { defineRailway, github, postgres, preserve, project, ref, service, volume } from "railway/iac";
+import { bucket, defineRailway, github, postgres, preserve, project, ref, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
   const Postgres = postgres("Postgres", { region: "us-west2" });
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "us-west2", sizeMB: 5000 });
 
-  const web = service("web", {
-    source: github("bushintel77-star/plumbtrack"),
-    replicas: { "us-west2": 1 },
-    env: {
-      PORT: preserve(),
-      // NEXT_PUBLIC_* are inlined at build time (declared as Dockerfile ARGs).
-      // DEVICE_BOOTSTRAP_TOKEN must match the api service's DEVICE_BOOTSTRAP_TOKEN
-      // (set in the dashboard) or field enrollment will fail after the legacy
-      // tenant header is disabled.
-      NEXT_PUBLIC_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
-      NEXT_PUBLIC_ORG_ID: "org_caulfield_south",
-      NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
-    },
-  });
+  // S3-compatible object storage for photo/evidence uploads. The api reads the
+  // bucket's injected credentials; photo reads are served by the API itself.
+  // Region sjc = US West, matching the web/api/hq services.
+  const MediaBucket = bucket("plumbtrack-media", { region: "sjc" });
 
   const api = service("api", {
     source: github("bushintel77-star/plumbtrack"),
@@ -28,7 +18,6 @@ export default defineRailway(() => {
     deploy: {
       healthcheckPath: "/api/health",
       startCommand: "node apps/api/dist/index.js",
-      preDeployCommand: "pnpm --filter @plumbtrack/database db:migrate",
     },
     env: {
       PORT: "8080",
@@ -49,8 +38,33 @@ export default defineRailway(() => {
       // Explicit allowlist — credentials:true must never pair with a reflected
       // origin. Update if the web/hq services are recreated with new domains.
       CORS_ORIGINS: "https://web-production-364b4f.up.railway.app,https://hq-production-7911.up.railway.app",
+      // Object storage (photo/evidence) — credentials injected by the bucket.
+      MEDIA_STORAGE_ENDPOINT: ref(MediaBucket, "BUCKET_ENDPOINT"),
+      MEDIA_STORAGE_ACCESS_KEY_ID: ref(MediaBucket, "BUCKET_ACCESS_KEY_ID"),
+      MEDIA_STORAGE_SECRET_ACCESS_KEY: ref(MediaBucket, "BUCKET_SECRET_ACCESS_KEY"),
+      MEDIA_STORAGE_BUCKET: ref(MediaBucket, "BUCKET_NAME"),
+      MEDIA_STORAGE_REGION: "auto",
+      // Twilio SMS (customer ETA notifications) — set in the dashboard.
+      TWILIO_ACCOUNT_SID: preserve(),
+      TWILIO_AUTH_TOKEN: preserve(),
+      TWILIO_FROM_NUMBER: preserve(),
     },
     replicas: { "us-west2": 1 },
+  });
+
+  const web = service("web", {
+    source: github("bushintel77-star/plumbtrack"),
+    replicas: { "us-west2": 1 },
+    env: {
+      PORT: preserve(),
+      // NEXT_PUBLIC_* are inlined at build time (declared as Dockerfile ARGs).
+      // DEVICE_BOOTSTRAP_TOKEN must match the api service's DEVICE_BOOTSTRAP_TOKEN
+      // (set in the dashboard) or field enrollment will fail after the legacy
+      // tenant header is disabled.
+      NEXT_PUBLIC_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
+      NEXT_PUBLIC_ORG_ID: "org_caulfield_south",
+      NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
+    },
   });
 
   const hq = service("hq", {
@@ -66,11 +80,14 @@ export default defineRailway(() => {
     env: {
       PORT: "3000",
       NEXT_PUBLIC_HQ_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
+      // Seeded org the HQ board falls back to in demo mode — preserved, not
+      // deleted, by the IaC import.
+      NEXT_PUBLIC_HQ_DEV_ORG_ID: preserve(),
     },
     replicas: { "us-west2": 1 },
   });
 
   return project("plumbtrack", {
-    resources: [Postgres, web, api, hq, postgresVolume],
+    resources: [Postgres, web, api, hq, postgresVolume, MediaBucket],
   });
 });

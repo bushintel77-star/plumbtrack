@@ -18,18 +18,19 @@
     "typecheck": "pnpm db:generate && tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "prisma": "^6.1.0"
   },
   "devDependencies": {
     "@plumbtrack/eslint-config": "workspace:*",
     "@plumbtrack/tsconfig": "workspace:*",
     "@types/node": "^22.10.2",
     "eslint": "^8.57.1",
-    "prisma": "^6.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

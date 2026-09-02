@@ -33,6 +33,8 @@ export interface LiveLocation {
   lng: number
   heading: number
   speed: number
+  /** Shift presence reported by the field device: on the job vs on a break. */
+  presence: "on_job" | "on_break"
   timestamp: number
 }
 
@@ -221,8 +223,19 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   setSimulateFailure: value => set({ simulateFailure: value }),
   setOffline: value => set({ offline: value }),
 
-  mergeLiveLocations: _pings => {
-    // Deliberately no-op: continuous technician location ingestion is disabled.
+  mergeLiveLocations: pings => {
+    if (pings.length === 0) return
+    set(s => {
+      const next: Record<string, LiveLocation> = { ...s.liveLocations }
+      const history: Record<string, LiveLocation[]> = { ...s.liveLocationHistory }
+      for (const ping of pings) {
+        if (!Number.isFinite(ping.lat) || !Number.isFinite(ping.lng)) continue
+        next[ping.vehicleId] = ping
+        const trail = [...(history[ping.vehicleId] ?? []), ping].slice(-20)
+        history[ping.vehicleId] = trail
+      }
+      return { liveLocations: next, liveLocationHistory: history }
+    })
   },
 
   applyRemoteStatus: (jobId, status) =>

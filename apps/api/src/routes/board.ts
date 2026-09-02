@@ -29,6 +29,7 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
         where: { orgId },
         include: {
           timeEntries: true,
+          photos: { orderBy: { takenAt: "desc" } },
           // The assignment endpoint targets the earliest appointment, so the
           // board must surface that same record for the round-trip to hold.
           appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
@@ -75,6 +76,12 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
             staffId: entry.staffId,
             start: entry.start,
             end: entry.end,
+          })),
+          photos: job.photos.map((photo) => ({
+            id: photo.id,
+            label: photo.label,
+            url: photo.url,
+            takenAt: photo.takenAt,
           })),
           appointment: appointment
             ? {

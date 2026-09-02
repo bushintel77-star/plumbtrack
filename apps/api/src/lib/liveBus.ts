@@ -23,6 +23,24 @@ export type LiveFrame =
       itemId: string;
       label: string;
       completedAt: string | null;
+    }
+  | {
+      topic: "topic/fleet/telemetry";
+      orgId: string;
+      vehicleId: string;
+      techId: string | null;
+      lat: number;
+      lng: number;
+      heading: number | null;
+      speed: number | null;
+      presence: "on_job" | "on_break";
+      timestamp: string;
+    }
+  | {
+      topic: "topic/jobs/message";
+      orgId: string;
+      jobId: string;
+      message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string };
     };
 
 type Listener = (frame: LiveFrame) => void;

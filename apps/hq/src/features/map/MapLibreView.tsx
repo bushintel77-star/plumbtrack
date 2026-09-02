@@ -23,13 +23,25 @@ import { readComputedTokens, resolvePalette, type MapPalette } from "./palette"
  * cannot resolve CSS vars); DOM chrome uses the token utilities directly.
  */
 
-/** Keyless, unlimited basemaps (OpenFreeMap) keyed to the active colourway.
- * Free-tier fallback if OFM is ever unavailable: CARTO dark-matter / positron
- * (basemaps.cartocdn.com). Long-term: self-hosted Protomaps PMTiles. */
-const MAP_STYLES = {
-  dark: "https://tiles.openfreemap.org/styles/dark",
-  light: "https://tiles.openfreemap.org/styles/positron"
+/** Per-colourway basemap candidates, tried in order. If a style outright
+ *  fails to load (fatal), the map advances to the next source instead of
+ *  blanking on a single provider. All are keyless; long-term this list can
+ *  lead with a self-hosted Protomaps PMTiles style. */
+const MAP_STYLE_CANDIDATES = {
+  dark: [
+    "https://tiles.openfreemap.org/styles/dark",
+    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+  ],
+  light: [
+    "https://tiles.openfreemap.org/styles/positron",
+    "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+  ]
 } as const
+
+/** Seconds a candidate style gets to become ready before we fall through to
+ *  the next source — generous enough for a cold deploy, short enough that a
+ *  dead provider doesn't hold dispatch hostage. */
+const STYLE_READY_TIMEOUT_MS = 12_000
 
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
 
@@ -92,8 +104,11 @@ interface MapLibreViewProps {
 
 export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
+  const styleCandidates = MAP_STYLE_CANDIDATES[theme]
+  const [styleIndex, setStyleIndex] = useState(0)
   const [mapError, setMapError] = useState(false)
   const [styleLoaded, setStyleLoaded] = useState(false)
+  const { current: mapRef } = useMap()
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
@@ -105,19 +120,31 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
 
   // WebGL paints need concrete colors, so the palette re-reads the Tier-1
   // tokens after the theme class lands on <html> — one rAF past the toggle.
+  // Theme change also swaps the candidate list, so re-arm the style attempt.
   useEffect(() => {
     const frame = requestAnimationFrame(() => setPalette(resolvePalette(readComputedTokens())))
+    setStyleIndex(0)
+    setStyleLoaded(false)
+    setMapError(false)
     return () => cancelAnimationFrame(frame)
   }, [theme])
 
-  // Backstop: if the style ever fails to become ready, don't sit on a blank
-  // canvas — surface the fallback so dispatch continues via the Map Jobs list.
-  // Transient tile/sprite errors below never trip this.
+  // Backstop: if the current style never becomes ready within the timeout,
+  // advance to the next basemap candidate rather than blanking the surface.
+  // Only after every candidate has been exhausted do we show the fallback so
+  // dispatch can continue via the jobs list. Transient tile/sprite errors
+  // below never trip this.
   useEffect(() => {
     if (styleLoaded || mapError) return
-    const timer = window.setTimeout(() => setMapError(true), 10_000)
+    const timer = window.setTimeout(() => {
+      if (styleIndex + 1 < styleCandidates.length) {
+        setStyleIndex(index => index + 1)
+      } else {
+        setMapError(true)
+      }
+    }, STYLE_READY_TIMEOUT_MS)
     return () => window.clearTimeout(timer)
-  }, [styleLoaded, mapError])
+  }, [styleLoaded, mapError, styleIndex, styleCandidates.length])
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
@@ -194,6 +221,51 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     [technicians, visible, vanId, roadShapes, roadShapeSources, palette]
   )
 
+  // Vehicle markers — live telemetry (shift-gated: the field app streams only
+  // while a technician is clocked on, pauses on breaks, stops on log-off)
+  // wins; until a live ping lands, fall back to the technician's last-known
+  // clock-in fix so the map never invents a position. Live entries carry
+  // heading for the symbol rotation; fallbacks rotate to a neutral -90 (north).
+  const liveLocations = useBoardStore(s => s.liveLocations)
+  const vehicleMarks = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: technicians
+        .map((tech, index) => {
+          const vehicleId = `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`
+          const live = liveLocations[vehicleId]
+          const source = live
+            ? { lat: live.lat, lng: live.lng, heading: live.heading }
+            : tech.lastKnownLocation
+              ? { lat: tech.lastKnownLocation.lat, lng: tech.lastKnownLocation.lng, heading: null }
+              : null
+          if (!source) return null
+          return {
+            type: "Feature" as const,
+            id: tech.id,
+            properties: {
+              techId: tech.id,
+              vehicleId,
+              van: tech.van,
+              name: tech.name,
+              /** MapLibre icon-rotate is clockwise degrees from north; null
+               *  heading pins north so parked vans never render sideways. */
+              heading: source.heading ?? -90,
+              live: Boolean(live),
+              presence: live?.presence ?? "on_job",
+              color: palette.people[index % palette.people.length]
+            },
+            geometry: {
+              type: "Point" as const,
+              coordinates: [source.lng, source.lat]
+            }
+          }
+        })
+        .filter(Boolean)
+    }),
+    [technicians, liveLocations, palette]
+  )
+
   // Road-following upgrade for the dashed polylines: debounced per board
   // change, cached by stop-chain signature, silent no-op offline.
   const routeChains = useMemo(
@@ -250,15 +322,16 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainsSignature])
 
-  // Technician locations are deliberately absent from this map. FieldLoop's
-  // privacy policy permits only point-in-time capture at clock-in/clock-out;
-  // no live fleet positions, breadcrumbs, heading, or speed are rendered.
+  // Vehicle positions on this map are shift-gated telemetry: the field app
+  // streams only while a technician is clocked on, pauses on breaks, and
+  // stops on log-off. No off-shift or break-time movement is ever rendered.
 
   const pinLayers: LayerProps[] = useMemo(() => {
-    const base: LayerProps = {
+    const individual: LayerProps = {
       id: "job-pins",
       type: "circle",
       source: "job-pins",
+      filter: ["!", ["has", "point_count"]],
       paint: {
         "circle-radius": ["case", ["boolean", ["get", "highlighted"], false], 9, 6],
         "circle-color": ["get", "color"],
@@ -266,7 +339,33 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         "circle-stroke-color": ["case", ["boolean", ["get", "highlighted"], false], palette.highlightStroke, palette.pinStroke]
       }
     }
-    return [base]
+    const cluster: LayerProps = {
+      id: "job-clusters",
+      type: "circle",
+      source: "job-pins",
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-radius": ["step", ["get", "point_count"], 14, 10, 17, 50, 21, 200, 25],
+        "circle-color": palette.active,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": palette.highlightStroke,
+        "circle-opacity": 0.9
+      }
+    }
+    const clusterCount: LayerProps = {
+      id: "job-cluster-count",
+      type: "symbol",
+      source: "job-pins",
+      filter: ["has", "point_count"],
+      layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 11,
+        "text-font": ["Open Sans Bold"],
+        "text-allow-overlap": false
+      },
+      paint: { "text-color": palette.highlightStroke }
+    }
+    return [cluster, clusterCount, individual]
   }, [palette])
 
   if (mapError) {
@@ -275,7 +374,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         <div className="max-w-sm">
           <p className="label-mono text-2xs text-pending">MAP UNAVAILABLE</p>
           <p className="mt-2 text-sm text-ink-mid">Live map tiles could not be rendered. Use the Map Jobs list to continue dispatching.</p>
-          <button type="button" className="mt-4 rounded-md bg-chrome-600 px-3 py-2 text-xs font-semibold text-on-accent" onClick={() => setMapError(false)}>Retry map</button>
+          <button type="button" className="mt-4 rounded-md bg-chrome-600 px-3 py-2 text-xs font-semibold text-on-accent" onClick={() => { setStyleIndex(0); setStyleLoaded(false); setMapError(false) }}>Retry map</button>
         </div>
       </div>
     )
@@ -283,14 +382,19 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
 
   return (
     <Map
+      key={`${theme}-${styleIndex}`}
       mapLib={maplibregl}
       initialViewState={{ longitude: MELBOURNE.lng, latitude: MELBOURNE.lat, zoom: 10.5 }}
       style={{ width: "100%", height: "100%" }}
-      mapStyle={MAP_STYLES[theme]}
-      interactiveLayerIds={["job-pins"]}
+      mapStyle={styleCandidates[styleIndex]}
+      interactiveLayerIds={["job-pins", "job-clusters"]}
       onLoad={() => setStyleLoaded(true)}
       onError={(event: { error?: unknown }) => {
-        if (isFatalMapError(event)) setMapError(true)
+        if (!isFatalMapError(event)) return
+        // A fatal style failure on the current source: fall through to the
+        // next candidate, or blank immediately once every source is spent.
+        if (styleIndex + 1 < styleCandidates.length) setStyleIndex(index => index + 1)
+        else setMapError(true)
       }}
       onMouseMove={(event: MapLayerMouseEvent) => {
         const feature = event.features?.find(f => f.properties?.jobId)
@@ -301,9 +405,18 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
       // pin is crossed. `onMouseOut` is the real canvas-exit event.
       onMouseOut={() => setHoveredJobId(null)}
       onClick={event => {
-        const feature = event.features?.find(f => f.properties?.jobId)
-        if (feature?.properties?.jobId) {
-          const jobId = String(feature.properties.jobId)
+        const feature = event.features?.[0]
+        if (!feature) return
+        // A clustered stop: zoom into its bounds so the underlying pins
+        // separate and become clickable. Clusters carry point_count, not jobId.
+        if (feature.properties?.point_count && feature.geometry?.type === "Point") {
+          const coords = feature.geometry.coordinates as [number, number]
+          const [lng, lat] = coords
+          mapRef?.easeTo({ center: [lng, lat], zoom: Math.max((mapRef.getZoom() ?? 10.5) + 2, 12) })
+          return
+        }
+        const jobId = feature.properties?.jobId
+        if (typeof jobId === "string") {
           onSelectJob(jobId)
           window.dispatchEvent(new CustomEvent("hq-map-focus-job", { detail: jobId }))
         }
@@ -328,6 +441,19 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         Route lines: solid = road-routed · dashed = straight-line fallback
       </div>
       <Source id="job-routes" type="geojson" data={routes}>
+        {/* Selected-van route casing: a wider, softer underlay so the active
+            route reads clearly over the basemap without raising a new color
+            — same token-derived stroke, just wider and translucent. */}
+        <Layer
+          id="route-casing"
+          type="line"
+          paint={{
+            "line-color": palette.vehicle,
+            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 8, 0],
+            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.18, 0],
+            "line-dasharray": ["case", ["==", ["get", "geometrySource"], "road"], ["literal", [1, 0]], ["literal", [2, 1.5]]]
+          }}
+        />
         <Layer
           id="route-lines"
           type="line"
@@ -340,10 +466,59 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         />
       </Source>
 
-      <Source id="job-pins" type="geojson" data={pins}>
+      <Source id="job-pins" type="geojson" data={pins} cluster={true} clusterMaxZoom={12} clusterRadius={44}>
         {pinLayers.map(layer => (
           <Layer key={layer.id} {...layer} />
         ))}
+      </Source>
+
+      {/* Vehicle markers: live shift-gated telemetry (field app streams only
+          while clocked on, pauses on breaks, stops on log-off) with the
+          last-known clock-in fix as the fallback before the first ping.
+          Ringed dot + van label + a heading arrow rotated by the streamed
+          bearing; parked/fallback vans point north. */}
+      <Source id="vehicles" type="geojson" data={vehicleMarks}>
+        <Layer
+          id="vehicle-dots"
+          type="circle"
+          filter={["!", ["has", "point_count"]]}
+          paint={{
+            "circle-radius": 7,
+            "circle-color": ["get", "color"],
+            "circle-stroke-width": 2.5,
+            "circle-stroke-color": palette.pinStroke,
+            "circle-opacity": ["case", ["==", ["get", "presence"], "on_break"], 0.35, 1],
+            "circle-pitch-alignment": "map"
+          }}
+        />
+        <Layer
+          id="vehicle-heading"
+          type="symbol"
+          filter={["!", ["has", "point_count"]]}
+          layout={{
+            "text-field": "▲",
+            "text-size": 12,
+            "text-anchor": "center",
+            "text-offset": [0, -1.15],
+            "text-rotate": ["get", "heading"],
+            "text-font": ["Open Sans Semibold"],
+            "text-allow-overlap": true
+          }}
+          paint={{ "text-color": ["get", "color"], "text-halo-color": palette.pinStroke, "text-halo-width": 1 }}
+        />
+        <Layer
+          id="vehicle-labels"
+          type="symbol"
+          filter={["!", ["has", "point_count"]]}
+          layout={{
+            "text-field": ["get", "van"],
+            "text-size": 10,
+            "text-anchor": "top",
+            "text-offset": [0, 1.2],
+            "text-font": ["Open Sans Semibold"]
+          }}
+          paint={{ "text-color": palette.vehicle, "text-halo-color": palette.pinStroke, "text-halo-width": 1.2 }}
+        />
       </Source>
 
     </Map>

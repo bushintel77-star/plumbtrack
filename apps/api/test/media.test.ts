@@ -126,7 +126,9 @@ describe("secure media upload contract", () => {
     expect(response.json()).toMatchObject({
       assetId: "asset-1",
       photoId: "photo-1",
-      photoUrl: "https://cdn.example.test/org-caulfield/jobs/J-1/asset-1",
+      // Reads are served by the API itself — the stored URL points at the
+      // media file-read route on the request host, no public bucket needed.
+      photoUrl: expect.stringMatching(/\/api\/media\/asset-1\/file$/),
     });
     expect(createPhoto).toHaveBeenCalledWith({
       data: expect.objectContaining({ jobId: "J-1", assetId: "asset-1", label: "Before" }),
@@ -143,5 +145,35 @@ describe("secure media upload contract", () => {
     });
     expect(response.statusCode).toBe(404);
     expect(updateAsset).not.toHaveBeenCalled();
+  });
+
+  it("issues a real SigV4 pre-signed PUT URL when R2/S3 storage is configured", async () => {
+    // Route-level: point the API at an S3-compatible endpoint and expect the
+    // upload URL to be a genuine AWS SigV4 URL (X-Amz-Signature + query
+    // params), not the legacy HMAC gateway signature.
+    process.env.MEDIA_STORAGE_ENDPOINT = "https://abc123.r2.cloudflarestorage.com";
+    process.env.MEDIA_STORAGE_BUCKET = "plumbtrack-media";
+    process.env.MEDIA_STORAGE_ACCESS_KEY_ID = "test-access-key";
+    process.env.MEDIA_STORAGE_SECRET_ACCESS_KEY = "test-secret-key";
+    process.env.MEDIA_STORAGE_REGION = "auto";
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/media/upload-intents",
+      headers: { "x-organization-id": ORG },
+      payload: intentPayload(),
+    });
+
+    delete process.env.MEDIA_STORAGE_ENDPOINT;
+    delete process.env.MEDIA_STORAGE_BUCKET;
+    delete process.env.MEDIA_STORAGE_ACCESS_KEY_ID;
+    delete process.env.MEDIA_STORAGE_SECRET_ACCESS_KEY;
+    delete process.env.MEDIA_STORAGE_REGION;
+
+    expect(response.statusCode).toBe(201);
+    const { uploadUrl } = response.json() as { uploadUrl: string };
+    expect(uploadUrl).toContain("X-Amz-Signature=");
+    expect(uploadUrl).toContain("X-Amz-Credential=");
+    expect(uploadUrl).toContain("plumbtrack-media");
   });
 });

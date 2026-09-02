@@ -49,6 +49,7 @@ describe("GET /api/board", () => {
         timeEntries: [
           { id: "te-1", jobId: "job-1", staffId: "sarah", start: new Date("2026-01-01T08:00:00.000Z"), end: null },
         ],
+        photos: [],
         appointments: [
           {
             id: "ap-1",
@@ -91,6 +92,7 @@ describe("GET /api/board", () => {
       status: "scheduled",
       createdAt: "2026-01-01T00:00:00.000Z",
       timeEntries: [{ id: "te-1", staffId: "sarah", start: "2026-01-01T08:00:00.000Z", end: null }],
+      photos: [],
       appointment: {
         id: "ap-1",
         assignedStaffId: "t-dana",
@@ -121,6 +123,7 @@ describe("GET /api/board", () => {
         status: "scheduled",
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
         timeEntries: [],
+        photos: [],
         appointments: [],
       },
     ]);

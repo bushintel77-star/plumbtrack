@@ -104,6 +104,12 @@ describe("PATCH /api/jobs/:id/assignment", () => {
         data: expect.objectContaining({ assignedStaffId: "user-1" }),
       })
     );
+    // The board slot is persisted as a real scheduled window: startBlock 4 on
+    // the 08:00 day = 10:00, keeping the appointment's 2h duration → ends 12:00.
+    const updateCall = appointmentUpdateMany.mock.calls[0][0];
+    const data = updateCall.data as { scheduledStart: Date; scheduledEnd: Date };
+    expect(data.scheduledStart.toISOString()).toBe("2026-01-01T10:00:00.000Z");
+    expect(data.scheduledEnd.toISOString()).toBe("2026-01-01T12:00:00.000Z");
     expect(auditCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ orgId: ORG, action: "job.assigned", entityType: "job", entityId: "job-1" }),

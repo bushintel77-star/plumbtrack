@@ -4,15 +4,16 @@ import { useState } from "react"
 import { Search } from "lucide-react"
 
 import { blockLabel } from "@/lib/format"
-import { dispatchStatus, jobsOnDay, presenceFor } from "@/lib/fieldloop"
+import { arrivedJobFor, dispatchStatus, jobsOnDay, livePresenceFor } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
-import type { Job, Presence } from "@/types"
+import type { Job, Presence, Technician } from "@/types"
 
 import { Avatar } from "./common"
 
 const PRESENCE_LABEL: Record<Presence, string> = {
   on_job: "On job",
+  on_break: "On break",
   available: "Available",
   on_leave: "On leave",
   offline: "Offline"
@@ -20,6 +21,7 @@ const PRESENCE_LABEL: Record<Presence, string> = {
 
 const PRESENCE_CLASS: Record<Presence, string> = {
   on_job: "on-job",
+  on_break: "on-break",
   available: "available",
   on_leave: "on-leave",
   offline: "offline"
@@ -37,12 +39,19 @@ export function CrewTree({
   onSelectJob: (job: Job) => void
 }) {
   const technicians = useBoardStore(s => s.technicians)
+  const liveLocations = useBoardStore(s => s.liveLocations)
   const jobs = useJobsList()
   const [query, setQuery] = useState("")
   const today = jobsOnDay(jobs, day)
   const visible = technicians.filter(tech =>
     tech.name.toLowerCase().includes(query.trim().toLowerCase())
   )
+
+  const liveFor = (tech: Technician): { presence: "on_job" | "on_break"; lat: number; lng: number } | undefined => {
+    const vehicleId = `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`
+    const live = liveLocations[vehicleId]
+    return live ? { presence: live.presence, lat: live.lat, lng: live.lng } : undefined
+  }
 
   return (
     <aside className="fl-panel fl-tree" aria-label="Crew">
@@ -63,7 +72,9 @@ export function CrewTree({
       </div>
       {visible.map(tech => {
         const row = today.filter(job => job.techId === tech.id)
-        const presence = presenceFor(tech, jobs, day)
+        const live = liveFor(tech)
+        const presence = livePresenceFor(tech, jobs, day, live)
+        const arrived = live ? arrivedJobFor(tech.id, jobs, day, live) : null
         return (
           <button
             type="button"
@@ -82,6 +93,12 @@ export function CrewTree({
                 <i />
                 {PRESENCE_LABEL[presence]}
               </span>
+              {arrived && presence !== "on_break" && (
+                <span className={cn("fl-presence", "on-job")} data-testid={`crew-arrived-${tech.id}`}>
+                  <i />
+                  On site · {arrived.title}
+                </span>
+              )}
               {row.slice(0, 3).map(job => (
                 <span
                   key={job.id}

@@ -27,6 +27,7 @@ import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
 import { type FieldLoopMode } from "@/features/fieldloop/context"
 import { HqSignIn } from "@/features/auth/HqSignIn"
+import { useTelemetrySocket } from "@/lib/telemetry"
 
 import { Board } from "@/features/board/Board"
 import { CommandPalette } from "@/features/board/CommandPalette"
@@ -310,6 +311,10 @@ const MODULE_TO_MODE: Partial<Record<AppModule, FieldLoopMode>> = {
 }
 
 export function AppShell() {
+  // Live board socket: job status re-colors and fleet telemetry feeds the
+  // vehicle symbols. Mounted once per console shell; reconnects on its own.
+  useTelemetrySocket()
+
   // nuqs URL state is the single source of truth for module routing — every
   // useQueryState("module") instance stays in sync, so the sidebar, palette
   // and dashboard cards all navigate through the URL (shareable, back-button

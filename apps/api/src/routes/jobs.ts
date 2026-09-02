@@ -115,11 +115,39 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     }
     const appointment = job.appointments[0];
     if (!appointment) return reply.code(409).send({ message: "Job has no schedulable appointment" });
-    const conflict = await prisma.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: new Date(appointment.scheduledEnd?.getTime() ?? appointment.scheduledStart.getTime() + 30 * 60000) }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: appointment.scheduledStart } }] } });
+
+    // Compute the board slot as a real scheduled window before any conflict
+    // test, so overlap is checked against the NEW time (server-authoritative)
+    // rather than the appointment's old slot. The board day runs 08:00→18:00
+    // in 30-min blocks; the appointment's DATE is preserved and only the clock
+    // time is set from `startBlock`. The end keeps the appointment's existing
+    // duration (default one block) so drag-to-new-slot moves the whole visit.
+    const DAY_START_MINUTES = 8 * 60;
+    const MINUTES_PER_BLOCK = 30;
+    // Build the window from the appointment's UTC date parts only, so the
+    // result is timezone-stable (no local-time setHours/setMinutes). The board
+    // day's clock time is derived from startBlock and kept in UTC.
+    const u = appointment.scheduledStart;
+    const start = new Date(Date.UTC(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), 0, DAY_START_MINUTES + parsed.data.startBlock * MINUTES_PER_BLOCK));
+    const currentDurationMs = appointment.scheduledEnd
+      ? appointment.scheduledEnd.getTime() - appointment.scheduledStart.getTime()
+      : null;
+    const durationMs = currentDurationMs && currentDurationMs > 0
+      ? currentDurationMs
+      : MINUTES_PER_BLOCK * 60 * 1000;
+    const end = new Date(start.getTime() + durationMs);
+
+    const conflict = await prisma.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: end }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: start } }] } });
     if (conflict) return reply.code(409).send({ message: "Technician has an overlapping appointment" });
+
     const updated = await prisma.appointment.updateMany({
       where: { id: appointment.id, jobId: id, orgId },
-      data: { assignedStaffId: parsed.data.technicianId, updatedAt: new Date() }
+      data: {
+        assignedStaffId: parsed.data.technicianId,
+        scheduledStart: start,
+        scheduledEnd: end,
+        updatedAt: new Date()
+      }
     });
     if (updated.count === 0) return reply.code(409).send({ message: "Job has no schedulable appointment" });
     recordAuditEvent(request, { action: "job.assigned", entityType: "job", entityId: id, metadata: parsed.data });
@@ -127,7 +155,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       topic: "topic/jobs/updated",
       orgId,
       jobId: id,
-      patch: { assignedStaffId: parsed.data.technicianId }
+      patch: { assignedStaffId: parsed.data.technicianId, scheduledStart: start.toISOString(), scheduledEnd: end.toISOString() }
     });
     return prisma.job.findFirst({ where: { id, orgId }, include: { timeEntries: true, photos: true } });
   });
@@ -415,5 +443,26 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     await prisma.job.update({ where: { id: job.id }, data: { stripeSessionId: result.sessionId, paymentStatus: "unpaid" } });
     recordAuditEvent(request, { action: "payment_link.created", entityType: "job", entityId: job.id, metadata: { mode: result.mode, sessionId: result.sessionId } });
     return reply.send({ url: result.url, mode: result.mode, configured: result.configured, sessionId: result.sessionId, amount: amountCents / 100, currency: "AUD" });
+  });
+
+  // Technician site note — a single free-text field note (last-write-wins),
+  // distinct from the threaded job messages. Idempotent via opId so an outbox
+  // retry never duplicates.
+  app.post("/:id/notes", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as { note?: unknown };
+    if (typeof body.note !== "string") {
+      return reply.code(400).send({ message: "note must be a string" });
+    }
+    const note = body.note.trim().slice(0, 2_000);
+    const job = await prisma.job.findFirst({ where: { id, orgId } });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    await prisma.job.update({ where: { id }, data: { fieldNote: note } });
+    recordAuditEvent(request, { action: "job.field_note", entityType: "job", entityId: id, metadata: { note } });
+    return reply.send({ fieldNote: note });
   });
 }

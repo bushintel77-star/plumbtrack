@@ -21,6 +21,9 @@ import { syncRoutes } from "./routes/sync";
 import { routeRoutes } from "./routes/routes";
 import { paymentWebhookRoutes } from "./routes/paymentWebhook";
 import { boardRoutes } from "./routes/board";
+import { fleetRoutes } from "./routes/fleet";
+import { smsRoutes } from "./routes/sms";
+import { jobMessageRoutes } from "./routes/jobMessages";
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -70,6 +73,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(syncRoutes);
   await app.register(routeRoutes, { prefix: "/api/routes" });
   await app.register(paymentWebhookRoutes, { prefix: "/api/webhooks" });
+  await app.register(fleetRoutes, { prefix: "/api/fleet" });
+  await app.register(smsRoutes, { prefix: "/api/sms" });
+  await app.register(jobMessageRoutes, { prefix: "/api/jobs" });
 
   return app;
 }

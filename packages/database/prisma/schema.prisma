@@ -62,6 +62,7 @@ model Organization {
   routeAudits        RouteRecalculationAudit[]
   documents          JobDocument[]
   rfis               Rfi[]
+  jobMessages        JobMessage[]
 
   @@map("organizations")
 }
@@ -334,6 +335,9 @@ model Job {
   requiredSkill   String?
   phone           String?
   accessCode      String?
+  /// Technician's free-text site note (single last-write-wins note, distinct
+  /// from the threaded JobMessage conversation).
+  fieldNote       String?
   stripeSessionId String?      @unique
   paymentStatus   String       @default("unpaid")
   status          JobStatus    @default(scheduled)
@@ -350,11 +354,34 @@ model Job {
   documents      JobDocument[]
   rfis           Rfi[]
   checklistItems ChecklistItem[]
+  messages       JobMessage[]
 
   @@index([orgId, status])
   @@index([customerId])
   @@index([propertyId])
   @@map("jobs")
+}
+
+/**
+ * Job-scoped two-way message — a short note threaded to one job, sent either
+ * by dispatch (office → field) or the technician (field → office). Distinct
+ * from Rfi (a formal raised question) and the free-text job note: this is the
+ * conversational thread both sides see, in order.
+ */
+model JobMessage {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  direction String   @default("dispatch") // "dispatch" | "field"
+  sender    String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([jobId, createdAt])
+  @@index([orgId, createdAt])
+  @@map("job_messages")
 }
 
 /// Org-scoped checklist template keyed by job type (null = org default).

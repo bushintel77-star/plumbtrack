@@ -1,16 +1,11 @@
 import { Suspense } from "react"
 
 import { AppShell } from "@/features/shell/AppShell"
+import Loading from "./loading"
 
 export default function HomePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-dvh items-center justify-center bg-chrome-void text-sm text-ink-low">
-          Loading HQ console…
-        </div>
-      }
-    >
+    <Suspense fallback={<Loading />}>
       <AppShell />
     </Suspense>
   )

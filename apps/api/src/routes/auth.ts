@@ -32,6 +32,25 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
+   * Stream token for an already-authenticated caller. The HQ console's
+   * session is an HTTP-only cookie, so the browser can't read the raw bearer
+   * to put in the WebSocket query string. This endpoint re-mints a signed
+   * session token from the VERIFIED cookie claims (org and role preserved),
+   * which the client uses only for `/api/stream?token=…`. It is bounded by
+   * the same AUTH_SECRET and is never exposed as an account credential.
+   */
+  app.get("/stream-token", async (request, reply) => {
+    if (!request.auth) return sendUnauthorized(reply);
+    const token = issueAuthToken({
+      userId: request.auth.userId,
+      organizationId: request.auth.organizationId,
+      role: request.auth.role,
+      expiresInSeconds: 15 * 60,
+    });
+    return { token, organizationId: request.auth.organizationId, role: request.auth.role };
+  });
+
+  /**
    * Device enrollment — the only way a browser gains a bearer session in
    * production (the legacy org header is rejected there).
    *

@@ -12,6 +12,13 @@ export interface ApiTimeEntry {
   end: string | null
 }
 
+export interface ApiJobPhoto {
+  id: string
+  label: string
+  url: string
+  takenAt: string
+}
+
 export interface ApiJob {
   id: string
   client: string
@@ -19,6 +26,7 @@ export interface ApiJob {
   scope: string
   status: "scheduled" | "in_progress" | "completed"
   timeEntries: ApiTimeEntry[]
+  photos?: ApiJobPhoto[]
   createdAt: string
   /** Server-authoritative assignment (G-1/G-2 round-trip). `null` when the
    *  job has no schedulable appointment yet. */
@@ -179,7 +187,13 @@ export function adaptApiBoard(
       timerRunning: running,
       clockOnCount: apiJob.timeEntries.length,
       quote,
-      documents: []
+      documents: [],
+      photos: (apiJob.photos ?? []).map(photo => ({
+        id: photo.id,
+        label: photo.label,
+        url: photo.url,
+        takenAt: photo.takenAt
+      }))
     }
   })
   return { jobs: Object.fromEntries(jobs.map(job => [job.id, job])) }

@@ -126,6 +126,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
 export const authApi = {
   session: () => apiGet<HqSession>("/api/auth/session"),
+  streamToken: () => apiGet<{ token: string; organizationId: string; role: string }>("/api/auth/stream-token"),
   assignment: (jobId: string, technicianId: string, startBlock: number) =>
     apiRequest(`/api/jobs/${jobId}/assignment`, {
       method: "PATCH",
@@ -133,6 +134,23 @@ export const authApi = {
     }),
   renew: () => apiRequest<HqSession>("/api/auth/renew", { method: "POST" }),
   signOut: () => apiRequest<void>("/api/auth/sign-out", { method: "POST" }),
+  /**
+   * Customer ETA notification — sends the "on our way, ETA ~N min" SMS to the
+   * job's customer. ETA is computed on the client and the server templates +
+   * sends via the SMS adapter (Twilio).
+   */
+  sendEta: (jobId: string, etaMinutes: number, message?: string) =>
+    apiRequest<{ sent: boolean; mode: "test" | "live" }>("/api/sms/eta", {
+      method: "POST",
+      body: JSON.stringify({ jobId, etaMinutes, ...(message ? { message } : {}) })
+    }),
+  listMessages: (jobId: string) =>
+    apiGet<{ messages: Array<{ id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string }> }>(`/api/jobs/${jobId}/messages`),
+  postMessage: (jobId: string, body: string, sender: string) =>
+    apiRequest<{ message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string } }>(`/api/jobs/${jobId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ direction: "dispatch", sender, body })
+    }),
   /**
    * HQ operator sign-in: presents the deployment's `HQ_BOOTSTRAP_TOKEN` to
    * mint a station-role session (dispatcher/manager/accountant/admin/owner).

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   agreementVerdict,
+  ARRIVAL_RADIUS_M,
+  arrivedJobFor,
   computeAttentionFlags,
   computeRouteOrder,
   deriveCustomers,
@@ -9,6 +11,7 @@ import {
   documentVerdict,
   expiryVerdict,
   initialsOf,
+  livePresenceFor,
   marginRow,
   marginTotals,
   monthGrid,
@@ -443,5 +446,36 @@ describe("now-line", () => {
   it("renders nothing before the board opens or after it closes", () => {
     expect(nowLineFraction(DAY, new Date(2026, 2, 11, 6, 30), DAY)).toBeNull()
     expect(nowLineFraction(DAY, new Date(2026, 2, 11, 19, 0), DAY)).toBeNull()
+  })
+})
+
+describe("live shift presence + arrival", () => {
+  const t = tech({ id: "t-mike" })
+  const activeJob = (location: Job["location"]) =>
+    job({ id: "j-active", techId: "t-mike", status: "active", location })
+
+  it("livePresenceFor reports on_break over any derived state", () => {
+    expect(livePresenceFor(t, [], DAY, { presence: "on_break" })).toBe("on_break")
+    expect(livePresenceFor(t, [], DAY, { presence: "on_job" })).toBe("available")
+    expect(livePresenceFor(t, [], DAY, undefined)).toBe("available")
+  })
+
+  it("arrivedJobFor flags the active job when the vehicle is within radius", () => {
+    const site = { lat: -37.82, lng: 144.98 }
+    const arrived = arrivedJobFor("t-mike", [activeJob(site)], DAY, { lat: -37.8204, lng: 144.9803 })
+    expect(arrived?.id).toBe("j-active")
+  })
+
+  it("arrivedJobFor returns null when the vehicle is beyond ARRIVAL_RADIUS_M", () => {
+    const site = { lat: -37.82, lng: 144.98 }
+    // ~0.2° lng ≈ 17km — far outside 150m.
+    const arrived = arrivedJobFor("t-mike", [activeJob(site)], DAY, { lat: -37.82, lng: 145.18 })
+    expect(arrived).toBeNull()
+  })
+
+  it("arrivedJobFor returns null with no live signal", () => {
+    const site = { lat: -37.82, lng: 144.98 }
+    expect(arrivedJobFor("t-mike", [activeJob(site)], DAY, undefined)).toBeNull()
+    expect(ARRIVAL_RADIUS_M).toBeGreaterThan(0)
   })
 })

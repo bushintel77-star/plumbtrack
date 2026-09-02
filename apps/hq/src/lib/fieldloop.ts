@@ -13,7 +13,7 @@ import type {
 export type { AttentionFlag }
 import { DAY_START_MINUTES, MINUTES_PER_BLOCK, TOTAL_BLOCKS } from "@/lib/format"
 import { absenceFor, jobDay } from "@/lib/schedule"
-import { travelMinutes } from "@/lib/travel"
+import { travelMinutes, haversineKm } from "@/lib/travel"
 
 /**
  * The FieldLoop derivation layer.
@@ -49,6 +49,43 @@ export function presenceFor(tech: Technician, jobs: Job[], day: string): Presenc
       (job.status === "active" || job.status === "en_route")
   )
   return inFlight ? "on_job" : "available"
+}
+
+/** Live-shift override: when the field device has streamed that this vehicle
+ *  is on a break, that is more truthful than the derived job/absence state.
+ *  With no live signal, it defers to `presenceFor` unchanged. */
+export function livePresenceFor(
+  tech: Technician,
+  jobs: Job[],
+  day: string,
+  live: { presence: "on_job" | "on_break" } | undefined
+): Presence {
+  if (live?.presence === "on_break") return "on_break"
+  return presenceFor(tech, jobs, day)
+}
+
+/** Proximity radius (metres) within which a live vehicle counts as "arrived"
+ *  at a job site. Tuned for GPS error + urban parking offset. */
+export const ARRIVAL_RADIUS_M = 150
+
+/** The active job the technician is on-site for, if any. Compares the live
+ *  vehicle position to the active (in-progress / en-route) job's coordinates
+ *  and reports arrival when within ARRIVAL_RADIUS_M. Pure derivation — it
+ *  never mutates job state, only flags "on site" for dispatch. */
+export function arrivedJobFor(
+  techId: string,
+  jobs: Job[],
+  day: string,
+  live: { lat: number; lng: number } | undefined
+): Job | null {
+  if (!live) return null
+  for (const job of jobs) {
+    if (job.techId !== techId || jobDay(job) !== day) continue
+    if (job.status !== "active" && job.status !== "en_route") continue
+    if (!job.location) continue
+    if (haversineKm(live, job.location) * 1000 <= ARRIVAL_RADIUS_M) return job
+  }
+  return null
 }
 
 // ── Needs-Attention flags ───────────────────────────────────────────────────

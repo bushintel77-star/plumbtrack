@@ -120,6 +120,9 @@ export interface Job {
   clockOnCount: number
   quote: Quote
   documents: ComplianceDoc[]
+  /** Field evidence captured on site (before/after photos) — populated once
+   *  object storage is wired, so dispatch can see what the tech saw. */
+  photos?: { id: string; label: string; url: string; takenAt: string }[]
   /**
    * Actual labour + materials outlay for the visit, in dollars. `null` until
    * the office records it — margin is reported as unavailable rather than
@@ -138,8 +141,9 @@ export interface LastKnownLocation extends GeoPoint {
 }
 
 /** Derived, never stored: on_leave from approved absences, on_job from an
- *  in-flight job, available otherwise. `offline` requires a real signal. */
-export type Presence = "on_job" | "available" | "on_leave" | "offline"
+ *  in-flight job, on_break from live shift telemetry, available otherwise.
+ *  `offline` requires a real signal. */
+export type Presence = "on_job" | "on_break" | "available" | "on_leave" | "offline"
 
 export interface Technician {
   id: string

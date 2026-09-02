@@ -237,6 +237,7 @@
   .fl-presence { display:inline-flex; align-items:center; gap:5px; margin-top:3px; font:10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; }
   .fl-presence i { width:8px; height:8px; border-radius:50%; }
   .fl-presence.on-job { color:var(--reference-blue); } .fl-presence.on-job i { background:var(--reference-blue); }
+  .fl-presence.on-break { color:var(--status-pending); } .fl-presence.on-break i { background:var(--status-pending); }
   .fl-presence.available { color:var(--app-muted); } .fl-presence.available i { border:1.5px solid var(--app-subtle); }
   .fl-presence.on-leave { color:var(--app-subtle); } .fl-presence.on-leave i { border-radius:2px; background:repeating-linear-gradient(45deg,var(--app-subtle) 0 2px,transparent 2px 4px); }
 
