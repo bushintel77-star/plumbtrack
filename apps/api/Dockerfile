@@ -43,11 +43,5 @@ ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOST=0.0.0.0
 COPY --from=installer /app ./
-# Prisma migrations + schema must be present in the runner so the pre-deploy
-# `db:migrate` step (which runs in this image before startCommand) can apply
-# them. `prisma` is now a runtime dependency of @plumbtrack/database, and the
-# installer build also emitted the generated client into node_modules.
-COPY packages/database/prisma ./packages/database/prisma
-COPY packages/database/dist ./packages/database/dist
 EXPOSE 8080
 CMD ["node", "apps/api/dist/index.js"]
