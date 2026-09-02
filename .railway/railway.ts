@@ -38,11 +38,15 @@ export default defineRailway(() => {
       // Explicit allowlist — credentials:true must never pair with a reflected
       // origin. Update if the web/hq services are recreated with new domains.
       CORS_ORIGINS: "https://web-production-364b4f.up.railway.app,https://hq-production-7911.up.railway.app",
-      // Object storage (photo/evidence) — credentials injected by the bucket.
-      MEDIA_STORAGE_ENDPOINT: ref(MediaBucket, "BUCKET_ENDPOINT"),
-      MEDIA_STORAGE_ACCESS_KEY_ID: ref(MediaBucket, "BUCKET_ACCESS_KEY_ID"),
-      MEDIA_STORAGE_SECRET_ACCESS_KEY: ref(MediaBucket, "BUCKET_SECRET_ACCESS_KEY"),
-      MEDIA_STORAGE_BUCKET: ref(MediaBucket, "BUCKET_NAME"),
+      // Object storage (photo/evidence). The bucket credentials inject via env
+      // refs, but Railway materialised them empty at apply time (bucket was
+      // created in the same apply). Set the BUCKET_* values in the dashboard
+      // (see `railway bucket credentials --bucket plumbtrack-media`) and keep
+      // these as preserve() so IaC never clobbers them.
+      MEDIA_STORAGE_ENDPOINT: preserve(),
+      MEDIA_STORAGE_ACCESS_KEY_ID: preserve(),
+      MEDIA_STORAGE_SECRET_ACCESS_KEY: preserve(),
+      MEDIA_STORAGE_BUCKET: preserve(),
       MEDIA_STORAGE_REGION: "auto",
       // Twilio SMS (customer ETA notifications) — set in the dashboard.
       TWILIO_ACCOUNT_SID: preserve(),
