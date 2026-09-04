@@ -23,8 +23,12 @@ import { recordAuditEvent } from "../lib/audit";
  * single replica serves the whole board from cache after the first ask.
  */
 
-const ORS_SHAPE_ENDPOINT = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
-const ORS_MATRIX_ENDPOINT = "https://api.openrouteservice.org/v2/matrix/driving-car"
+/** HeiGIT/OpenRouteService endpoints. Per the ask.openrouteservice.org
+ *  announcement, api.openrouteservice.org was deprecated (2026-04-28) and
+ *  shut off (2026-08-24); the service moved to api.heigit.org with a
+ *  service-name path prefix and unchanged keys, quotas and payloads. */
+const ORS_SHAPE_ENDPOINT = "https://api.heigit.org/openrouteservice/v2/directions/driving-car/geojson"
+const ORS_MATRIX_ENDPOINT = "https://api.heigit.org/openrouteservice/v2/matrix/driving-car"
 
 const REQUEST_TIMEOUT_MS = 8_000
 const MAX_POINTS = 25
@@ -33,7 +37,7 @@ const CACHE_MAX_ENTRIES = 256
 /** The only host this proxy may ever talk to. Anything else — including
  *  loopback/private addresses smuggled through configuration — is refused
  *  before a socket opens. */
-const ALLOWED_UPSTREAM_HOSTS = new Set(["api.openrouteservice.org"])
+const ALLOWED_UPSTREAM_HOSTS = new Set(["api.heigit.org"])
 
 /** SSRF guard: upstream request URLs are constants; this re-asserts https
  *  and the host allowlist before any fetch. Throws on anything else. */
