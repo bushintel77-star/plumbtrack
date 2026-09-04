@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Map, { Layer, Marker, Popup, Source, useMap, type LayerProps, type MapLayerMouseEvent } from "react-map-gl/maplibre"
+import { useEffect, useMemo, useRef, useState } from "react"
+import Map, { Layer, Marker, Popup, Source, type LayerProps, type MapLayerMouseEvent, type MapRef } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
@@ -102,7 +102,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   const [styleIndex, setStyleIndex] = useState(0)
   const [mapError, setMapError] = useState(false)
   const [styleLoaded, setStyleLoaded] = useState(false)
-  const { current: mapRef } = useMap()
+  const mapRef = useRef<MapRef | null>(null)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
   const selectedJobId = useBoardStore(s => s.selectedJobId)
@@ -111,6 +111,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   const [roadShapes, setRoadShapes] = useState<Record<string, LngLat[]>>({})
   const [roadShapeSources, setRoadShapeSources] = useState<Record<string, "road" | "straight-line">>({})
   const [palette, setPalette] = useState<MapPalette>(() => resolvePalette(readComputedTokens()))
+  /** Job the camera last panned to — guards against re-centering on every poll. */
+  const lastPannedJobRef = useRef<string | null>(null)
 
   // WebGL paints need concrete colors, so the palette re-reads the Tier-1
   // tokens after the theme class lands on <html> — one rAF past the toggle.
@@ -142,12 +144,46 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
+  // Job detail popups anchor ABOVE their pin; a pin near the top of the
+  // viewport pushes the popup (and its "Open job details" button) off-canvas
+  // where clicks land on nothing. Flip the anchor below the pin whenever the
+  // projected position lacks headroom. Recomputes when the map becomes ready
+  // and after every camera move — projection coordinates are viewport-live.
+  const [cameraVersion, setCameraVersion] = useState(0)
+  const popupAnchor: "bottom" | "top" = useMemo(() => {
+    if (!hoveredLocation || !styleLoaded || !mapRef.current) return "bottom"
+    try {
+      const projected = mapRef.current.project([hoveredLocation.lng, hoveredLocation.lat])
+      return projected.y < 240 ? "top" : "bottom"
+    } catch {
+      return "bottom"
+    }
+    // cameraVersion tracks pan/zoom so the anchor follows the live viewport.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredLocation, styleLoaded, cameraVersion])
+
   useEffect(() => {
-    if (!selectedJobId) return
+    if (!selectedJobId) {
+      // Allow re-selecting the same job later to pan again.
+      lastPannedJobRef.current = null
+      return
+    }
     const job = visible.find(item => item.id === selectedJobId)
     if (!job?.location) return
     setHoveredJobId(selectedJobId)
-  }, [selectedJobId, visible])
+    // Pan the map to a freshly selected job so its pin — and the popup that
+    // carries the details action — is comfortably inside the viewport. The
+    // map may still be loading on the first effect run: only record the pan
+    // once it has actually fired, and re-run when the map becomes ready.
+    if (!mapRef.current || !styleLoaded) return
+    if (lastPannedJobRef.current === selectedJobId) return
+    lastPannedJobRef.current = selectedJobId
+    mapRef.current.easeTo({
+      center: [job.location.lng, job.location.lat],
+      duration: 600,
+      padding: { top: 260, bottom: 120, left: 120, right: 160 }
+    })
+  }, [selectedJobId, visible, styleLoaded])
 
   useEffect(() => {
     const onFocusJob = (event: Event) => {
@@ -390,6 +426,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
 
   return (
     <Map
+      ref={mapRef}
       key={`${theme}-${styleIndex}`}
       mapLib={maplibregl}
       initialViewState={{ longitude: MELBOURNE.lng, latitude: MELBOURNE.lat, zoom: 10.5 }}
@@ -397,6 +434,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       mapStyle={styleCandidates[styleIndex]}
       interactiveLayerIds={["job-pins", "job-clusters"]}
       onLoad={() => setStyleLoaded(true)}
+      onMoveEnd={() => setCameraVersion(version => version + 1)}
       onError={(event: { error?: unknown }) => {
         if (!isFatalMapError(event)) return
         // A fatal style failure on the current source: fall through to the
@@ -420,7 +458,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         if (feature.properties?.point_count && feature.geometry?.type === "Point") {
           const coords = feature.geometry.coordinates as [number, number]
           const [lng, lat] = coords
-          mapRef?.easeTo({ center: [lng, lat], zoom: Math.max((mapRef.getZoom() ?? 10.5) + 2, 12) })
+          mapRef.current?.easeTo({ center: [lng, lat], zoom: Math.max((mapRef.current.getZoom() ?? 10.5) + 2, 12) })
           return
         }
         const jobId = feature.properties?.jobId
@@ -434,7 +472,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         <Popup
           longitude={hoveredLocation.lng}
           latitude={hoveredLocation.lat}
-          anchor="bottom"
+          anchor={popupAnchor}
           closeButton={false}
           closeOnClick={false}
           offset={14}
