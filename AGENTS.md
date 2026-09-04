@@ -61,7 +61,7 @@ pnpm exec expo export --platform web
 3. ~~G-1/G-2 endpoints~~ — DONE. `GET /api/board` implemented; `PATCH /api/jobs/:id/assignment` was already present.
 4. **Object storage** — connect S3/R2 for photos and compliance docs; `fileUrl` is currently `null`.
 5. **Mobile native build** — `my-mobile-app` needs iOS/Android native builds and a custom dev-client for WatermelonDB SQLite.
-6. **preDeployCommand** — restored 2026-09-04 (`pnpm --filter @plumbtrack/database db:migrate`; prisma is a runtime dep now, so the CLI ships in the image). Verify it runs cleanly on the next api deploy; the manual TCP-proxy process is the fallback.
+6. ~~preDeployCommand~~ — DONE + verified 2026-09-04: migrations ran cleanly via `preDeployCommand` on the api deploys of commit `2de7c008` (a failing preDeploy fails the deployment, so SUCCESS proves it). The manual TCP-proxy process is only a fallback now.
 7. ~~HQ assignment write-through~~ — DONE. `performAssignment` in `apps/hq/src/features/board/actions.ts` calls `PATCH /api/jobs/:id/assignment` live and queues the same op offline; roster hydration (see above) makes it validate against real staff.
 8. **Per-operator auth** — sign-in is still shared bootstrap secrets (`HQ_BOOTSTRAP_TOKEN` owner session, public `DEVICE_BOOTSTRAP_TOKEN` enrollment); no per-user identity, no revocation. This is the next design project before onboarding a second org.
 
@@ -71,7 +71,9 @@ pnpm exec expo export --platform web
 - `apps/hq` is the desktop dispatch command center.
 - `apps/web` is the technician mobile PWA.
 - `apps/api` is Fastify + Prisma + PostgreSQL.
-- `my-mobile-app/` is intentionally outside the pnpm workspace (`pnpm-workspace.yaml` with `packages: []`); treat as a separate repo.
+- `my-mobile-app/` (Expo field agent) now has its own private remote: `bushintel77-star/plumbtrack-mobile` (branch `master`). The local folder's `origin` points there — do NOT push it at the monorepo. It is still intentionally outside the pnpm workspace.
+- CI has two jobs: the required full gate (typecheck/lint/test/build) and a Playwright web-e2e job (27 specs; `dashboard-graphs` and `job-view-billable` are grep-excluded — seed-era drift, see PRODUCTION_READINESS.md P0-2). The HQ Playwright suite is fully stale (pre-FieldLoop shell) and is not wired anywhere.
+- `apps/dispatch` is the superseded Electron reference prototype (echo test, built by CI, deployed nowhere).
 - `FIELDLOOP_DESIGN_REFERENCES.md`, `Prototype/`, and `skills/` are untracked in the parent repo.
 
 ## Deployment notes

@@ -15,8 +15,6 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src/features/fieldloop/DispatchBoard.tsx",
-    "src/features/fieldloop/primitives.tsx"
+    "node_modules"
   ]
 }

@@ -1,66 +1,57 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-08-29
+Updated: 2026-09-04 (after the production-hardening pass, commit `2de7c008`)
 
-## Current WIP
+## Shipped state
 
-| Area | Current state | Evidence |
-|---|---|---|
-| HQ dispatch board | Functional prototype with matrix, list, calendar, map, filters, drag/drop, queue, routing suggestions, timers, and health strip | HQ build and unit suite pass |
-| Semantic status system | Shared status tokens, precedence (emergency > delayed > state), icons, map palette bridge, and color gate are implemented | HQ lint/color gate and status tests pass |
-| Premium UI layer | Watermelon composition (Sonner toast, motion inspector/view transitions, button polish, skeleton/empty) + Kibo primitives (combobox, tags, table row model, gantt now-line), all token-pure; drag lifecycle driven by the XState dispatch machine with `data-drag-state` channel | 30 unit + 28 e2e green (dispatchViews, board, map, accessibility suites) |
-| Map | MapLibre map with token-backed pins, road-shape upgrade, routes, breadcrumbs, hover popup, accessible jobs list, and error fallback | Map palette/road-shape tests pass |
-| Authentication | API HTTP-only session issuance, renewal, sign-out, and cookie-aware HQ client are implemented | API auth tests pass |
-| Connectivity | REST demo fallback, offline queue foundation, telemetry reconnect/backoff, and simulator path exist | Typecheck/build/tests pass |
-| Operations | API-backed CRM/quote/document/integration summary surface exists | HQ build/typecheck pass |
+| Area | State |
+|---|---|
+| API auth | Production sign-in live: HQ station token → 12h cookie session; legacy tenant header fails closed; webhooks signature-verified and exempt from the tenant hook. Still shared-secret (see P0-1). |
+| Tenant isolation | Cross-tenant holes closed (checklist item, photo delete, quote line all org-scoped). |
+| CORS | Fails closed in production (`CORS_ORIGINS` required at boot). |
+| Field writes | Technicians can complete/sign jobs (`{status, signature}` only); metadata stays manager+. Web PWA persists sign-offs through the outbox; HQ offline queue drains assign ops correctly. |
+| Roster | `GET /api/board` returns the org staff; HQ drag-to-assign validates real member ids. |
+| Media | Signed S3 uploads; `publicUrl` from `PUBLIC_API_BASE_URL` (host-header spoofing closed). Capability URLs are long-lived (see P2-3). |
+| Rate limits | Global 500/min/IP + SMS route 10/min/IP. |
+| Observability | Sanitized 5xx bodies, `x-request-id` correlation, pino header redaction. No metrics/alerting yet (P1-5). |
+| Deploys | Railway: api/web/hq all deploy from `main`; api runs migrations via `preDeployCommand` (verified 2026-09-04). API image now runs non-root. |
+| Branch protection | ON: `main` requires "Build, typecheck, lint and test"; force-push/deletion blocked; `enforce_admins` false (owner bypass in emergencies). |
 
 ## Blocking gaps to production completion
 
-### P0 — must close before live operations
+### P0 — must close before multi-operator live operations
 
-1. **Server-authoritative assignment**: endpoint and HQ mutation client are now scaffolded, but appointment existence, crew/skill/absence validation, and concurrent conflict enforcement still require completion before release.
-2. **Real HQ authentication UX**: add enrollment/sign-in flow, session-expired route state, role-aware access control, and secure production bootstrap configuration. Do not rely on demo fallback in production.
-3. **Production map infrastructure**: provide authenticated/self-hosted tile configuration, routing quotas, timeout budgets, attribution, and a tested offline style fallback. Public demo routing/tile services cannot be the production dependency. (Live streaming foundation landed 2026-08-29: org-scoped `liveBus` + token-authenticated WS `/api/stream` on the API, job events published from every mutation route, mobile field app connected with reconnect-reconcile. Remaining: point HQ's existing `useTelemetrySocket` client at the real endpoint and add field→HQ telemetry upstream.)
-4. **Release validation**: run full Playwright against a production start with API authentication, map accessibility, assignment rollback, timer compliance, and no console errors.
-5. **Observability**: add structured client/API error reporting, correlation IDs in UI diagnostics, health/readiness checks, and alerting for integration delivery failures.
+1. **Per-operator auth** — sign-in is still shared bootstrap secrets (`HQ_BOOTSTRAP_TOKEN` owner session; public `DEVICE_BOOTSTRAP_TOKEN` enrollment). No per-user identity, no revocation, no lockout. Design project before onboarding a second org or operator.
+2. **HQ e2e rewrite (release validation)** — the HQ Playwright suite (35/36 specs) targets the pre-FieldLoop shell (`nav-*` sidebar, `demo-badge`, `palette-trigger` — none exist in source). It cannot gate releases. Needs a rewrite against `FieldLoopWorkspace` + a CI job. The web PWA suite is the current CI e2e baseline.
+3. **SMS/cost audit** — Twilio sends are role-gated and rate-limited, but there is no per-org spend cap or provider-side budget alert.
 
 ### P1 — required for a complete FSM loop
 
-1. Board aggregate endpoint (`GET /api/board?date=`) returning jobs, appointments, timers, and crew availability atomically.
-2. HQ CRM/customer/property CRUD and appointment management.
-3. API-backed quote line editing, send/approval state, invoice/payment status, and webhook history.
-4. Document upload, versioning, preview, expiry workflow, and RFI UI.
-5. Server-backed Slack channel/message history, posting, retry, and dead-letter controls.
-6. Accounting/job costing, tax, reconciliation, and payroll export.
-7. True route optimization service with road matrix, traffic/window costs, and auditable suggestions.
-8. Full breadcrumb retention policy, privacy controls, and mileage/expense exports.
+1. HQ CRM/quote/document surfaces still render seed data (only OperationsHub hits real endpoints).
+2. HQ Slack comms + quote lifecycle are local simulations.
+3. Media capability URLs never expire (`Cache-Control: immutable`); no revocation, no storage TTL.
+4. Map road geometry defaults to the public OSRM demo server unless an ORS key is set (client-exposed if `NEXT_PUBLIC`).
+5. Metrics, alerting, and audit-event delivery guarantees (audit writes are fire-and-forget).
+6. PII retention/erasure policy (customer phones, addresses, access codes are plaintext, unexpired).
+7. Prisma connection pool sizing; interactive-transaction coverage for multi-step mutations.
 
 ### P2 — scale and polish
 
-1. Split board/UI/test state and remove the global test bridge from production bundles.
-2. Replace broad high-frequency Zustand subscriptions with selectors/feature-state updates.
-3. Add axe scans and full keyboard traversal tests for every Dispatch workflow.
-4. Add responsive/mobile operator layout and reduced-motion visual QA.
-5. Remove monorepo build warnings and standardize CI/package-manager configuration.
-6. Add backup/restore, migration, rate-limit, retention, and incident runbooks.
+1. HQ mid-session expiry now redirects to sign-in (window event from the board poll), but the renew tick badge was removed with the legacy toolbar; session state is otherwise invisible.
+2. HQ `NEXT_PUBLIC_HQ_DEV_ORG_ID` is misnamed but load-bearing (must equal the API org or every request 403s).
+3. `apps/dispatch` is a superseded Electron prototype still built by CI (echo test, no deploy).
+4. Container image digests, web-service healthcheck, IaC apply for the web service build pin.
 
 ## Acceptance criteria for declaring production-ready
 
-- All P0 items closed and demonstrated in a clean production-start environment.
-- No unauthenticated access to tenant data or mutations.
-- Assignment and status mutations are server-authoritative and auditable.
-- Map remains usable when tiles/routing are unavailable.
-- Every status is communicated by icon, text, and semantic color.
-- Full HQ/API typecheck, lint, unit, and Playwright suites pass with zero unexpected console errors.
-- Deployment configuration, environment variables, rollback procedure, and operational alerts are documented.
+- P0 items closed and demonstrated on a clean production start.
+- No unauthenticated access to tenant data or mutations (met today; keep it green).
+- Assignment and status mutations server-authoritative and auditable (met for jobs; quotes/docs still client-side).
+- HQ e2e suite rewritten and wired to CI, running green against the FieldLoop shell.
+- Deployment, rollback, and incident runbooks documented.
 
-## Verified current checks
+## Verified current checks (2026-09-04)
 
-- HQ lint + semantic color gate: passed
-- HQ typecheck: passed
-- HQ production build: passed
-- HQ unit tests: 19/19 passed
-- API typecheck: passed
-- API tests: 96/96 passed
-
-The system is a strong validated prototype; it should not be represented as fully production-ready until the P0 server-authority, authentication UX, infrastructure, observability, and release-validation gaps are closed.
+- Monorepo typecheck / lint / unit tests / build: green (API 160, HQ 93+1 e2e, web 80).
+- Web PWA Playwright suite: wired to CI 2026-09-04.
+- API deploy: preDeployCommand migrations verified on Railway.

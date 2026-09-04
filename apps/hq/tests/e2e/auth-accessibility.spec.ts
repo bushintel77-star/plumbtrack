@@ -3,9 +3,9 @@ import { expect, test } from "@playwright/test"
 test.describe("HQ session and accessibility safeguards", () => {
   test("exposes a session control with an accessible action label", async ({ page }) => {
     await page.goto("/?module=dispatch")
-    const session = page.getByTestId("session-badge")
-    await expect(session).toBeVisible()
-    await expect(session).toHaveAttribute("aria-label", /session|sign out/i)
+    const signOut = page.getByTestId("fl-sign-out")
+    await expect(signOut).toBeVisible()
+    await expect(signOut).toHaveAttribute("aria-label", /sign out/i)
   })
 
   test("map crew selector is keyboard reachable and exposes crew options", async ({ page }) => {

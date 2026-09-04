@@ -45,3 +45,10 @@ apps/hq/playwright-report/
 # HQ local verification screenshots
 apps/hq/shots/
 apps/hq/shots-premium/
+
+# Local-only collateral: mobile app has its own repo, the rest is design material
+my-mobile-app/
+shots/
+Prototype/
+skills/
+FIELDLOOP_DESIGN_REFERENCES.md

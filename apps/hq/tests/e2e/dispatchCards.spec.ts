@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/?module=dispatch")
-  await expect(page.getByTestId("demo-badge")).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId("fl-connection")).toHaveText(/Demo data/i, { timeout: 20_000 })
   await expect(page.getByTestId("matrix-view")).toBeVisible({ timeout: 20_000 })
 })
 

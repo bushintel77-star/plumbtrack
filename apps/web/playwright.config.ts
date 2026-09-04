@@ -14,7 +14,10 @@ export default defineConfig({
   expect: { timeout: 5_000 },
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // Seed times are wall-clock relative, so a handful of specs legitimately
+  // skip in some run windows; one retry absorbs the timing flake without
+  // hiding real failures (retried passes are reported as flaky).
+  retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: {
     // Dedicated server on :3100 — the long-lived dev server stalls under

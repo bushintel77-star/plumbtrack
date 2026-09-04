@@ -32,16 +32,18 @@ COPY packages/database/prisma ./packages/database/prisma
 RUN pnpm turbo run build --filter=@plumbtrack/api
 
 # ---------------------------------------------------------------------------
-# Runner — production image
+# Runner — production image (non-root: the API needs no filesystem writes)
 # ---------------------------------------------------------------------------
 FROM base AS runner
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd --uid 1001 --create-home nodejs
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOST=0.0.0.0
-COPY --from=installer /app ./
+COPY --from=installer --chown=nodejs:nodejs /app ./
+USER nodejs
 EXPOSE 8080
 CMD ["node", "apps/api/dist/index.js"]

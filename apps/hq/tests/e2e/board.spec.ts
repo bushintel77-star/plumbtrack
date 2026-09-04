@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/?module=dispatch")
   // Deterministic demo mode (NEXT_PUBLIC_HQ_FORCE_DEMO=1 at build time).
   // Generous timeout: the first test of a cold server compiles route chunks.
-  await expect(page.getByTestId("demo-badge")).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByTestId("fl-connection")).toHaveText(/Demo data/i, { timeout: 20_000 })
   await expect(page.getByTestId("matrix-view")).toBeVisible({ timeout: 20_000 })
 })
 
@@ -396,12 +396,17 @@ test.describe("Offline-first + live telemetry (Phase 1/4 architecture)", () => {
     })
   })
 
-  test("throttled fleet telemetry populates liveLocations for the map", async ({ page }) => {
+  test("map surface renders with a valid (possibly empty) liveLocations map", async ({ page }) => {
+    // The demo telemetry simulator was removed; without a live socket there
+    // are legitimately zero vehicle pings. The contract under test is that
+    // the store shape stays map-shaped and the map surface renders anyway.
+    await page.goto("/?module=map")
     await page.waitForTimeout(2500)
-    const pingCount = await page.evaluate(
-      () => Object.keys((window as any).__hqStore.getState().liveLocations).length
+    const pings = await page.evaluate(
+      () => (window as any).__hqStore.getState().liveLocations
     )
-    expect(pingCount).toBeGreaterThan(0)
+    expect(pings).toEqual(expect.any(Object))
+    await expect(page.getByTestId("fieldloop-workspace")).toBeVisible()
   })
 })
 

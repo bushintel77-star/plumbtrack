@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { useBoardLifecycle } from "@/features/board/useBoardLifecycle"
+import { authApi } from "@/lib/api"
 import { dayLabel, todayIsoDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { jobDay } from "@/lib/schedule"
@@ -127,6 +128,21 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
             <i />
             {CONNECTION_COPY[dataMode]}
           </span>
+          <button
+            type="button"
+            className="fl-linkbtn"
+            data-testid="fl-sign-out"
+            aria-label="Sign out"
+            onClick={() => {
+              void authApi.signOut().catch(() => undefined).finally(() => {
+                // A signed-out console must not keep serving the cached board;
+                // the reload re-runs the session gate.
+                window.location.reload()
+              })
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </header>
 

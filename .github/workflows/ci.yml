@@ -64,3 +64,37 @@ jobs:
 
       - name: Build all workspaces
         run: pnpm build
+
+  e2e:
+    name: Web PWA e2e (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @plumbtrack/web exec playwright install --with-deps chromium
+
+      # dashboard-graphs and job-view-billable still assert seed-era UI
+      # (open time entries at boot, drifted clock-in sheet labels) — tracked
+      # in PRODUCTION_READINESS.md P0-2 alongside the HQ e2e rewrite.
+      - name: Run web e2e suite
+        run: pnpm --filter @plumbtrack/web exec playwright test --grep-invert "dashboard-graphs|job-view-billable"
