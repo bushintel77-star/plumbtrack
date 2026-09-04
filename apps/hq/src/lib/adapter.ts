@@ -58,9 +58,19 @@ export interface ApiQuote {
   lines?: ApiQuoteLine[]
 }
 
+/** Org member from the board payload — a drag-assignable technician. */
+export interface ApiStaffMember {
+  id: string
+  name: string
+  role: string
+  skills: string[]
+}
+
 export interface ApiBoardPayload {
   jobs: ApiJob[]
   quotes: ApiQuote[]
+  /** Org roster; absent on older/demo servers (the store keeps its seed). */
+  staff?: ApiStaffMember[]
 }
 
 const STATUS_MAP: Record<ApiJob["status"], JobStatus> = {
@@ -151,8 +161,7 @@ function techForJob(apiJob: ApiJob, technicians: Technician[], index: number): T
 export function adaptApiBoard(
   payload: ApiBoardPayload,
   technicians: Technician[]
-): { jobs: Record<string, Job> } {
-  const jobs: Job[] = payload.jobs.map((apiJob, index) => {
+): { jobs: Record<string, Job> } {  const jobs: Job[] = payload.jobs.map((apiJob, index) => {
     const tech = techForJob(apiJob, technicians, index)
     const slot = slotFromAppointment(apiJob.appointment) ?? { ...slotForIndex(index), scheduledDate: isoDay(0) }
     const apiQuote = payload.quotes.find(q => q.client === apiJob.client)
@@ -197,6 +206,31 @@ export function adaptApiBoard(
     }
   })
   return { jobs: Object.fromEntries(jobs.map(job => [job.id, job])) }
+}
+
+/** Org roster → board technicians. Real staff ids are what the assignment
+ *  endpoint validates (409 otherwise), so replacing the seed roster on live
+ *  hydration is what makes drag-to-assign work against a real org. Van labels
+ *  are cosmetic roster-order display; skills come from the membership (BR-04
+ *  drag constraint). A previously-seen last-known telemetry fix is carried
+ *  over by id. Absence windows stay empty until the API models them. */
+export function adaptStaffRoster(
+  payload: ApiBoardPayload,
+  previous: Technician[]
+): Technician[] {
+  if (!payload.staff || payload.staff.length === 0) return previous
+  return payload.staff.map((member, index) => {
+    const prior = previous.find(tech => tech.id === member.id)
+    return {
+      id: member.id,
+      name: member.name,
+      van: `Van ${index + 1}`,
+      skills: member.skills,
+      role: "Technician" as const,
+      absences: [],
+      ...(prior?.lastKnownLocation ? { lastKnownLocation: prior.lastKnownLocation } : {})
+    }
+  })
 }
 
 /** Fetch everything the board needs in a single round-trip (G-1 endpoint).

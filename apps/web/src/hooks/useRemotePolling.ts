@@ -50,7 +50,14 @@ export function useRemotePolling(dispatch: (action: Action) => void) {
           .map((op) => String((op.payload as { quoteId?: unknown }).quoteId ?? "")),
       ),
     ].filter(Boolean);
-    dispatch({ type: "MERGE_REMOTE", jobs: data.jobs, quotes: data.quotes, protectedQuoteIds });
+    const protectedJobIds = [
+      ...new Set(
+        data.ops
+          .filter((op) => op.kind === "update-job")
+          .map((op) => String((op.payload as { jobId?: unknown }).jobId ?? "")),
+      ),
+    ].filter(Boolean);
+    dispatch({ type: "MERGE_REMOTE", jobs: data.jobs, quotes: data.quotes, protectedQuoteIds, protectedJobIds });
     // MERGE_REMOTE is idempotent for identical snapshots; dispatch identity
     // is stable, so this only re-runs when a new poll result arrives.
   }, [query.data, dispatch]);

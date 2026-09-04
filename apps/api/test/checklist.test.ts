@@ -112,7 +112,7 @@ describe("PATCH /api/jobs/:id/checklist-items/:itemId (completion write path)", 
 
     expect(res.statusCode).toBe(200)
     expect(prismaMock.checklistItem.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "chk-1", jobId: "j-1" } })
+      expect.objectContaining({ where: { id: "chk-1", jobId: "j-1", orgId: ORG } })
     )
     const { publishToOrg } = await import("../src/lib/liveBus")
     expect(publishToOrg).toHaveBeenCalledWith(

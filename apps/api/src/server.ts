@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
@@ -31,16 +32,39 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   assertAuthConfiguration();
-  const app = Fastify({ logger: options.logger ?? true });
+  const app = Fastify({
+    // Default logger (used outside tests): JSON lines with auth-sensitive
+    // headers redacted. The request id honours the client's x-request-id so a
+    // support ticket can be correlated to server logs; only safe characters
+    // are accepted to prevent log injection.
+    logger:
+      options.logger ?? {
+        level: process.env.LOG_LEVEL ?? "info",
+        redact: {
+          paths: ["req.headers.cookie", "req.headers.authorization", "res.headers['set-cookie']"],
+          censor: "[redacted]",
+        },
+      },
+    genReqId: (req) => {
+      const incoming = req.headers["x-request-id"];
+      return typeof incoming === "string" && /^[A-Za-z0-9-_]{1,128}$/.test(incoming) ? incoming : randomUUID();
+    },
+  });
 
   await app.register(helmet);
   await app.register(cookie);
   // CORS_ORIGINS (comma-separated) restricts browser callers to a configured
-  // allowlist. When unset the origin is reflected. credentials: true is needed
-  // because the HQ client sends credentials: "include" on its fetch calls.
+  // allowlist. credentials: true is needed because the HQ client sends
+  // credentials: "include" on its fetch calls — which is exactly why an
+  // unset allowlist must not reflect arbitrary origins in production: any
+  // website could then make cookie-authenticated, response-readable calls.
+  // Fail closed at boot, same contract as AUTH_SECRET.
   const corsOrigins = process.env.CORS_ORIGINS?.split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+  if (!corsOrigins?.length && process.env.NODE_ENV === "production") {
+    throw new Error("CORS_ORIGINS must be configured in production: the API issues cookie sessions, so reflecting arbitrary origins with credentials is not permitted");
+  }
   await app.register(cors, {
     origin: corsOrigins?.length ? corsOrigins : true,
     credentials: true,
@@ -53,6 +77,28 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   }
   await app.register(rateLimit, { max: rateLimitMax, timeWindow: rateLimitWindowMs });
   await app.register(tenantPlugin);
+
+  // 5xx bodies must never leak library/Prisma internals (Fastify's default
+  // handler serializes error.message). 4xx keep their message — they are
+  // hand-written application errors that clients act on.
+  app.setErrorHandler((error: unknown, request, reply) => {
+    const asError = error as { statusCode?: unknown };
+    const statusCode =
+      typeof asError.statusCode === "number" && asError.statusCode >= 400 && asError.statusCode <= 599
+        ? asError.statusCode
+        : 500;
+    if (statusCode >= 500) {
+      request.log.error({ err: error }, "Unhandled request error");
+      if (process.env.NODE_ENV === "production") {
+        return reply.code(statusCode).send({
+          statusCode,
+          error: "Internal Server Error",
+          message: "Internal server error",
+        });
+      }
+    }
+    return reply.code(statusCode).send(error);
+  });
 
   app.get("/", async () => ({ service: "plumbtrack-api", status: "ok" }));
 

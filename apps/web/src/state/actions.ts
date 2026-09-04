@@ -1,7 +1,7 @@
 import type { Job, JobPhoto, JobStatus, Quote, QuoteLine, QuoteLineField, QuoteStatus, ShiftWorkType } from "@/types";
 
 export type Action =
-  | { type: "MERGE_REMOTE"; jobs: Job[]; quotes: Quote[]; protectedQuoteIds?: string[] }
+  | { type: "MERGE_REMOTE"; jobs: Job[]; quotes: Quote[]; protectedQuoteIds?: string[]; protectedJobIds?: string[] }
   | { type: "CLOCK_ON"; jobId: string; staffId: string; lat: number | null; lng: number | null }
   | { type: "CLOCK_OFF"; jobId: string; staffId: string }
   | { type: "LOG_ON"; staffId: string; workType: ShiftWorkType; startedAt: string; noticeAckAt: string; lat?: number | null; lng?: number | null }

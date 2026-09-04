@@ -4,13 +4,26 @@ import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSlackBridge } from "@/lib/slackBridge"
-import { registerSyncDrain } from "@/lib/offline"
-import { persistJobStatus } from "@/lib/api"
+import { registerSyncDrain, type SyncOp } from "@/lib/offline"
+import { authApi, persistJobStatus } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 
 function useBootstrapServices() {
   // FSM → Slack state-machine bridge (transition cards + job channels).
   useSlackBridge()
+}
+
+/** Replay a queued op against the endpoint matching its kind — assign ops
+ *  carry {techId, startBlock} and must hit the assignment endpoint, not the
+ *  status PATCH (which would otherwise send an empty body and lose the
+ *  assignment silently). */
+function persistSyncOp(op: SyncOp): Promise<void> {
+  if (op.op === "assign") {
+    const payload = op.payload as { techId: string; startBlock: number }
+    return authApi.assignment(op.jobId, payload.techId, payload.startBlock).then(() => undefined)
+  }
+  const payload = op.payload as { status: "scheduled" | "in_progress" | "completed" }
+  return persistJobStatus(op.jobId, payload.status)
 }
 
 function useServiceWorker() {
@@ -37,8 +50,7 @@ function useServiceWorker() {
     register()
 
     const unregister = registerSyncDrain(
-      (jobId, payload) =>
-        persistJobStatus(jobId, (payload as { status: "scheduled" | "in_progress" | "completed" }).status),
+      persistSyncOp,
       count =>
         toast({
           title: "Offline changes synced",

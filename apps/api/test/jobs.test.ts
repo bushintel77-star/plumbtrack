@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { findFirst, findFirstPhoto, create, update, findMany, findUnique, updateMany, deleteMany, transaction, createDomainEvent } = vi.hoisted(() => ({
+const { findFirst, findFirstPhoto, findFirstChecklist, updateChecklist, create, update, findMany, findUnique, updateMany, deleteMany, transaction, createDomainEvent } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findFirstPhoto: vi.fn(),
+  findFirstChecklist: vi.fn(),
+  updateChecklist: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   findMany: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("@plumbtrack/database", () => ({
     $transaction: transaction,
     timeEntry: { findFirst, create, update },
     jobPhoto: { create: vi.fn(), findFirst: findFirstPhoto, deleteMany },
+    checklistItem: { findFirst: findFirstChecklist, update: updateChecklist },
   },
 }));
 
@@ -149,5 +152,87 @@ describe("time-entry sync (opId idempotency)", () => {
     });
     expect(response.statusCode).toBe(404);
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("tenant scoping on nested resources", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("completes a checklist item scoped to the caller's org", async () => {
+    findFirstChecklist.mockResolvedValueOnce({ id: "item-1", jobId: "J-1", label: "Shut off water" });
+    updateChecklist.mockResolvedValueOnce({ id: "item-1", completedAt: new Date() });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1/checklist-items/item-1",
+      headers: { "x-organization-id": ORG },
+      payload: { completed: true },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(findFirstChecklist).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item-1", jobId: "J-1", orgId: ORG } }),
+    );
+  });
+
+  it("404s a checklist item that exists in another org", async () => {
+    // The org-scoped lookup returns nothing for a foreign item id, even when
+    // the item + job id pair is real.
+    findFirstChecklist.mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1/checklist-items/item-1",
+      headers: { "x-organization-id": ORG },
+      payload: { completed: true },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(updateChecklist).not.toHaveBeenCalled();
+  });
+
+  it("deletes a photo only after verifying the parent job's org", async () => {
+    findFirst.mockResolvedValueOnce(JOB);
+    deleteMany.mockResolvedValueOnce({ count: 1 });
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/jobs/J-1/photos/photo-1",
+      headers: { "x-organization-id": ORG },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "J-1", orgId: ORG } }),
+    );
+    expect(deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "photo-1", jobId: "J-1" } }),
+    );
+  });
+
+  it("refuses to delete a photo on a job from another org", async () => {
+    findFirst.mockResolvedValueOnce(null); // job not visible to this org
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/api/jobs/J-1/photos/photo-1",
+      headers: { "x-organization-id": ORG },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(deleteMany).not.toHaveBeenCalled();
   });
 });

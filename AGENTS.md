@@ -1,8 +1,23 @@
 # PlumbTrack — Agent Handoff / WIP
 
-Last updated: 2026-08-31
+Last updated: 2026-09-04
 
 ## Current state
+
+- `main` on `bushintel77-star/plumbtrack` is green and deployed.
+- **Branch protection is ON** (2026-09-04): `main` requires the CI check "Build, typecheck, lint and test", force-pushes and deletions blocked; `enforce_admins` is false so the owner can still push directly in an emergency. Land changes via PR.
+- 2026-09-04 production-hardening pass (uncommitted local work at time of writing):
+  - Tenant hook exempts the signature-verified webhooks (`POST /api/webhooks/stripe`, `POST /api/slack/events`) — they were 401'd in production before.
+  - Closed cross-tenant holes: checklist-item PATCH (org-scoped), photo DELETE (parent job org-verified), quote-line PATCH (scoped to the org-verified quote).
+  - CORS fails closed: `buildApp` refuses to boot in production without `CORS_ORIGINS`.
+  - Media `publicUrl` comes from `PUBLIC_API_BASE_URL` (set in `.railway/railway.ts`); request-Host derivation is dev/test only.
+  - `POST /api/sms/eta` has its own rate limit (`SMS_RATE_LIMIT_MAX`, default 10/min per IP).
+  - Global error handler (5xx bodies sanitized in production), `x-request-id` honoured via `genReqId`, pino redacts cookie/authorization headers.
+  - Technicians may `PATCH /api/jobs/:id` with only `{status, signature}` (field sign-off); all other fields stay manager+.
+  - `GET /api/board` returns `staff` (org roster with skills); HQ `hydrateFromApi` replaces the seed technicians with it — drag-to-assign now validates against real member ids.
+  - HQ offline queue drains assign ops through `PATCH /api/jobs/:id/assignment` (was silently sending empty status PATCHes).
+  - Web PWA queues `update-job` outbox ops for job status/sign-off; the 5s poll protects pending-op jobs from reverting them. Log Out now clears the auth session.
+  - `.railway/railway.ts` restores `preDeployCommand` migrations (prisma is now a runtime dep, so the CLI is in the image) — **verify on next api deploy**.
 
 - `main` on `bushintel77-star/plumbtrack` is green and deployed.
 - Latest commit: `fdcc323b` — CORS credentials fix for cross-origin HQ→API requests.
@@ -46,8 +61,9 @@ pnpm exec expo export --platform web
 3. ~~G-1/G-2 endpoints~~ — DONE. `GET /api/board` implemented; `PATCH /api/jobs/:id/assignment` was already present.
 4. **Object storage** — connect S3/R2 for photos and compliance docs; `fileUrl` is currently `null`.
 5. **Mobile native build** — `my-mobile-app` needs iOS/Android native builds and a custom dev-client for WatermelonDB SQLite.
-6. **preDeployCommand** — api service has `pnpm --filter @plumbtrack/database db:migrate` set as preDeployCommand but it failed on first attempt (prisma CLI not found in runner image). Migrations were run manually via TCP proxy (now removed). The preDeployCommand may need fixing for future auto-migrations — verify on next api deploy.
-7. **HQ assignment write-through** — the board's drag-to-assign calls `canAssign` locally but does not yet call `PATCH /api/jobs/:id/assignment` over the network. The `authApi.assignment` helper exists in `apps/hq/src/lib/api.ts` but `assignJob` in `boardStore.ts` only updates local state.
+6. **preDeployCommand** — restored 2026-09-04 (`pnpm --filter @plumbtrack/database db:migrate`; prisma is a runtime dep now, so the CLI ships in the image). Verify it runs cleanly on the next api deploy; the manual TCP-proxy process is the fallback.
+7. ~~HQ assignment write-through~~ — DONE. `performAssignment` in `apps/hq/src/features/board/actions.ts` calls `PATCH /api/jobs/:id/assignment` live and queues the same op offline; roster hydration (see above) makes it validate against real staff.
+8. **Per-operator auth** — sign-in is still shared bootstrap secrets (`HQ_BOOTSTRAP_TOKEN` owner session, public `DEVICE_BOOTSTRAP_TOKEN` enrollment); no per-user identity, no revocation. This is the next design project before onboarding a second org.
 
 ## Repository notes
 

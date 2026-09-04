@@ -5,7 +5,7 @@ import type { AppState, DocumentCategory, Job, OutboxOperation, PlumbDocument, P
 import { API_URL, DEFAULT_ORG_ID, GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
 import { disaggregateForStp, interpretShift, previousShiftEnd, type ShiftPayBreakdown, type StpDisaggregation } from "@/lib/award";
 import { api } from "@/lib/api";
-import { enrollDeviceSession, getAuthSession } from "@/lib/auth";
+import { enrollDeviceSession, getAuthSession, clearAuthSession } from "@/lib/auth";
 import { HttpError } from "@/lib/errors";
 import { dispatchNotification } from "@/lib/notifications";
 import { discardFailedOutboxOperations, enqueueOutboxOperation, getOutboxMedia, listOutboxOperations, mediaToBlob, mediaToDataUrl, migrateLegacyOperations, putOutboxMedia, removeOutboxMedia, retryFailedOutboxOperations, retryOutboxOperation } from "@/lib/outbox";
@@ -260,7 +260,14 @@ function usePlumbTrackImpl() {
               .map((op) => String((op.payload as { quoteId?: unknown }).quoteId ?? "")),
           ),
         ].filter(Boolean);
-        dispatch({ type: "MERGE_REMOTE", jobs: rj, quotes: rq, protectedQuoteIds });
+        const protectedJobIds = [
+          ...new Set(
+            ops
+              .filter((op) => op.kind === "update-job")
+              .map((op) => String((op.payload as { jobId?: unknown }).jobId ?? "")),
+          ),
+        ].filter(Boolean);
+        dispatch({ type: "MERGE_REMOTE", jobs: rj, quotes: rq, protectedQuoteIds, protectedJobIds });
       } catch {
         /* API unreachable — keep local state */
       }
@@ -330,6 +337,13 @@ function usePlumbTrackImpl() {
         lines: Array.isArray(payload.lines) ? payload.lines as Array<{ desc: string; qty: number; unit: string; rate: number }> : [],
       });
       dispatch({ type: "MERGE_REMOTE", jobs: [], quotes: [created] });
+      return;
+    }
+    if (operation.kind === "update-job") {
+      await api.updateJob(String(payload.jobId), {
+        ...(payload.status !== undefined ? { status: payload.status as "scheduled" | "in_progress" | "completed" } : {}),
+        ...(payload.signature !== undefined ? { signature: String(payload.signature) } : {}),
+      });
       return;
     }
     if (operation.kind === "notification") {
@@ -749,6 +763,15 @@ function usePlumbTrackImpl() {
     window.location.reload();
   }, []);
 
+  /** Log Out clears the device's auth session too — resetDemo alone leaves the
+   *  bearer token in localStorage, so a "logged out" device silently keeps its
+   *  30-day session. */
+  const logOut = useCallback(() => {
+    clearAuthSession();
+    clearPersistedState();
+    window.location.reload();
+  }, []);
+
   // ── Documents (vault) ────────────────────────────────────────────────────
 
   const addDocument = useCallback(
@@ -963,7 +986,7 @@ function usePlumbTrackImpl() {
     startClockOn, clockOff, addPhoto, saveSignature,
     addLine, updateLine, removeLine,
     sendQuote, approveQuote,
-    startXeroSync, resetDemo,
+    startXeroSync, resetDemo, logOut,
 
     // Slack
     sendMessage, openChannel, toggleReaction, postMessage,

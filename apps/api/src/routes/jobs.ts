@@ -163,11 +163,19 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.patch("/:id", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
-    const roleFailure = requireRole(request, reply, ["manager", "admin", "owner"]);
-    if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
     const parsed = parseBody(updateJobSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    // Field sign-off is a field write: technicians (and dispatchers) may
+    // update a job's status/signature, same trust class as time entries and
+    // checklist completion. Every other field (client, address, scope,
+    // contacts…) stays a manager+ dispatch-authority write.
+    const isFieldWrite = Object.keys(parsed.data).every((key) => key === "status" || key === "signature");
+    const allowedRoles: readonly (typeof FIELD_ROLES)[number][] = isFieldWrite
+      ? FIELD_ROLES
+      : ["manager", "admin", "owner"];
+    const roleFailure = requireRole(request, reply, allowedRoles);
+    if (roleFailure) return roleFailure;
     const updatedJob = await prisma.$transaction(async (tx) => {
       let shouldEmitCompleted = false;
       if (parsed.data.status === "completed") {
@@ -301,9 +309,11 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     );
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
 
-    // Scope the item to the already-authorized job — a guessed item id from
-    // another job or tenant must never be completable.
-    const item = await prisma.checklistItem.findFirst({ where: { id: itemId, jobId: id } });
+    // Scope the item to the caller's org AND job — a guessed item id from
+    // another job or tenant must never be completable. (orgId lives on the
+    // item itself; filtering on it closes the cross-tenant path that a
+    // jobId-only match left open.)
+    const item = await prisma.checklistItem.findFirst({ where: { id: itemId, jobId: id, orgId } });
     if (!item) return reply.code(404).send({ message: "Checklist item not found" });
 
     const completedAt = parsed.data.completed
@@ -403,6 +413,11 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     const roleFailure = requireRole(request, reply, ["manager", "admin", "owner"]);
     if (roleFailure) return roleFailure;
     const { id, photoId } = request.params as { id: string; photoId: string };
+    // JobPhoto rows carry no orgId — verify the parent job belongs to the
+    // caller's org before deleting, or a guessed photo id + job id pair from
+    // another tenant would be destroyable.
+    const job = await prisma.job.findFirst({ where: { id, orgId } });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
     const result = await prisma.jobPhoto.deleteMany({
       where: { id: photoId, jobId: id },
     });

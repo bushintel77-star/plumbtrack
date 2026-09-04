@@ -406,7 +406,7 @@ function QuoteListView() {
 }
 
 function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange: (theme: AppTheme) => void }) {
-  const { discardFailedSync, resetDemo, pendingSyncCount, retryFailedSync, syncStatus } = usePlumbTrackCtx();
+  const { discardFailedSync, resetDemo, logOut, pendingSyncCount, retryFailedSync, syncStatus } = usePlumbTrackCtx();
   const { setView } = usePlumbTrackCtx();
   const [slackStatus, setSlackStatus] = useState<"checking" | "connected" | "offline">("checking");
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
@@ -613,7 +613,7 @@ function SettingsView({ theme, onThemeChange }: { theme: AppTheme; onThemeChange
             <button type="button" onClick={() => setLogoutOpen(false)} className="flex-1 min-h-[48px] rounded-xl border border-line-strong bg-fill text-sm font-semibold text-ink-mid active:bg-fill-strong transition haptic">
               Cancel
             </button>
-            <button type="button" onClick={resetDemo} className="flex-1 min-h-[48px] rounded-xl bg-urgent text-on-accent text-sm font-bold active:bg-urgent transition haptic">
+            <button type="button" onClick={logOut} className="flex-1 min-h-[48px] rounded-xl bg-urgent text-on-accent text-sm font-bold active:bg-urgent transition haptic">
               Log out
             </button>
           </div>

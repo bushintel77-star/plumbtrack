@@ -10,7 +10,7 @@ import type { Job } from "@/types"
  * connectivity returns — Last-Write-Wins per (jobId + op) resolution.
  */
 
-interface SyncOp {
+export interface SyncOp {
   id?: number
   jobId: string
   op: "assign" | "status"
@@ -92,12 +92,13 @@ export async function pendingSyncCount(): Promise<number> {
 }
 
 /**
- * Drain the queue sequentially against the persist endpoint. Each op is
- * deleted only after a successful request; failures leave the op for the
- * next drain (exponential patience, matching the webhook retry philosophy).
+ * Drain the queue sequentially against the op-appropriate persist endpoint.
+ * Each op is deleted only after a successful request; failures leave the op
+ * for the next drain (exponential patience, matching the webhook retry
+ * philosophy).
  */
 export async function drainSyncQueue(
-  persist: (jobId: string, payload: Record<string, unknown>) => Promise<void>
+  persist: (op: SyncOp) => Promise<void>
 ): Promise<number> {
   let drained = 0
   try {
@@ -106,7 +107,7 @@ export async function drainSyncQueue(
     ops.sort((a, b) => a.queuedAt - b.queuedAt)
     for (const op of ops) {
       try {
-        await persist(op.jobId, op.payload)
+        await persist(op)
         if (op.id !== undefined) await database.delete("sync-queue", op.id)
         drained++
       } catch {
@@ -121,7 +122,7 @@ export async function drainSyncQueue(
 
 /** Wire browser-online + service-worker sync notifications to the drain. */
 export function registerSyncDrain(
-  persist: (jobId: string, payload: Record<string, unknown>) => Promise<void>,
+  persist: (op: SyncOp) => Promise<void>,
   onDrained?: (count: number) => void
 ): () => void {
   const drain = (): void => {

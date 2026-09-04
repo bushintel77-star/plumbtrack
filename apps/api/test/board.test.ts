@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { jobFindMany, quoteFindMany, userFindMany } = vi.hoisted(() => ({
+const { jobFindMany, quoteFindMany, userFindMany, membershipFindMany } = vi.hoisted(() => ({
   jobFindMany: vi.fn(),
   quoteFindMany: vi.fn(),
   userFindMany: vi.fn(),
+  membershipFindMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -12,6 +13,7 @@ vi.mock("@plumbtrack/database", () => ({
     job: { findMany: jobFindMany },
     quote: { findMany: quoteFindMany },
     user: { findMany: userFindMany },
+    organizationMembership: { findMany: membershipFindMany },
   },
 }));
 
@@ -34,6 +36,7 @@ describe("GET /api/board", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     userFindMany.mockResolvedValue([]);
+    membershipFindMany.mockResolvedValue([]);
   });
 
   it("returns jobs, quotes, and the job's schedulable appointment with the staff name", async () => {
@@ -173,5 +176,42 @@ describe("GET /api/board", () => {
     const body = JSON.parse(response.body);
     expect(body.jobs).toEqual([]);
     expect(body.quotes).toEqual([]);
+  });
+
+  it("returns the org roster with real member ids and skills for drag targets", async () => {
+    jobFindMany.mockResolvedValue([]);
+    quoteFindMany.mockResolvedValue([]);
+    membershipFindMany.mockResolvedValue([
+      {
+        id: "m-1",
+        organizationId: ORG,
+        userId: "cm000-1",
+        role: "technician",
+        skills: ["gas", "hot-water"],
+        user: { id: "cm000-1", name: "Sarah Nguyen" },
+      },
+      {
+        id: "m-2",
+        organizationId: ORG,
+        userId: "cm000-2",
+        role: "owner",
+        skills: [],
+        user: { id: "cm000-2", name: "Tom Bell" },
+      },
+    ]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/board",
+      headers: { "x-organization-id": ORG },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(membershipFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: ORG } }));
+    expect(body.staff).toEqual([
+      { id: "cm000-1", name: "Sarah Nguyen", role: "technician", skills: ["gas", "hot-water"] },
+      { id: "cm000-2", name: "Tom Bell", role: "owner", skills: [] },
+    ]);
   });
 });

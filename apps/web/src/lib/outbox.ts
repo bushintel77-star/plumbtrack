@@ -263,7 +263,9 @@ export async function migrateLegacyOperations(operations: SyncOp[]): Promise<boo
             ? { localJobId: operation.localJobId, ...operation.payload }
             : operation.kind === "sync-quote"
               ? { quoteId: operation.quoteId, ...operation.payload }
-              : operation.payload,
+              : operation.kind === "update-job"
+                ? { jobId: operation.jobId, ...operation.payload }
+                : operation.payload,
       dependsOn: "dependsOn" in operation ? operation.dependsOn : undefined,
     });
   }

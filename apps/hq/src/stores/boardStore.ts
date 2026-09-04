@@ -15,7 +15,7 @@ import type {
 } from "@/types"
 import { channels as seedChannels, jobs as seedJobs, technicians as seedTechs } from "@/data/seed"
 import type { ApiBoardPayload } from "@/lib/adapter"
-import { adaptApiBoard } from "@/lib/adapter"
+import { adaptApiBoard, adaptStaffRoster } from "@/lib/adapter"
 import { TOTAL_BLOCKS } from "@/lib/format"
 import { jobDay } from "@/lib/schedule"
 
@@ -247,10 +247,17 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     })),
 
   hydrateFromApi: payload =>
-    set(s => ({
-      ...adaptApiBoard(payload, s.technicians),
-      dataMode: "live"
-    })),
+    set(s => {
+      // Live hydration replaces the seed roster with the org's real staff —
+      // assignment validation is against real member ids, and seed ids
+      // (t-mike…) would 409 on every drag-to-assign.
+      const technicians = adaptStaffRoster(payload, s.technicians)
+      return {
+        technicians,
+        ...adaptApiBoard(payload, technicians),
+        dataMode: "live"
+      }
+    }),
 
   enterDemo: () =>
     set(s => ({

@@ -11,9 +11,18 @@ import { createUploadUrl, readObject, storageConfigured } from "../lib/storage";
 const INTENT_TTL_SECONDS = 15 * 60;
 
 /** Absolute photo read URL for the API-served read route. The asset cuid is
- *  the unguessable capability token; the URL is built from the request's
- *  host so HQ `<img>` and mobile `<Image>` can load it cross-origin. */
-function readUrlFor(request: FastifyRequest, assetId: string): string {
+ *  the unguessable capability token; the URL must be buildable for HQ <img>
+ *  and mobile <Image> cross-origin loads. In production the base comes from
+ *  PUBLIC_API_BASE_URL — deriving it from the request's Host/X-Forwarded-Host
+ *  would let a poisoned Host header persist attacker-chosen URLs into the
+ *  database (rendered back to every client). When the env is missing in
+ *  production the media flow degrades (503) rather than storing an
+ *  untrusted URL; dev/test keep the request-host derivation for local runs.
+ */
+function readUrlFor(request: FastifyRequest, assetId: string): string | null {
+  const configured = process.env.PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "");
+  if (configured) return `${configured}/api/media/${assetId}/file`;
+  if (process.env.NODE_ENV === "production") return null;
   const proto = request.protocol === "https" || request.headers["x-forwarded-proto"] === "https" ? "https" : "http";
   const host = (request.headers["x-forwarded-host"] as string | undefined)?.split(",")[0]?.trim() ?? request.headers.host ?? "localhost:8080";
   return `${proto}://${host}/api/media/${assetId}/file`;
@@ -108,6 +117,7 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
 
     // Reads are served by the API itself — no public bucket URL needed.
     const publicUrl = readUrlFor(request, asset.id);
+    if (!publicUrl) return reply.code(503).send({ message: "Media public URL is not configured (set PUBLIC_API_BASE_URL)" });
     const updated = await prisma.mediaAsset.updateMany({
       where: { id: asset.id, orgId, status: "pending" },
       data: { status: "uploaded", publicUrl },

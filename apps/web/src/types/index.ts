@@ -411,6 +411,15 @@ export type SyncOp =
       };
     }
   | {
+      kind: "update-job";
+      opId: string;
+      jobId: string;
+      payload: {
+        status?: JobStatus;
+        signature?: string;
+      };
+    }
+  | {
       kind: "notification";
       opId: string;
       payload: { text: string; channel: string; author: string };

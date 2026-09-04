@@ -96,15 +96,25 @@ describe("authenticated tenancy and role authorization", () => {
     expect(response.json()).not.toHaveProperty("token");
   });
 
-  it("blocks a technician from changing a job", async () => {
+  it("blocks a technician from changing job metadata (field writes only)", async () => {
     const response = await app.inject({
       method: "PATCH",
       url: "/api/jobs/J-1",
       headers: { authorization: `Bearer ${token("technician")}` },
-      payload: { status: "completed" },
+      payload: { client: "Someone Else" },
     });
     expect(response.statusCode).toBe(403);
     expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("allows a technician to complete/sign a job (field sign-off)", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1",
+      headers: { authorization: `Bearer ${token("technician")}` },
+      payload: { status: "completed", signature: "data:image/png;base64,abc" },
+    });
+    expect(response.statusCode).toBe(200);
   });
 
   it("allows a manager to change only a job in their organization", async () => {

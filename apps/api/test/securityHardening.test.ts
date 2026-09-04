@@ -187,4 +187,128 @@ describe("field operations require an authorized role", () => {
     expect(photo.statusCode).toBe(403);
     expect(findFirst).not.toHaveBeenCalled();
   });
+
+  it("allows a technician to complete and sign a job (field sign-off)", async () => {
+    transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+      job: {
+        findFirst: vi.fn().mockResolvedValue({ id: "J-1", orgId: ORG, status: "in_progress" }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ id: "J-1", orgId: ORG, status: "completed", timeEntries: [], photos: [] }),
+      },
+      domainEventOutbox: { create: vi.fn().mockResolvedValue({}) },
+    }));
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1",
+      headers: { authorization: `Bearer ${token("technician")}` },
+      payload: { status: "completed", signature: "data:image/png;base64,abc" },
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("still blocks a technician from editing job metadata", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1",
+      headers: { authorization: `Bearer ${token("technician")}` },
+      payload: { client: "Someone Else" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("provider webhooks bypass the tenant hook", () => {
+  let app: FastifyInstance;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousLegacy = process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+  const previousSecret = process.env.AUTH_SECRET;
+
+  beforeAll(async () => {
+    process.env.AUTH_SECRET = "test-auth-secret";
+    delete process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    delete process.env.SLACK_VERIFICATION_TOKEN;
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousLegacy === undefined) delete process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+    else process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = previousLegacy;
+    if (previousSecret === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousSecret;
+    await app.close();
+  });
+
+  // The Stripe route verifies its own HMAC signature; without a configured
+  // secret it returns 503. A 401 here would mean the tenant hook swallowed
+  // the webhook — the exact production breakage this guards against.
+  it("lets the Stripe webhook reach its signature verification (not a tenant 401)", async () => {
+    setEnvironment("unset");
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/webhooks/stripe",
+      payload: { id: "evt_1", type: "checkout.session.completed" },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ message: expect.stringContaining("not configured") });
+  });
+
+  it("lets the Slack events route reach its token verification (not a tenant 401)", async () => {
+    setEnvironment("unset");
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/slack/events",
+      payload: { type: "event_callback", token: "x" },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ error: expect.stringContaining("not configured") });
+  });
+
+  it("still 401s an unauthenticated tenant route in the same mode", async () => {
+    setEnvironment("unset");
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/jobs",
+      headers: { "x-organization-id": ORG },
+    });
+    expect(response.statusCode).toBe(401);
+  });
+});
+
+describe("CORS fails closed in production", () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousCors = process.env.CORS_ORIGINS;
+  const previousSecret = process.env.AUTH_SECRET;
+
+  afterEach(() => {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousCors === undefined) delete process.env.CORS_ORIGINS;
+    else process.env.CORS_ORIGINS = previousCors;
+    if (previousSecret === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousSecret;
+  });
+
+  it("refuses to boot without CORS_ORIGINS when NODE_ENV is production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_SECRET = "test-auth-secret";
+    delete process.env.CORS_ORIGINS;
+    await expect(buildApp({ logger: false })).rejects.toThrow(/CORS_ORIGINS/);
+  });
+
+  it("boots with an explicit allowlist in production", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_SECRET = "test-auth-secret";
+    process.env.CORS_ORIGINS = "https://hq-production-7911.up.railway.app";
+    const app = await buildApp({ logger: false });
+    await app.ready();
+    await app.close();
+  });
 });

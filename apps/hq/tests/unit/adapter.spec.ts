@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { adaptApiBoard, type ApiBoardPayload, type ApiJob } from "@/lib/adapter"
+import { adaptApiBoard, adaptStaffRoster, type ApiBoardPayload, type ApiJob } from "@/lib/adapter"
 import type { Technician } from "@/types"
 
 const techs: Technician[] = [
@@ -107,5 +107,47 @@ describe("adaptApiBoard — server-authoritative assignment", () => {
     expect(job.techId).toBe("t-mike") // fallback round-robin
     expect(job.startBlock).toBe(6) // 11:00 → block 6
     expect(job.scheduledDate).toBe("2026-01-03")
+  })
+})
+
+describe("adaptStaffRoster — org staff replace the seed on live hydration", () => {
+  it("maps the API roster to board technicians with real ids and skills", () => {
+    const payload: ApiBoardPayload = {
+      jobs: [],
+      quotes: [],
+      staff: [
+        { id: "cm000-real-1", name: "Sarah Nguyen", role: "technician", skills: ["gas", "general"] },
+        { id: "cm000-real-2", name: "Tom Bell", role: "owner", skills: [] }
+      ]
+    }
+
+    const roster = adaptStaffRoster(payload, techs)
+
+    expect(roster.map(t => t.id)).toEqual(["cm000-real-1", "cm000-real-2"])
+    expect(roster[0]).toMatchObject({ name: "Sarah Nguyen", skills: ["gas", "general"], absences: [] })
+    expect(roster[1].name).toBe("Tom Bell")
+  })
+
+  it("carries a prior last-known telemetry fix across by id", () => {
+    const prior: Technician[] = [
+      {
+        ...techs[0],
+        lastKnownLocation: { lat: -37.8, lng: 145.0, capturedAt: "2026-01-01T00:00:00.000Z" }
+      }
+    ]
+    const payload: ApiBoardPayload = {
+      jobs: [],
+      quotes: [],
+      staff: [{ id: "t-mike", name: "Mike Reyes", role: "technician", skills: [] }]
+    }
+
+    const roster = adaptStaffRoster(payload, prior)
+
+    expect(roster[0].lastKnownLocation).toEqual({ lat: -37.8, lng: 145.0, capturedAt: "2026-01-01T00:00:00.000Z" })
+  })
+
+  it("keeps the previous roster when the payload has no staff (demo servers)", () => {
+    expect(adaptStaffRoster({ jobs: [], quotes: [] }, techs)).toBe(techs)
+    expect(adaptStaffRoster({ jobs: [], quotes: [], staff: [] }, techs)).toBe(techs)
   })
 })

@@ -14,6 +14,14 @@ export function reducer(state: AppState, action: Action): AppState {
           // while synced entries dedupe against their server twins.
           ...action.jobs.map((j) => {
             const local = state.jobs.find((lj) => lj.id === j.id);
+            // Same conflict policy as quotes: a job with a pending update-job
+            // operation (field status change / customer sign-off still in the
+            // outbox) keeps its local version until the op flushes — otherwise
+            // the 5-second poll reverts a completed-and-signed job back to the
+            // server's stale row.
+            if (action.protectedJobIds?.includes(j.id) && local) {
+              return local;
+            }
             const remoteEntries = (j.timeEntries ?? []).map((e) => ({ ...e, staffId: e.staffId ?? "tim" }));
             // The API returns the lean row shape (no logEntries/voiceNotes/
             // serviceItems/photos). Normalise to the app's local shape here so
@@ -387,6 +395,18 @@ export function reducer(state: AppState, action: Action): AppState {
 
             : j,
         ),
+        // Queue the sign-off so the server gets the authoritative completion
+        // (status + customer signature) — without this the next 5-second poll
+        // reverts the job to the server's stale row.
+        syncQueue: [
+          ...state.syncQueue,
+          {
+            kind: "update-job" as const,
+            opId: crypto.randomUUID(),
+            jobId: action.jobId,
+            payload: { status: "completed" as const, signature: action.signature },
+          },
+        ],
       };
 
     case "UPDATE_SIGNATURE_EVIDENCE":
@@ -403,6 +423,17 @@ export function reducer(state: AppState, action: Action): AppState {
         jobs: state.jobs.map((j) =>
           j.id === action.jobId ? { ...j, status: action.status } : j,
         ),
+        // Persist the transition through the offline outbox, same as clock
+        // events and quote edits.
+        syncQueue: [
+          ...state.syncQueue,
+          {
+            kind: "update-job" as const,
+            opId: crypto.randomUUID(),
+            jobId: action.jobId,
+            payload: { status: action.status },
+          },
+        ],
       };
 
     case "CREATE_QUOTE": {

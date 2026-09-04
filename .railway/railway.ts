@@ -17,11 +17,21 @@ export default defineRailway(() => {
     },
     deploy: {
       healthcheckPath: "/api/health",
+      // Migrations ship with the image (prisma + packages/database/prisma are
+      // copied in the Dockerfile) and prisma is a runtime dependency, so the
+      // CLI is present in the runner. Auto-migrate on every deploy — the
+      // previous manual TCP-proxy process left schema drift (see migration
+      // 20260831000300).
+      preDeployCommand: "pnpm --filter @plumbtrack/database db:migrate",
       startCommand: "node apps/api/dist/index.js",
     },
     env: {
       PORT: "8080",
       DATABASE_URL: ref(Postgres, "DATABASE_URL"),
+      // Public base URL for persisted media read URLs. Required in production:
+      // without it the API derives URLs from the request Host header (spoofable)
+      // and refuses to complete photo uploads instead of storing untrusted URLs.
+      PUBLIC_API_BASE_URL: "https://api-production-363e.up.railway.app",
       // Production auth is on: the legacy x-organization-id owner fallback is
       // rejected. Sessions require the secrets below, which are set in the
       // Railway dashboard (never committed). Set AUTH_SECRET, HQ_BOOTSTRAP_TOKEN

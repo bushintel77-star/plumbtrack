@@ -129,10 +129,14 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     if (!quote) return reply.code(404).send({ message: "Quote not found" });
     const parsed = parseBody(updateQuoteLineSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
-    const line = await prisma.quoteLine.update({
-      where: { id: lineId },
+    // Scope the line to the org-verified quote — updating by line id alone
+    // would allow a guessed line id from another org's quote to be mutated.
+    const result = await prisma.quoteLine.updateMany({
+      where: { id: lineId, quoteId: id },
       data: parsed.data,
     });
+    if (result.count === 0) return reply.code(404).send({ message: "Line item not found" });
+    const line = await prisma.quoteLine.findFirst({ where: { id: lineId, quoteId: id } });
     recordAuditEvent(request, { action: "quote_line.updated", entityType: "quote_line", entityId: lineId, metadata: { quoteId: id } });
     return line;
   });

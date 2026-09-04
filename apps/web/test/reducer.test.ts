@@ -183,6 +183,64 @@ describe("MERGE_REMOTE", () => {
     const merged = next.jobs[0].timeEntries;
     expect(merged.map((e) => e.id).sort()).toEqual(["local-pending", "server-1"]);
   });
+
+  it("keeps a signed-off job local while its update-job op is queued", () => {
+    // Field sign-off landed locally but has not flushed to the server yet —
+    // the poll's stale remote row must not revert it.
+    const signed = reducer(baseState([jobWith([])]), {
+      type: "SIGN_JOB",
+      jobId: "J-1",
+      signature: "data:image/png;base64,sig",
+      client: "Client",
+      capturedAt: "2026-01-05T07:00:00.000Z",
+      capturedBy: "tim",
+      lat: null,
+      lng: null,
+    });
+    const staleRemote = jobWith([]); // server still says in_progress, no signature
+    const next = reducer(signed, { type: "MERGE_REMOTE", jobs: [staleRemote], quotes: [], protectedJobIds: ["J-1"] });
+    expect(next.jobs[0].status).toBe("completed");
+    expect(next.jobs[0].signature).toBe("data:image/png;base64,sig");
+  });
+
+  it("lets the remote row win for jobs without a queued update op", () => {
+    const local = { ...jobWith([]), status: "completed" as const };
+    const remoteJob = { ...jobWith([]), status: "scheduled" as const };
+    const next = reducer(baseState([local]), { type: "MERGE_REMOTE", jobs: [remoteJob], quotes: [] });
+    expect(next.jobs[0].status).toBe("scheduled");
+  });
+});
+
+describe("SIGN_JOB persistence", () => {
+  it("queues an update-job op carrying status and signature", () => {
+    const next = reducer(baseState([jobWith([])]), {
+      type: "SIGN_JOB",
+      jobId: "J-1",
+      signature: "data:image/png;base64,sig",
+      client: "Client",
+      capturedAt: "2026-01-05T07:00:00.000Z",
+      capturedBy: "tim",
+      lat: null,
+      lng: null,
+    });
+    expect(next.jobs[0].status).toBe("completed");
+    expect(next.syncQueue).toHaveLength(1);
+    expect(next.syncQueue[0].kind).toBe("update-job");
+    expect(next.syncQueue[0]).toMatchObject({
+      jobId: "J-1",
+      payload: { status: "completed", signature: "data:image/png;base64,sig" },
+    });
+  });
+
+  it("queues an update-job op for a bare status transition", () => {
+    const next = reducer(baseState([jobWith([])]), {
+      type: "SET_JOB_STATUS",
+      jobId: "J-1",
+      status: "in_progress",
+    });
+    expect(next.syncQueue).toHaveLength(1);
+    expect(next.syncQueue[0]).toMatchObject({ kind: "update-job", jobId: "J-1", payload: { status: "in_progress" } });
+  });
 });
 
 // ── Shifts (log-on / log-off) ────────────────────────────────────────────────

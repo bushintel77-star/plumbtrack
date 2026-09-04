@@ -68,6 +68,19 @@ export const tenantPlugin = fp(
         return;
       }
 
+      // Provider webhooks (Stripe payments, Slack events) authenticate with
+      // their own HMAC signature schemes — they cannot present a tenant
+      // session. The routes verify the provider signature themselves (with
+      // timing-safe comparison and freshness windows) before touching data,
+      // so exempting them here keeps them reachable without opening tenant
+      // access to anything else.
+      if (
+        request.method === "POST" &&
+        (url === "/api/webhooks/stripe" || url === "/api/slack/events")
+      ) {
+        return;
+      }
+
       const bearer = getBearerToken(request) ?? request.cookies?.[SESSION_COOKIE] ?? null;
       if (bearer) {
         const claims = verifyAuthToken(bearer);

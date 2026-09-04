@@ -61,7 +61,24 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
         : [];
     const staffNameById = new Map(staff.map(user => [user.id, user.name]));
 
+    // Org roster for the board's drag targets: every member is a valid
+    // assignment target (the assignment endpoint validates org membership and
+    // membership skills). Without this the HQ client falls back to seed
+    // technicians whose ids never match real staff, and every live assignment
+    // is rejected with 409.
+    const members = await prisma.organizationMembership.findMany({
+      where: { organizationId: orgId },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+
     return {
+      staff: members.map((member) => ({
+        id: member.user.id,
+        name: member.user.name,
+        role: member.role,
+        skills: member.skills,
+      })),
       jobs: jobs.map((job) => {
         const appointment = job.appointments[0];
         return {

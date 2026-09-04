@@ -21,7 +21,16 @@ const etaSchema = z.object({
 });
 
 export async function smsRoutes(app: FastifyInstance): Promise<void> {
-  app.post("/eta", async (request, reply) => {
+  // Customer SMS costs real money per message. The global IP cap is far too
+  // generous a bound for Twilio spend, so this route carries its own tight
+  // limit (default 10/min per IP, env-tunable) on top of role auth.
+  const smsMax = Number(process.env.SMS_RATE_LIMIT_MAX ?? 10);
+  const smsWindowMs = Number(process.env.SMS_RATE_LIMIT_WINDOW_MS ?? 60_000);
+  if (!Number.isFinite(smsMax) || smsMax <= 0 || !Number.isFinite(smsWindowMs) || smsWindowMs <= 0) {
+    throw new Error("Invalid SMS rate-limit configuration: SMS_RATE_LIMIT_MAX and SMS_RATE_LIMIT_WINDOW_MS must be positive numbers");
+  }
+
+  app.post("/eta", { config: { rateLimit: { max: smsMax, timeWindow: smsWindowMs } } }, async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
     const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"]);
