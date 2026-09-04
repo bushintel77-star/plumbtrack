@@ -30,7 +30,7 @@ Updated: 2026-09-04 (after the production-hardening pass, commit `2de7c008`)
 1. HQ CRM/quote/document surfaces still render seed data (only OperationsHub hits real endpoints).
 2. HQ Slack comms + quote lifecycle are local simulations.
 3. Media capability URLs never expire (`Cache-Control: immutable`); no revocation, no storage TTL.
-4. Map road geometry defaults to the public OSRM demo server unless an ORS key is set (client-exposed if `NEXT_PUBLIC`).
+4. ~~Map road geometry~~ CLOSED 2026-09-05: routing moved behind the authenticated `/api/routing/shape|matrix` proxy (server-side `ORS_API_KEY`, LRU cache; ORS-only — set the free key to enable road shapes, without it the map keeps straight-line dashed routes). Traffic overlay still needs a paid feed — the one remaining map item blocked on a provider account. Crew identity ramp extended to 8 tokens; self-hosted PMTiles tiles are one env var (`NEXT_PUBLIC_MAP_STYLE_URL`) once a style is hosted.
 5. Metrics, alerting, and audit-event delivery guarantees (audit writes are fire-and-forget).
 6. PII retention/erasure policy (customer phones, addresses, access codes are plaintext, unexpired).
 7. Prisma connection pool sizing; interactive-transaction coverage for multi-step mutations.

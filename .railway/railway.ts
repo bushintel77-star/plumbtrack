@@ -62,6 +62,11 @@ export default defineRailway(() => {
       TWILIO_ACCOUNT_SID: preserve(),
       TWILIO_AUTH_TOKEN: preserve(),
       TWILIO_FROM_NUMBER: preserve(),
+      // OpenRouteService key for the routing proxy (server-side only; the HQ
+      // client calls /api/routing/*, never the provider directly). Set in the
+      // dashboard — without it the proxy answers 503 and the map keeps
+      // straight-line dashed routes.
+      ORS_API_KEY: preserve(),
     },
     replicas: { "us-west2": 1 },
   });
