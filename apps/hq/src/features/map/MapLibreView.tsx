@@ -61,7 +61,10 @@ function isFatalMapError(event: { error?: unknown }): boolean {
   return false
 }
 
-function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => void }) {
+/** Read-only hover card: identity, address, window and crew. Details live in
+ *  the right-hand inspector (click the pin or a crew row) — the popup never
+ *  duplicates that action, which is why it stays pointer-events: none. */
+function MapJobPopup({ job }: { job: Job }) {
   const tech = useBoardStore(s => s.technicians.find(item => item.id === job.techId))
   const isUnassigned = job.status === "unassigned"
   return (
@@ -79,7 +82,6 @@ function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => voi
         <div className="label-mono tnum text-ink-mid">{blockLabel(job.startBlock)} → {blockLabel(job.startBlock + job.spanBlocks)} · {job.spanBlocks * 30}M</div>
         <div className="text-ink-mid">{tech ? `${tech.name} · ${tech.van}` : "Unassigned · ready to route"}</div>
       </div>
-      <button type="button" onClick={() => onOpen(job.id)} className="pointer-events-auto mt-3 w-full rounded-md bg-chrome-600 px-2 py-1.5 text-xs font-semibold text-on-accent hover:bg-chrome-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chrome-200">Open job details</button>
       {isUnassigned && <div className="mt-2 label-mono text-[10px] text-pending">UNASSIGNED · ASSIGN FROM THE INSPECTOR</div>}
     </div>
   )
@@ -503,7 +505,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           className="map-job-popup"
           onClose={() => setHoveredJobId(null)}
         >
-          <MapJobPopup job={hoveredJob} onOpen={onSelectJob} />
+          <MapJobPopup job={hoveredJob} />
         </Popup>
       )}
 
