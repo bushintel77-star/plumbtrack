@@ -20,6 +20,7 @@ import { dayLabel, todayIsoDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { jobDay } from "@/lib/schedule"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
+import { MessageSquare } from "lucide-react"
 
 import { CrmSurface } from "./CrmSurface"
 import { DispatchSurface, type Zoom } from "./DispatchSurface"
@@ -70,6 +71,10 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
   const failedOps = useFailedOps(s => s.ops)
   const syncPaneOpen = useFailedOps(s => s.syncPaneOpen)
   const setSyncPaneOpen = useFailedOps(s => s.setSyncPaneOpen)
+  // Slack comms bridge — the panel renders app-wide; this is its only opener.
+  const setCommsOpen = useBoardStore(s => s.setCommsOpen)
+  const slackFeed = useBoardStore(s => s.slackFeed)
+  const newJobCards = slackFeed.filter(card => card.kind === "new-job").length
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -119,6 +124,21 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
               {failedOps.length} failed
             </button>
           )}
+          <button
+            type="button"
+            className="fl-linkbtn"
+            data-testid="comms-trigger"
+            aria-label={`Open comms — ${slackFeed.length} Slack cards`}
+            onClick={() => setCommsOpen(true)}
+          >
+            <MessageSquare size={12} />
+            COMMS
+            {newJobCards > 0 && (
+              <span className="tnum rounded-full bg-urgent px-1.5 text-[10px] font-bold text-on-accent">
+                {newJobCards}
+              </span>
+            )}
+          </button>
           {/* Connection state is deliberately outside the job status palette:
               red/amber/green mean work, never network. */}
           <span
