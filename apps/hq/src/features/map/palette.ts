@@ -10,6 +10,8 @@
  * never produces an invisible layer.
  */
 
+import type { Job } from "@/types"
+
 export interface MapPalette {
   /** Active billing-now work. */
   active: string
@@ -83,4 +85,20 @@ export function readComputedTokens(): (token: string) => string {
   if (typeof window === "undefined") return () => ""
   const styles = getComputedStyle(document.documentElement)
   return token => styles.getPropertyValue(token)
+}
+
+/** The one precedence law for map pin colour — mirrors `dispatchStatus` in
+ *  lib/fieldloop exactly (complete > unassigned > urgent > state), so a job
+ *  never reads as one colour on the board and another on the map. Amber
+ *  (pending) marks unassigned work: it is the dispatcher's action queue. */
+export function statusColor(
+  job: Pick<Job, "status" | "priority" | "techId">,
+  palette: MapPalette
+): string {
+  if (job.status === "complete") return palette.complete
+  if (job.status === "unassigned" || !job.techId) return palette.pending
+  if (job.priority === "emergency" || job.status === "delayed") return palette.urgent
+  if (job.status === "active") return palette.active
+  if (job.status === "en_route") return palette.enRoute
+  return palette.neutral
 }

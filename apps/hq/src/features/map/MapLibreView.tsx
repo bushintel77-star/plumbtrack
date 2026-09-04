@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Map, { Layer, Popup, Source, useMap, type LayerProps, type MapLayerMouseEvent } from "react-map-gl/maplibre"
+import Map, { Layer, Marker, Popup, Source, useMap, type LayerProps, type MapLayerMouseEvent } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
@@ -10,7 +10,7 @@ import type { Job } from "@/types"
 import { blockLabel } from "@/lib/format"
 import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
 
-import { readComputedTokens, resolvePalette, type MapPalette } from "./palette"
+import { readComputedTokens, resolvePalette, statusColor, type MapPalette } from "./palette"
 
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
@@ -44,16 +44,6 @@ const MAP_STYLE_CANDIDATES = {
 const STYLE_READY_TIMEOUT_MS = 12_000
 
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
-
-function statusColor(job: Job, palette: MapPalette): string {
-  // One precedence law shared by board, list, and map.
-  if (job.priority === "emergency") return palette.urgent
-  if (job.status === "delayed") return palette.pending
-  if (job.status === "active") return palette.active
-  if (job.status === "en_route") return palette.enRoute
-  if (job.status === "complete") return palette.complete
-  return palette.neutral
-}
 
 /**
  * Only genuinely-fatal map errors blank the surface. MapLibre fires `error`
@@ -90,7 +80,7 @@ function MapJobPopup({ job, onOpen }: { job: Job; onOpen: (jobId: string) => voi
         <div className="text-ink-mid">{tech ? `${tech.name} · ${tech.van}` : "Unassigned · ready to route"}</div>
       </div>
       <button type="button" onClick={() => onOpen(job.id)} className="pointer-events-auto mt-3 w-full rounded-md bg-chrome-600 px-2 py-1.5 text-xs font-semibold text-on-accent hover:bg-chrome-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chrome-200">Open job details</button>
-      {isUnassigned && <div className="mt-2 label-mono text-[10px] text-pending">DRAG TO ASSIGN · SMART ROUTING</div>}
+      {isUnassigned && <div className="mt-2 label-mono text-[10px] text-pending">UNASSIGNED · ASSIGN FROM THE INSPECTOR</div>}
     </div>
   )
 }
@@ -99,10 +89,14 @@ interface MapLibreViewProps {
   visible: Job[]
   vanId: string
   onSelectJob: (jobId: string) => void
-
+  /** Visit order for the selected crew member's route (Route plan panel).
+   *  Routed stops render a numbered, keyboard-focusable badge marker on top
+   *  of the canvas pin — the only per-pin affordance that is reachable
+   *  without a pointer, since WebGL layers are invisible to the a11y tree. */
+  orderedStopIds?: string[]
 }
 
-export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreViewProps) {
+export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [] }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const styleCandidates = MAP_STYLE_CANDIDATES[theme]
   const [styleIndex, setStyleIndex] = useState(0)
@@ -193,6 +187,20 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         }))
     }),
     [visible, hoveredJobId, selectedJobId, palette]
+  )
+
+  // Numbered stop badges for the selected crew member's route — DOM markers,
+  // so they are focusable buttons and readable by assistive tech (the WebGL
+  // pin layers are not). Order comes from the Route plan (travel-ordered).
+  const routedStops = useMemo(
+    () =>
+      orderedStopIds
+        .map((jobId, index) => ({
+          job: visible.find(item => item.id === jobId),
+          stopNumber: index + 1
+        }))
+        .filter((entry): entry is { job: Job; stopNumber: number } => Boolean(entry.job?.location)),
+    [orderedStopIds, visible]
   )
 
   const routes = useMemo(
@@ -437,31 +445,69 @@ export default function MapLibreView({ visible, vanId, onSelectJob }: MapLibreVi
         </Popup>
       )}
 
-      <div className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
+      {/* Numbered route badges (DOM, focusable): stop order for the selected
+          crew member, click/Enter opens the job. Screen readers announce each
+          stop — the canvas pin layers below are invisible to the a11y tree. */}
+      {routedStops.map(({ job, stopNumber }) => (
+        <Marker
+          key={`stop-${job.id}`}
+          longitude={job.location!.lng}
+          latitude={job.location!.lat}
+          anchor="center"
+          offset={[14, -14]}
+        >
+          <button
+            type="button"
+            aria-label={`Stop ${stopNumber}: ${job.title}`}
+            title={`Stop ${stopNumber} · ${blockLabel(job.startBlock)}`}
+            onClick={() => {
+              onSelectJob(job.id)
+              window.dispatchEvent(new CustomEvent("hq-map-focus-job", { detail: job.id }))
+            }}
+            className="tnum flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-line bg-chrome-600 text-[10px] font-black text-on-accent shadow-md hover:bg-chrome-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chrome-200"
+          >
+            {stopNumber}
+          </button>
+        </Marker>
+      ))}
+
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
         Route lines: solid = road-routed · dashed = straight-line fallback
       </div>
       <Source id="job-routes" type="geojson" data={routes}>
         {/* Selected-van route casing: a wider, softer underlay so the active
             route reads clearly over the basemap without raising a new color
-            — same token-derived stroke, just wider and translucent. */}
+            — same token-derived stroke, just wider and translucent. Static
+            paint only: line-dasharray data expressions are the least-portable
+            corner of the style spec, so road/fallback is split by filter. */}
         <Layer
           id="route-casing"
           type="line"
           paint={{
             "line-color": palette.vehicle,
             "line-width": ["case", ["boolean", ["get", "emphasized"], false], 8, 0],
-            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.18, 0],
-            "line-dasharray": ["case", ["==", ["get", "geometrySource"], "road"], ["literal", [1, 0]], ["literal", [2, 1.5]]]
+            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.18, 0]
           }}
         />
         <Layer
-          id="route-lines"
+          id="route-lines-road"
           type="line"
+          filter={["==", ["get", "geometrySource"], "road"]}
+          paint={{
+            "line-color": ["get", "color"],
+            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 3, 1.5],
+            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.9, 0.2]
+          }}
+        />
+        <Layer
+          id="route-lines-fallback"
+          type="line"
+          filter={["!=", ["get", "geometrySource"], "road"]}
           paint={{
             "line-color": ["get", "color"],
             "line-width": ["case", ["boolean", ["get", "emphasized"], false], 3, 1.5],
             "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.9, 0.2],
-            "line-dasharray": ["case", ["==", ["get", "geometrySource"], "road"], ["literal", [1, 0]], ["literal", [2, 1.5]]]
+            "line-dasharray": [2, 1.5]
           }}
         />
       </Source>

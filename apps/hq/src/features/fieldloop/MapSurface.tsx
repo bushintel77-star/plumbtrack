@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { MapPin } from "lucide-react"
 
@@ -32,11 +32,24 @@ export function MapSurface({
   const technicians = useBoardStore(s => s.technicians)
   const [techId, setTechId] = useState("")
 
-  const technician = technicians.find(item => item.id === techId)
-  const plan = computeRouteOrder(techId, jobs, technician, day)
-  const visible = jobsOnDay(jobs, day)
-  const selectedJob = jobs.find(job => job.id === selectedJobId)
+  const technician = useMemo(
+    () => technicians.find(item => item.id === techId),
+    [technicians, techId]
+  )
+  // The board store updates on every telemetry ping and 5s hydration — keep
+  // the derived route plan and day slice identity-stable so the map's GeoJSON
+  // sources only rebuild when their actual inputs change.
+  const visible = useMemo(() => jobsOnDay(jobs, day), [jobs, day])
+  const plan = useMemo(
+    () => computeRouteOrder(techId, jobs, technician, day),
+    [techId, jobs, technician, day]
+  )
+  const selectedJob = useMemo(
+    () => jobs.find(job => job.id === selectedJobId),
+    [jobs, selectedJobId]
+  )
   const selectJob = (job: Job) => onSelectJob(job.id)
+  const orderedStopIds = useMemo(() => plan.order.map(job => job.id), [plan])
 
   return (
     <>
@@ -46,9 +59,18 @@ export function MapSurface({
         onSelectTech={setTechId}
         onSelectJob={selectJob}
       />
-      <div className="fl-map">
+      <div
+        className="fl-map"
+        role="region"
+        aria-label="Job map. WebGL pins are not keyboard reachable — the Crew list beside the map is the accessible job index, and routed stops carry numbered focusable badges."
+      >
         <MapErrorBoundary>
-          <MapLibreView visible={visible} vanId={techId} onSelectJob={onSelectJob} />
+          <MapLibreView
+            visible={visible}
+            vanId={techId}
+            onSelectJob={onSelectJob}
+            orderedStopIds={orderedStopIds}
+          />
         </MapErrorBoundary>
       </div>
       <Inspector job={selectedJob} onClear={() => onSelectJob("")} title="Route plan">

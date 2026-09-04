@@ -108,12 +108,18 @@ export function CrewTree({
                   className={cn("fl-crew-job", dispatchStatus(job))}
                   onClick={event => {
                     event.stopPropagation()
+                    // Opening a job from a crew row also makes that crew
+                    // member the route-plan subject — the stopPropagation
+                    // used to swallow the row's tech selection, so the Route
+                    // plan panel fell back to "Pick a crew member".
+                    onSelectTech(tech.id)
                     onSelectJob(job)
                   }}
                   onKeyDown={event => {
                     if (event.key !== "Enter" && event.key !== " ") return
                     event.stopPropagation()
                     event.preventDefault()
+                    onSelectTech(tech.id)
                     onSelectJob(job)
                   }}
                 >
