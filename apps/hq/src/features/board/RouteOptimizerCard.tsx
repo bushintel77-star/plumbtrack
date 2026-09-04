@@ -147,7 +147,7 @@ export function RouteOptimizerCard({ date }: { date: string }) {
           <div className="label-mono text-2xs text-ink-low">OPTIMIZE</div>
           <div
             className="flex items-center rounded-md border border-line bg-recess p-0.5"
-            role="tablist"
+            role="group"
             aria-label="Optimize scope"
           >
             {(
@@ -158,8 +158,7 @@ export function RouteOptimizerCard({ date }: { date: string }) {
             ).map(option => (
               <button
                 key={option.id}
-                role="tab"
-                aria-selected={config.scope === option.id}
+                aria-pressed={config.scope === option.id}
                 data-testid={`opt-scope-${option.id}`}
                 onClick={() => {
                   setConfig(c => ({ ...c, scope: option.id }))

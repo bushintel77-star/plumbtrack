@@ -15,7 +15,7 @@ test.describe("Route Optimizer card", () => {
     await page.getByTestId("optimizer-trigger").click()
     await expect(page.getByTestId("route-optimizer")).toBeVisible()
     await expect(page.getByTestId("opt-scope-unassigned")).toHaveAttribute(
-      "aria-selected",
+      "aria-pressed",
       "true"
     )
 

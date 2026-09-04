@@ -39,6 +39,13 @@ export type Zoom = "daily" | "weekly" | "monthly"
 
 const ZOOM_LABEL: Record<Zoom, string> = { daily: "Day", weekly: "Week", monthly: "Month" }
 
+/** Pager announcements follow the zoom: a monthly board steps a month at a time. */
+function stepLabel(step: number): string {
+  if (step === 1) return "day"
+  if (step === 7) return "week"
+  return "month"
+}
+
 const HOUR_COUNT = (TOTAL_BLOCKS * MINUTES_PER_BLOCK) / 60
 
 function hourLabels(): string[] {
@@ -389,13 +396,15 @@ export function DispatchSurface({
             </span>
           </div>
           <div className="fl-nav">
-            <div className="fl-segment" role="tablist" aria-label="Board zoom">
+            {/* View-option switcher: toggle buttons with aria-pressed, not a
+                tablist — there are no tab panels, and the ARIA tabs pattern
+                would demand roving arrow-key focus this control never had. */}
+            <div className="fl-segment" role="group" aria-label="Board zoom">
               {(["daily", "weekly", "monthly"] as Zoom[]).map(item => (
                 <button
                   type="button"
                   key={item}
-                  role="tab"
-                  aria-selected={zoom === item}
+                  aria-pressed={zoom === item}
                   className={cn(zoom === item && "active")}
                   onClick={() => onZoomChange(item)}
                 >
@@ -403,11 +412,12 @@ export function DispatchSurface({
                 </button>
               ))}
             </div>
-            <button type="button" aria-label="Previous" onClick={() => onDayChange(shiftDay(day, -step))}>
+            <button type="button" aria-label={`Previous ${stepLabel(step)}`} onClick={() => onDayChange(shiftDay(day, -step))}>
               <ChevronLeft size={13} />
             </button>
-            <span data-testid="fl-day-label">{dayLabel(day)}</span>
-            <button type="button" aria-label="Next" onClick={() => onDayChange(shiftDay(day, step))}>
+            {/* Live region: navigating days re-announces the new date. */}
+            <span data-testid="fl-day-label" aria-live="polite">{dayLabel(day)}</span>
+            <button type="button" aria-label={`Next ${stepLabel(step)}`} onClick={() => onDayChange(shiftDay(day, step))}>
               <ChevronRight size={13} />
             </button>
           </div>

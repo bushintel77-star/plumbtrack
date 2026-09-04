@@ -234,7 +234,7 @@ export function SlackCommsPanel() {
 
       <div
         className="flex items-center gap-1 border-b border-line px-3 py-1.5"
-        role="tablist"
+        role="group"
         aria-label="Comms surfaces"
       >
         {(
@@ -247,8 +247,7 @@ export function SlackCommsPanel() {
           return (
             <button
               key={tab.id}
-              role="tab"
-              aria-selected={activeTab === tab.id}
+              aria-pressed={activeTab === tab.id}
               data-testid={`comms-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={cn(

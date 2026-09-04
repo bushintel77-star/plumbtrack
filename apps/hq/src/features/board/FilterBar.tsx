@@ -43,14 +43,13 @@ export function FilterBar({ filters, onFiltersChange, zoom }: FilterBarProps) {
       {/* Zoom */}
       <div
         className="flex items-center rounded-md border border-line bg-recess p-0.5"
-        role="tablist"
+        role="group"
         aria-label="Timeline zoom"
       >
         {ZOOMS.map(z => (
           <button
             key={z.id}
-            role="tab"
-            aria-selected={zoom === z.id}
+            aria-pressed={zoom === z.id}
             data-testid={`zoom-${z.id}`}
             onClick={() => onFiltersChange({ zoom: z.id })}
             className={cn(
