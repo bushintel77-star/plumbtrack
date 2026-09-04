@@ -26,13 +26,18 @@ import { readComputedTokens, personColor, resolvePalette, statusColor, type MapP
 /** Per-colourway basemap candidates, tried in order. If a style outright
  *  fails to load (fatal), the map advances to the next source instead of
  *  blanking on a single provider. All are keyless; long-term this list can
- *  lead with a self-hosted Protomaps PMTiles style. */
+ *  lead with a self-hosted Protomaps PMTiles style — set
+ *  NEXT_PUBLIC_MAP_STYLE_URL to a style.json URL (e.g. a PMTiles style
+ *  served from your own origin) and it is tried first for both themes. */
+const SELF_HOSTED_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL?.trim()
 const MAP_STYLE_CANDIDATES = {
   dark: [
+    ...(SELF_HOSTED_STYLE ? [SELF_HOSTED_STYLE] : []),
     "https://tiles.openfreemap.org/styles/dark",
     "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
   ],
   light: [
+    ...(SELF_HOSTED_STYLE ? [SELF_HOSTED_STYLE] : []),
     "https://tiles.openfreemap.org/styles/positron",
     "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
   ]
@@ -96,9 +101,12 @@ interface MapLibreViewProps {
    *  of the canvas pin — the only per-pin affordance that is reachable
    *  without a pointer, since WebGL layers are invisible to the a11y tree. */
   orderedStopIds?: string[]
+  /** Which job each van is currently on site at (geofence display only),
+   *  keyed by technician id. Computed by the surface, which knows the day. */
+  onsiteByTech?: Record<string, string | null>
 }
 
-export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [] }: MapLibreViewProps) {
+export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {} }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const styleCandidates = MAP_STYLE_CANDIDATES[theme]
   const [styleIndex, setStyleIndex] = useState(0)
@@ -323,6 +331,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
               heading: source.heading ?? -90,
               live: Boolean(live),
               presence: live?.presence ?? "on_job",
+              /** On-site halo (display-only geofence, computed by the surface). */
+              onsite: Boolean(onsiteByTech[tech.id]),
               color: personColor(index, palette)
             },
             geometry: {
@@ -333,8 +343,40 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         })
         .filter(Boolean)
     }),
-    [technicians, liveLocations, palette]
+    [technicians, liveLocations, palette, onsiteByTech]
   )
+
+  // Breadcrumb trail for the selected van — the store already keeps the last
+  // 20 shift-gated pings per vehicle, so this renders exactly what was
+  // streamed (nothing is retained or inferred beyond it).
+  const liveLocationHistory = useBoardStore(s => s.liveLocationHistory)
+  const selectedTech = technicians.find(tech => tech.id === vanId)
+  const trail = useMemo(() => {
+    if (!selectedTech) return null
+    const vehicleId = `veh-${selectedTech.van.toLowerCase().replace(/\s+/g, "-")}`
+    const history = liveLocationHistory[vehicleId] ?? []
+    const live = liveLocations[vehicleId]
+    const points: LngLat[] = [
+      ...history.map(ping => [ping.lng, ping.lat] as LngLat),
+      ...(live ? [[live.lng, live.lat] as LngLat] : [])
+    ]
+    if (points.length < 2) return null
+    return {
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          properties: {},
+          geometry: { type: "LineString" as const, coordinates: points }
+        }
+      ]
+    }
+  }, [selectedTech, liveLocationHistory, liveLocations])
+  const trailColor = useMemo(() => {
+    if (!selectedTech) return palette.vehicle
+    const index = technicians.findIndex(tech => tech.id === selectedTech.id)
+    return personColor(index >= 0 ? index : 0, palette)
+  }, [selectedTech, technicians, palette])
 
   // Road-following upgrade for the dashed polylines: debounced per board
   // change, cached by stop-chain signature, silent no-op offline.
@@ -536,7 +578,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       ))}
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
-        Route lines: solid = road-routed · dashed = straight-line fallback
+        Route lines: solid = road-routed · dashed = straight-line fallback · faint dashed = recent van path
       </div>
       <Source id="job-routes" type="geojson" data={routes}>
         {/* Selected-van route casing: a wider, softer underlay so the active
@@ -586,8 +628,20 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           while clocked on, pauses on breaks, stops on log-off) with the
           last-known clock-in fix as the fallback before the first ping.
           Ringed dot + van label + a heading arrow rotated by the streamed
-          bearing; parked/fallback vans point north. */}
+          bearing; parked/fallback vans point north. An on-site van (within
+          its job's geofence, display-only) carries a soft halo. */}
       <Source id="vehicles" type="geojson" data={vehicleMarks}>
+        <Layer
+          id="vehicle-onsite-halo"
+          type="circle"
+          filter={["==", ["get", "onsite"], true]}
+          paint={{
+            "circle-radius": 18,
+            "circle-color": palette.active,
+            "circle-opacity": 0.22,
+            "circle-blur": 0.8
+          }}
+        />
         <Layer
           id="vehicle-dots"
           type="circle"
@@ -630,6 +684,23 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           paint={{ "text-color": palette.vehicle, "text-halo-color": palette.pinStroke, "text-halo-width": 1.2 }}
         />
       </Source>
+
+      {/* Recent path of the selected van: exactly the shift-gated pings the
+          store has seen (last 20), faint and dashed. */}
+      {trail && (
+        <Source id="van-trail" type="geojson" data={trail}>
+          <Layer
+            id="van-trail-line"
+            type="line"
+            paint={{
+              "line-color": trailColor,
+              "line-width": 2,
+              "line-opacity": 0.35,
+              "line-dasharray": [1, 2]
+            }}
+          />
+        </Source>
+      )}
 
     </Map>
   )

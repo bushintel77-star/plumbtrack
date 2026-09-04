@@ -59,6 +59,12 @@
   --person-2: #7a9e7e;
   --person-3: #b08d57;
   --person-4: #6b7d8d;
+  /* Identity ramp 5–8: same muted-saturation family, distinct hues — crew
+     colours keep working past a four-person roster. */
+  --person-5: #8f7ab5;
+  --person-6: #5f9ea0;
+  --person-7: #a3b56b;
+  --person-8: #c26d9d;
 
   --wash-urgent: rgba(222, 36, 23, 0.1);
   --wash-pending: rgba(180, 83, 9, 0.1);

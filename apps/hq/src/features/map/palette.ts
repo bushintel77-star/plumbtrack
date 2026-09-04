@@ -38,6 +38,10 @@ const TOKENS = {
   person2: "--person-2",
   person3: "--person-3",
   person4: "--person-4",
+  person5: "--person-5",
+  person6: "--person-6",
+  person7: "--person-7",
+  person8: "--person-8",
   breadcrumb: "--chrome-400",
   pinStroke: "--chassis-void",
   highlightStroke: "--app-on-accent"
@@ -55,6 +59,10 @@ const FALLBACKS: Record<string, string> = {
   "--person-2": "#7a9e7e",
   "--person-3": "#b08d57",
   "--person-4": "#6b7d8d",
+  "--person-5": "#8f7ab5",
+  "--person-6": "#5f9ea0",
+  "--person-7": "#a3b56b",
+  "--person-8": "#c26d9d",
   "--chassis-void": "#071022",
   "--app-on-accent": "#ffffff"
 }
@@ -72,7 +80,7 @@ export function resolvePalette(read: (token: string) => string): MapPalette {
     complete: get(TOKENS.complete),
     enRoute: get(TOKENS.enRoute),
     neutral: get(TOKENS.neutral),
-    people: [TOKENS.person1, TOKENS.person2, TOKENS.person3, TOKENS.person4].map(get),
+    people: [TOKENS.person1, TOKENS.person2, TOKENS.person3, TOKENS.person4, TOKENS.person5, TOKENS.person6, TOKENS.person7, TOKENS.person8].map(get),
     vehicle: get(TOKENS.active),
     breadcrumb: get(TOKENS.breadcrumb),
     pinStroke: get(TOKENS.pinStroke),

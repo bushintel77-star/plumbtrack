@@ -1,16 +1,12 @@
 /**
- * Road-following geometry for per-tech stop chains (free-stack step 3).
+ * Road-following geometry for per-tech stop chains.
  *
- * Tiered exactly like roadTime: OpenRouteService directions when the free
- * API key is present, the keyless OSRM public demo server otherwise, and
- * `null` on any failure so the map keeps its straight-line polylines. Only
- * successful shapes are cached — a transient failure retries on the next
- * board change. Self-host escape hatch: any OSRM/Valhalla instance speaks
- * the same route API — swap OSRM_ENDPOINT.
+ * All routing goes through the authenticated API proxy
+ * (`GET /api/routing/shape`) — never from the browser directly — so the ORS
+ * key (when configured) stays server-side. Without connectivity the map
+ * keeps its straight-line polylines: only successful shapes are cached, and
+ * a transient failure retries on the next board change.
  */
-
-const ORS_ENDPOINT = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
-const OSRM_ENDPOINT = "https://router.project-osrm.org/route/v1/driving"
 
 /** [lng, lat] — MapLibre coordinate order. */
 export type LngLat = [number, number]
@@ -29,31 +25,8 @@ export function cachedRoadShape(points: LngLat[]): LngLat[] | null {
   return shapeCache.get(routeSignature(points)) ?? null
 }
 
-async function orsRequest(points: LngLat[], apiKey: string): Promise<LngLat[] | null> {
-  const res = await fetch(ORS_ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ coordinates: points }),
-    signal: AbortSignal.timeout(8000)
-  })
-  if (!res.ok) return null
-  const coords = (await res.json())?.features?.[0]?.geometry?.coordinates
-  return Array.isArray(coords) ? coords : null
-}
-
-async function osrmRequest(points: LngLat[]): Promise<LngLat[] | null> {
-  const coords = points.map(([lng, lat]) => `${lng},${lat}`).join(";")
-  const res = await fetch(
-    `${OSRM_ENDPOINT}/${coords}?overview=full&geometries=geojson`,
-    { signal: AbortSignal.timeout(8000) }
-  )
-  if (!res.ok) return null
-  const geometry = (await res.json())?.routes?.[0]?.geometry?.coordinates
-  return Array.isArray(geometry) ? geometry : null
-}
-
 /** Never throws: resolves the road path for the stop chain, or null when the
- *  chain is degenerate or the routing tier is unreachable. */
+ *  chain is degenerate or the routing proxy is unreachable. */
 export function fetchRoadShape(points: LngLat[]): Promise<LngLat[] | null> {
   const key = routeSignature(points)
   const cached = shapeCache.get(key)
@@ -70,8 +43,15 @@ export function fetchRoadShape(points: LngLat[]): Promise<LngLat[] | null> {
   }
   if (deduped.length < 2) return Promise.resolve(null)
 
-  const apiKey = process.env.NEXT_PUBLIC_ORS_API_KEY
-  const request = apiKey ? orsRequest(deduped, apiKey) : osrmRequest(deduped)
+  const request = (async () => {
+    const { apiGet } = await import("@/lib/api")
+    const stops = deduped.map(([lng, lat]) => `${lng},${lat}`).join(";")
+    const body = await apiGet<{ coordinates?: unknown }>(`/api/routing/shape?stops=${encodeURIComponent(stops)}`)
+    return Array.isArray(body.coordinates) && body.coordinates.length >= 2
+      ? (body.coordinates as LngLat[])
+      : null
+  })()
+
   const settled = request
     .then(coords => {
       if (coords && coords.length >= 2) shapeCache.set(key, coords)

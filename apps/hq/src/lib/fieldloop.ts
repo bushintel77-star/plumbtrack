@@ -309,6 +309,12 @@ export function computeRouteOrder(
     cursor = next.location!
   }
 
+  // 2-opt refinement: nearest-neighbour can leave crossed legs; flipping a
+  // crossed pair always shortens the tour. Capped for determinism and cost —
+  // route stops are a handful per van, never hundreds. The start (origin or
+  // first stop) stays fixed: the van is already there.
+  refineTwoOpt(order, origin)
+
   const line: RoutePlanPoint[] = order.map(job => ({
     jobId: job.id,
     label: job.title,
@@ -324,6 +330,48 @@ export function computeRouteOrder(
     })
   }
   return { order, line, label: STRAIGHT_LINE_LABEL }
+}
+
+/** In-place 2-opt over the stop sequence. Distance is straight-line
+ *  (euclidean on lng/lat) — identical metric to the greedy pass, so the
+ *  refinement only ever improves on the same terms the plan is judged by. */
+function refineTwoOpt(order: Job[], origin: GeoPoint | undefined): void {
+  if (order.length < 4) return // 3 stops cannot cross in a meaningful way
+  const cost = (a: GeoPoint | null, b: Job): number =>
+    a ? euclidean(a, b.location!) : 0
+  const tourLength = (): number => {
+    let total = 0
+    let prev: GeoPoint | null = origin ?? null
+    for (const job of order) {
+      total += cost(prev, job)
+      prev = job.location!
+    }
+    return total
+  }
+  let best = tourLength()
+  let improved = true
+  let passes = 0
+  while (improved && passes < 8) {
+    improved = false
+    passes += 1
+    for (let i = 0; i < order.length - 1; i++) {
+      for (let j = i + 1; j < order.length; j++) {
+        const segment = order.slice(i, j + 1).reverse()
+        const candidate = [...order.slice(0, i), ...segment, ...order.slice(j + 1)]
+        let total = 0
+        let prev: GeoPoint | null = origin ?? null
+        for (const job of candidate) {
+          total += cost(prev, job)
+          prev = job.location!
+        }
+        if (total < best - 1e-9) {
+          order.splice(0, order.length, ...candidate)
+          best = total
+          improved = true
+        }
+      }
+    }
+  }
 }
 
 // ── Margin reporting ────────────────────────────────────────────────────────

@@ -334,6 +334,37 @@ describe("computeRouteOrder", () => {
     expect(plan.order.map(stop => stop.id)).toEqual(["near", "mid", "far"])
   })
 
+  it("2-opt removes crossed legs — shorter tour than the greedy sequence", () => {
+    // A zig-zag the greedy pass commits to from the origin: east, back west
+    // past home, east again. Any 2-opt flip of the crossed pair shortens it.
+    const zig = job({ id: "zig", techId: "t-dana", location: { lat: -37.8, lng: 145.2 } })
+    const zag = job({ id: "zag", techId: "t-dana", location: { lat: -37.82, lng: 144.98 } })
+    const end = job({ id: "end", techId: "t-dana", location: { lat: -37.8, lng: 145.35 } })
+    const dist = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+      Math.hypot(a.lng - b.lng, a.lat - b.lat)
+
+    const plan = computeRouteOrder("t-dana", [zig, zag, end], dana, DAY)
+    const greedy = [zig, zag, end] // nearest-first from origin is exactly this
+    const greedyLength = dist(dana.lastKnownLocation!, zig.location!) + dist(zig.location!, zag.location!) + dist(zag.location!, end.location!)
+    const refined = [dana.lastKnownLocation!, ...plan.order.map(s => s.location!)!]
+    let refinedLength = 0
+    for (let i = 1; i < refined.length; i++) refinedLength += dist(refined[i - 1], refined[i])
+
+    expect(refinedLength).toBeLessThan(greedyLength)
+    // Refinement never invents or drops stops.
+    expect(plan.order).toHaveLength(3)
+    expect(new Set(plan.order.map(s => s.id))).toEqual(new Set(["zig", "zag", "end"]))
+  })
+
+  it("keeps the refinement deterministic for the same inputs", () => {
+    const stops = ["a", "b", "c", "d", "e"].map((id, i) =>
+      job({ id, techId: "t-dana", location: { lat: -37.8 + i * 0.03 * (i % 2 ? -1 : 1), lng: 144.96 + i * 0.04 } })
+    )
+    const first = computeRouteOrder("t-dana", stops, dana, DAY).order.map(s => s.id)
+    const second = computeRouteOrder("t-dana", [...stops].reverse(), dana, DAY).order.map(s => s.id)
+    expect(first).toEqual(second)
+  })
+
   it("labels the ordering as straight-line, never road routing", () => {
     expect(computeRouteOrder("t-dana", [near], dana, DAY).label).toBe(STRAIGHT_LINE_LABEL)
     expect(STRAIGHT_LINE_LABEL).toMatch(/not road routing/i)

@@ -1,21 +1,17 @@
 import type { GeoPoint } from "@/types"
 
 /**
- * Road-time layer over the straight-line estimator (free-stack step 2).
+ * Road-time layer over the straight-line estimator.
  *
  * `travelMinutes()` stays synchronous everywhere: it returns a cached real
  * road duration when the pair has been primed, else the heuristic. Once per
  * session `primeRoadMatrix()` batches every known site through the
- * OpenRouteService matrix (free tier, ~2k requests/day — one call covers the
- * whole board), so suggestions, travel bands, the optimizer and conflict
- * checks all upgrade to true drive times without any call-site changes.
- *
- * Without NEXT_PUBLIC_ORS_API_KEY the module is inert and the app behaves
- * exactly as before. Self-host escape hatch: Valhalla's matrix API uses the
- * same request/response shape — swap the endpoint below.
+ * authenticated API proxy (`GET /api/routing/matrix`) — the provider key
+ * lives server-side — so suggestions, travel bands, the optimizer, live ETAs
+ * and conflict checks all upgrade to true drive times without any call-site
+ * changes. The proxy itself falls back to OSRM, so priming works even
+ * without an ORS key; offline or on failure the estimator covers us.
  */
-
-const ORS_ENDPOINT = "https://api.openrouteservice.org/v2/matrix/driving-car"
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000
 const pairKey = (a: GeoPoint, b: GeoPoint) =>
@@ -33,8 +29,7 @@ let priming: Promise<void> | null = null
  * Coordinates are deduped to ~100 m; durations land in the same rounded
  * 5-minute granularity as the estimator so buffers and tests stay stable. */
 export function primeRoadMatrix(points: GeoPoint[]): Promise<void> {
-  const apiKey = process.env.NEXT_PUBLIC_ORS_API_KEY
-  if (!apiKey || points.length < 2) return Promise.resolve()
+  if (points.length < 2) return Promise.resolve()
   if (priming) return priming
 
   const seen = new Set<string>()
@@ -44,21 +39,18 @@ export function primeRoadMatrix(points: GeoPoint[]): Promise<void> {
     seen.add(k)
     return true
   })
-  // The free matrix call comfortably takes our whole board in one request;
-  // if the fleet ever exceeds ~2k sites, chunk here.
+  if (locations.length < 2) return Promise.resolve()
+  // One matrix call covers the whole board; if the fleet ever exceeds the
+  // provider's per-request sites, chunk here.
   priming = (async () => {
     try {
-      const res = await fetch(ORS_ENDPOINT, {
-        method: "POST",
-        headers: { Authorization: apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          locations: locations.map(p => [p.lng, p.lat]),
-          metrics: ["duration"]
-        }),
-        signal: AbortSignal.timeout(8000)
-      })
-      if (!res.ok) return
-      const durations: number[][] = (await res.json())?.durations ?? []
+      const { apiGet } = await import("@/lib/api")
+      const query = locations.map(p => `${p.lng},${p.lat}`).join(";")
+      const body = await apiGet<{ durations?: unknown }>(
+        `/api/routing/matrix?points=${encodeURIComponent(query)}`
+      )
+      const durations = body.durations
+      if (!Array.isArray(durations)) return
       for (let i = 0; i < locations.length; i++) {
         for (let j = 0; j < locations.length; j++) {
           const seconds = durations?.[i]?.[j]
@@ -71,7 +63,7 @@ export function primeRoadMatrix(points: GeoPoint[]): Promise<void> {
         }
       }
     } catch {
-      // Offline, quota, or CORS — the estimator fallback covers us.
+      // Offline, quota, or unauthenticated — the estimator fallback covers us.
     }
   })()
   return priming

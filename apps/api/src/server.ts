@@ -23,6 +23,7 @@ import { routeRoutes } from "./routes/routes";
 import { paymentWebhookRoutes } from "./routes/paymentWebhook";
 import { boardRoutes } from "./routes/board";
 import { fleetRoutes } from "./routes/fleet";
+import { routingRoutes } from "./routes/routing";
 import { smsRoutes } from "./routes/sms";
 import { jobMessageRoutes } from "./routes/jobMessages";
 
@@ -120,6 +121,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(routeRoutes, { prefix: "/api/routes" });
   await app.register(paymentWebhookRoutes, { prefix: "/api/webhooks" });
   await app.register(fleetRoutes, { prefix: "/api/fleet" });
+  await app.register(routingRoutes, { prefix: "/api/routing" });
   await app.register(smsRoutes, { prefix: "/api/sms" });
   await app.register(jobMessageRoutes, { prefix: "/api/jobs" });
 

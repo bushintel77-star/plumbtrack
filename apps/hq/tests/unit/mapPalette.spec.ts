@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolvePalette, statusColor } from "@/features/map/palette"
+import { personColor, resolvePalette, statusColor } from "@/features/map/palette"
 import type { Job } from "@/types"
 
 describe("resolvePalette (Tier-1 token bridge for WebGL paints)", () => {
@@ -21,16 +21,29 @@ describe("resolvePalette (Tier-1 token bridge for WebGL paints)", () => {
     expect(palette.breadcrumb).toBe("#4e8cff")
   })
 
-  it("maps person identity tokens in crew order", () => {
+  it("maps the full 8-person identity ramp in crew order", () => {
     const palette = resolvePalette(token =>
       ({
         "--person-1": "#c27878",
         "--person-2": "#7a9e7e",
         "--person-3": "#b08d57",
-        "--person-4": "#6b7d8d"
+        "--person-4": "#6b7d8d",
+        "--person-5": "#8f7ab5",
+        "--person-6": "#5f9ea0",
+        "--person-7": "#a3b56b",
+        "--person-8": "#c26d9d"
       })[token] ?? ""
     )
-    expect(palette.people).toEqual(["#c27878", "#7a9e7e", "#b08d57", "#6b7d8d"])
+    expect(palette.people).toHaveLength(8)
+    expect(palette.people[0]).toBe("#c27878")
+    expect(palette.people[7]).toBe("#c26d9d")
+  })
+
+  it("personColor cycles the ramp beyond the roster size", () => {
+    const palette = resolvePalette(() => "")
+    expect(personColor(0, palette)).toBe(palette.people[0])
+    expect(personColor(4, palette)).toBe(palette.people[4])
+    expect(personColor(8, palette)).toBe(palette.people[0])
   })
 })
 
