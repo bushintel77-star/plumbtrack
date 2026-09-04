@@ -10,7 +10,7 @@ import type { Job } from "@/types"
 import { blockLabel } from "@/lib/format"
 import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
 
-import { readComputedTokens, resolvePalette, statusColor, type MapPalette } from "./palette"
+import { readComputedTokens, personColor, resolvePalette, statusColor, type MapPalette } from "./palette"
 
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
@@ -239,30 +239,55 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     [orderedStopIds, visible]
   )
 
+  // Vehicle position source per tech — live shift-gated telemetry wins;
+  // before the first ping, fall back to the last-known clock-in fix. The
+  // route line starts here so the path visibly belongs to this van.
+  const liveLocations = useBoardStore(s => s.liveLocations)
+  const techOrigin = (tech: (typeof technicians)[number]): LngLat | null => {
+    const vehicleId = `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`
+    const live = liveLocations[vehicleId]
+    const source = live ?? tech.lastKnownLocation
+    return source ? [source.lng, source.lat] : null
+  }
+
   const routes = useMemo(
     () => ({
       type: "FeatureCollection" as const,
       features: technicians
         .map((tech, index) => {
-          const stops = visible
-            .filter(j => j.techId === tech.id && j.location)
-            .sort((a, b) => a.startBlock - b.startBlock)
-            .map((j): LngLat => [j.location!.lng, j.location!.lat])
-          if (stops.length < 2) return null
+          // The selected crew member's line follows the travel-ordered Route
+          // plan (same order as the numbered stop badges); everyone else's
+          // follows board time.
+          const stops = (tech.id === vanId && orderedStopIds.length >= 2
+            ? orderedStopIds
+                .map(id => visible.find(j => j.id === id))
+                .filter((j): j is (typeof visible)[number] => Boolean(j?.location))
+            : visible
+                .filter(j => j.techId === tech.id && j.location)
+                .sort((a, b) => a.startBlock - b.startBlock)
+          ).map((j): LngLat => [j.location!.lng, j.location!.lat])
+          // Anchor the line at the assigned tech's own position — the path
+          // belongs to the van, not floating between stops.
+          const origin = techOrigin(tech)
+          const chain = origin ? [origin, ...stops] : stops
+          if (chain.length < 2) return null
+          const signature = routeSignature(chain)
           return {
             type: "Feature" as const,
             properties: {
               techId: tech.id,
-              color: palette.people[index % palette.people.length],
+              color: personColor(index, palette),
               emphasized: !vanId || vanId === tech.id,
-              geometrySource: roadShapeSources[routeSignature(stops)] ?? "straight-line"
+              geometrySource: roadShapeSources[signature] ?? "straight-line"
             },
-            geometry: { type: "LineString" as const, coordinates: roadShapes[routeSignature(stops)] ?? stops }
+            geometry: { type: "LineString" as const, coordinates: roadShapes[signature] ?? chain }
           }
         })
         .filter(Boolean)
     }),
-    [technicians, visible, vanId, roadShapes, roadShapeSources, palette]
+    // techOrigin closes over liveLocations; captured via technicians identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [technicians, visible, vanId, orderedStopIds, roadShapes, roadShapeSources, palette, liveLocations]
   )
 
   // Vehicle markers — live telemetry (shift-gated: the field app streams only
@@ -270,7 +295,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   // wins; until a live ping lands, fall back to the technician's last-known
   // clock-in fix so the map never invents a position. Live entries carry
   // heading for the symbol rotation; fallbacks rotate to a neutral -90 (north).
-  const liveLocations = useBoardStore(s => s.liveLocations)
   const vehicleMarks = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -297,7 +321,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
               heading: source.heading ?? -90,
               live: Boolean(live),
               presence: live?.presence ?? "on_job",
-              color: palette.people[index % palette.people.length]
+              color: personColor(index, palette)
             },
             geometry: {
               type: "Point" as const,

@@ -102,3 +102,12 @@ export function statusColor(
   if (job.status === "en_route") return palette.enRoute
   return palette.neutral
 }
+
+/** Crew identity colour: one hue per technician, shared by their route line
+ *  and vehicle dot so "whose line is this" is answerable at a glance. Index
+ *  is the roster position, so a tech keeps their colour between renders.
+ *  Rosters beyond the four person tokens cycle — acceptable today, but a
+ *  wider identity ramp is owed before large crews onboard. */
+export function personColor(index: number, palette: MapPalette): string {
+  return palette.people[index % palette.people.length]
+}
