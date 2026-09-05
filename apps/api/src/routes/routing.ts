@@ -34,6 +34,68 @@ const REQUEST_TIMEOUT_MS = 8_000
 const MAX_POINTS = 25
 const CACHE_MAX_ENTRIES = 256
 
+/** Field roles may geocode/reverse-geocode: technicians create jobs and
+ *  clock in from the field, same trust class as time entries. */
+const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const
+
+/** Without a key there is nothing to call — helpers skip silently so tests
+ *  and unconfigured deployments never touch the network. */
+function orsKey(): string | null {
+  const key = process.env.ORS_API_KEY?.trim()
+  return key ? key : null
+}
+
+/** Forward-geocode an address string via Pelias, biased to the service area.
+ *  Best-effort: returns null on any failure (or when no key is configured) so
+ *  callers never block job creation on the provider. */
+export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const key = orsKey()
+  if (!key) return null
+  try {
+    const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+    url.pathname = "/pelias/v1/search"
+    url.search = new URLSearchParams({
+      text: address,
+      "focus.point.lat": "-37.82",
+      "focus.point.lon": "144.98",
+    }).toString()
+    const res = await fetch(url, {
+      headers: { Authorization: key },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { features?: Array<{ geometry?: { coordinates?: unknown } }> }
+    const coords = body.features?.[0]?.geometry?.coordinates
+    if (!Array.isArray(coords) || coords.length < 2) return null
+    const [lng, lat] = coords as [number, number]
+    if (typeof lng !== "number" || typeof lat !== "number") return null
+    return { lat, lng }
+  } catch {
+    return null
+  }
+}
+
+/** Reverse-geocode a GPS fix into a street address. Best-effort, key-gated. */
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const key = orsKey()
+  if (!key) return null
+  try {
+    const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+    url.pathname = "/pelias/v1/reverse"
+    url.search = new URLSearchParams({ "point.lat": String(lat), "point.lon": String(lng) }).toString()
+    const res = await fetch(url, {
+      headers: { Authorization: key },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { features?: Array<{ properties?: { label?: unknown } }> }
+    const label = body.features?.[0]?.properties?.label
+    return typeof label === "string" ? label : null
+  } catch {
+    return null
+  }
+}
+
 /** The only host this proxy may ever talk to. Anything else — including
  *  loopback/private addresses smuggled through configuration — is refused
  *  before a socket opens. */
@@ -41,7 +103,7 @@ const ALLOWED_UPSTREAM_HOSTS = new Set(["api.heigit.org"])
 
 /** SSRF guard: upstream request URLs are constants; this re-asserts https
  *  and the host allowlist before any fetch. Throws on anything else. */
-function safeUpstreamUrl(base: string): URL {
+function safeUpstreamUrl(base: string | URL): URL {
   const url = new URL(base)
   if (url.protocol !== "https:") throw new Error("Non-https upstream refused")
   if (!ALLOWED_UPSTREAM_HOSTS.has(url.hostname)) {
@@ -103,6 +165,8 @@ function cacheSet<T>(cache: Map<string, T>, key: string, value: T): void {
 
 const shapeCache = new Map<string, { coordinates: [number, number][]; source: "ors" }>()
 const matrixCache = new Map<string, { durations: number[][]; source: "ors" }>()
+const snapCache = new Map<string, { snapped: [number, number][] }>()
+const isochroneCache = new Map<string, { geojson: unknown }>()
 
 type ShapeResult = { coordinates: [number, number][]; source: "ors" } | null
 type MatrixResult = { durations: number[][]; source: "ors" } | null
@@ -227,5 +291,231 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
     if (!result) return reply.code(502).send({ message: "Routing provider unavailable" })
     cacheSet(matrixCache, key, result)
     return reply.send(result)
+  })
+
+  // ── Geocoding (Pelias) ───────────────────────────────────────────────────
+  // Forward: job creation stores coordinates from the address the dispatcher
+  // typed. Reverse: clock-in GPS becomes a street address. Field roles may
+  // call both — technicians create jobs and clock in from the field.
+
+  const geocodeQuerySchema = z.object({ text: z.string().trim().min(3).max(200) })
+  const reverseQuerySchema = z.object({
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+  })
+
+  async function peliasGet(path: string, query: URLSearchParams): Promise<{ features?: Array<{ geometry?: { coordinates?: unknown }; properties?: Record<string, unknown> }> } | null> {
+    const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+    url.pathname = path
+    url.search = query.toString()
+    const res = await fetch(url, {
+      headers: { Authorization: process.env.ORS_API_KEY?.trim() ?? "" },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as { features?: Array<{ geometry?: { coordinates?: unknown }; properties?: Record<string, unknown> }> }
+  }
+
+  app.get("/geocode", async (request, reply) => {
+    const orgId = getOrgId(request)
+    if (!orgId) return sendMissingOrg(reply)
+    const roleFailure = requireRole(request, reply, FIELD_ROLES)
+    if (roleFailure) return roleFailure
+
+    const parsed = parseBody(geocodeQuerySchema, request.query)
+    if (!parsed.ok) return sendValidationError(reply, parsed.error)
+    if (!process.env.ORS_API_KEY?.trim()) {
+      return reply.code(503).send({ message: "Routing is not configured (set ORS_API_KEY)" })
+    }
+
+    const query = new URLSearchParams({ text: parsed.data.text, "focus.point.lat": "-37.82", "focus.point.lon": "144.98" })
+    const body = await peliasGet("/pelias/v1/search", query)
+    if (!body) return reply.code(502).send({ message: "Geocoding provider unavailable" })
+    const features = body.features ?? []
+    return reply.send({
+      results: features.slice(0, 5).map(f => ({
+        label: (f.properties?.label as string) ?? (f.properties?.name as string) ?? "Unknown",
+        lng: Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates[0] : null,
+        lat: Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates[1] : null,
+      })),
+    })
+  })
+
+  app.get("/reverse", async (request, reply) => {
+    const orgId = getOrgId(request)
+    if (!orgId) return sendMissingOrg(reply)
+    const roleFailure = requireRole(request, reply, FIELD_ROLES)
+    if (roleFailure) return roleFailure
+
+    const parsed = parseBody(reverseQuerySchema, request.query)
+    if (!parsed.ok) return sendValidationError(reply, parsed.error)
+    if (!process.env.ORS_API_KEY?.trim()) {
+      return reply.code(503).send({ message: "Routing is not configured (set ORS_API_KEY)" })
+    }
+
+    const query = new URLSearchParams({
+      "point.lat": String(parsed.data.lat),
+      "point.lon": String(parsed.data.lng),
+    })
+    const body = await peliasGet("/pelias/v1/reverse", query)
+    const first = body?.features?.[0]
+    return reply.send({
+      label: (first?.properties?.label as string) ?? null,
+    })
+  })
+
+  // ── Isochrones ───────────────────────────────────────────────────────────
+  // Reachability shells: "which vans can drive to this job in N minutes".
+  // Display layer for the map — one call per dispatcher view, cached.
+
+  const isochroneQuerySchema = z.object({
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+    /** Comma-separated minute ranges, e.g. "10,20,30". */
+    range: z.string().trim().regex(/^\d{1,3}(,\d{1,3}){0,2}$/),
+  })
+
+  const isochroneCache = new Map<string, { geojson: unknown }>()
+
+  app.get("/isochrones", async (request, reply) => {
+    const orgId = getOrgId(request)
+    if (!orgId) return sendMissingOrg(reply)
+    const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"])
+    if (roleFailure) return roleFailure
+
+    const parsed = parseBody(isochroneQuerySchema, request.query)
+    if (!parsed.ok) return sendValidationError(reply, parsed.error)
+    const ranges = parsed.data.range.split(",").map(Number)
+    const key = `iso:${parsed.data.lat},${parsed.data.lng}:${parsed.data.range}`
+    const cached = cacheGet(isochroneCache, key)
+    if (cached) return reply.send(cached)
+
+    const apiKey = process.env.ORS_API_KEY?.trim()
+    if (!apiKey) {
+      return reply.code(503).send({ message: "Routing is not configured (set ORS_API_KEY)" })
+    }
+    try {
+      const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+      url.pathname = "/openrouteservice/v2/isochrones/driving-car"
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locations: [[parsed.data.lng, parsed.data.lat]],
+          range: ranges.map(minutes => minutes * 60),
+          range_type: "time",
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+      if (!res.ok) return reply.code(502).send({ message: "Routing provider unavailable" })
+      const geojson = await res.json()
+      const payload = { geojson }
+      cacheSet(isochroneCache, key, payload)
+      return reply.send(payload)
+    } catch {
+      return reply.code(502).send({ message: "Routing provider unavailable" })
+    }
+  })
+
+  // ── Snap ─────────────────────────────────────────────────────────────────
+  // GPS breadcrumbs → nearest road edge, so van trails read as streets.
+
+  app.get("/snap", async (request, reply) => {
+    const orgId = getOrgId(request)
+    if (!orgId) return sendMissingOrg(reply)
+    const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"])
+    if (roleFailure) return roleFailure
+
+    const parsed = parseBody(matrixQuerySchema, request.query)
+    if (!parsed.ok) return sendValidationError(reply, parsed.error)
+    const points = parseCoordList(parsed.data.points)
+    if (!points) {
+      return reply.code(400).send({
+        statusCode: 400,
+        error: "Bad Request",
+        message: `points must be 2..${MAX_POINTS} "lng,lat" pairs separated by ";"`,
+      })
+    }
+
+    const key = signatureOf(points)
+    const cached = cacheGet(snapCache, key)
+    if (cached) return reply.send(cached)
+
+    const apiKey = process.env.ORS_API_KEY?.trim()
+    if (!apiKey) {
+      return reply.code(503).send({ message: "Routing is not configured (set ORS_API_KEY)" })
+    }
+    try {
+      const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+      url.pathname = "/openrouteservice/v2/snap/driving-car"
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ locations: points, radius: [300] }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+      if (!res.ok) return reply.code(502).send({ message: "Routing provider unavailable" })
+      const body = (await res.json()) as { locations?: Array<{ location?: unknown }> }
+      const snapped = (body.locations ?? [])
+        .map(l => (Array.isArray(l.location) ? l.location : null))
+        .filter((l): l is [number, number] => Array.isArray(l) && l.length === 2)
+      const payload = { snapped }
+      cacheSet(snapCache, key, payload)
+      return reply.send(payload)
+    } catch {
+      return reply.code(502).send({ message: "Routing provider unavailable" })
+    }
+  })
+
+  // ── Fleet optimization (VROOM) ───────────────────────────────────────────
+  // Multi-vehicle route solving: jobs + vehicles in, per-vehicle stop
+  // sequences (with arrival times) out. The HQ client maps arrivals onto
+  // board blocks and applies through the existing assignment pipeline.
+
+  const optimizeBodySchema = z.object({
+    jobs: z.array(z.object({
+      id: z.union([z.string(), z.number()]),
+      location: coordSchema,
+      /** On-site duration in seconds (spanBlocks × 30 × 60). */
+      service: z.coerce.number().int().min(0).max(4 * 3600).optional(),
+      skills: z.array(z.number()).max(8).optional(),
+      priority: z.coerce.number().int().min(0).max(100).optional(),
+    })).min(1).max(60),
+    vehicles: z.array(z.object({
+      id: z.union([z.string(), z.number()]),
+      start: coordSchema,
+      skills: z.array(z.number()).max(8).optional(),
+      /** Shift window in seconds from midnight, e.g. [28800, 64800]. */
+      time_window: z.tuple([z.coerce.number().int().min(0), z.coerce.number().int().max(86400)]).optional(),
+    })).min(1).max(12),
+  })
+
+  app.post("/optimize", async (request, reply) => {
+    const orgId = getOrgId(request)
+    if (!orgId) return sendMissingOrg(reply)
+    const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"])
+    if (roleFailure) return roleFailure
+
+    const parsed = parseBody(optimizeBodySchema, request.body)
+    if (!parsed.ok) return sendValidationError(reply, parsed.error)
+    const apiKey = process.env.ORS_API_KEY?.trim()
+    if (!apiKey) {
+      return reply.code(503).send({ message: "Routing is not configured (set ORS_API_KEY)" })
+    }
+
+    try {
+      const url = safeUpstreamUrl(new URL("https://api.heigit.org"))
+      url.pathname = "/vroom/v0"
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!res.ok) return reply.code(502).send({ message: "Optimization provider unavailable" })
+      return reply.send(await res.json())
+    } catch {
+      return reply.code(502).send({ message: "Optimization provider unavailable" })
+    }
   })
 }

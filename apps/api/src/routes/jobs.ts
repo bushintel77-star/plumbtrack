@@ -14,6 +14,7 @@ import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
+import { geocodeAddress, reverseGeocode } from "./routing";
 import { assignmentSchema } from "../schemas/assignment";
 import { publishToOrg } from "../lib/liveBus";
 import { instantiateChecklist, ensureDefaultTemplates } from "../lib/checklists";
@@ -50,8 +51,11 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ message: "Property does not belong to the selected customer" });
       }
     }
+    // Best-effort geocode: the map needs coordinates and the field only sends
+    // an address. A provider failure stores nulls — the job is never blocked.
+    const geo = await geocodeAddress(parsed.data.address)
     const job = await prisma.job.create({
-      data: { ...parsed.data, orgId },
+      data: { ...parsed.data, ...(geo ? { lat: geo.lat, lng: geo.lng } : {}), orgId },
       include: { timeEntries: true, photos: true },
     });
     // Dynamic checklist: template by jobType + any quoted-line scope items
@@ -188,6 +192,12 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         data: parsed.data,
       });
       if (result.count === 0) return null;
+      // Address moved → coordinates re-geocode (best-effort; nulls keep the
+      // job on the board, just off the map, until the next address edit).
+      if (parsed.data.address !== undefined) {
+        const geo = await geocodeAddress(parsed.data.address);
+        await tx.job.updateMany({ where: { id, orgId }, data: { lat: geo?.lat ?? null, lng: geo?.lng ?? null } });
+      }
       const updated = await tx.job.findUnique({
         where: { id },
         include: { timeEntries: true, photos: true },
@@ -284,6 +294,14 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         end: parsed.data.end ? new Date(parsed.data.end) : null,
       },
     });
+    // Evidence that reads as a place: the recorded GPS fix becomes a street
+    // address (best-effort, key-gated; the fix itself is already stored).
+    if (parsed.data.lat != null && parsed.data.lng != null) {
+      const address = await reverseGeocode(parsed.data.lat, parsed.data.lng);
+      if (address) {
+        await prisma.timeEntry.update({ where: { id: entry.id }, data: { address } });
+      }
+    }
     recordAuditEvent(request, {
       action: "time_entry.created",
       entityType: "time_entry",

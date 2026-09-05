@@ -340,6 +340,10 @@ model Job {
   fieldNote       String?
   stripeSessionId String?      @unique
   paymentStatus   String       @default("unpaid")
+  /// Geocoded job coordinates (forward-geocoded from `address` via the
+  /// routing proxy; null until a geocode succeeds).
+  lat             Float?
+  lng             Float?
   status          JobStatus    @default(scheduled)
   signature       String?
   createdAt       DateTime     @default(now())
@@ -438,6 +442,8 @@ model TimeEntry {
   opId      String?   @unique
   lat       Float?
   lng       Float?
+  /// Reverse-geocoded street address for the recorded GPS fix.
+  address   String?
   start     DateTime
   end       DateTime?
   createdAt DateTime  @default(now())

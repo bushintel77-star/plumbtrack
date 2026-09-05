@@ -535,3 +535,9 @@
     background: transparent;
   }
 }
+  /* Drive-time reach shells control (map surface, floats over the map) */
+  .fl-reach { position:absolute; top:10px; right:10px; z-index:12; display:flex; align-items:center; gap:2px; border:1px solid var(--reference-border); border-radius:8px; background:var(--reference-panel); padding:2px; }
+  .fl-reach-label { font:600 10px var(--font-mono); letter-spacing:.06em; color:var(--app-subtle); padding:0 4px 0 6px; }
+  .fl-reach button { border:0; background:transparent; padding:4px 8px; border-radius:6px; color:var(--app-muted); font:600 11px var(--font-mono); cursor:pointer; }
+  .fl-reach button:hover { background:var(--reference-panel-2); }
+  .fl-reach button[aria-pressed="true"] { background:var(--wash-chrome); color:var(--reference-blue); }

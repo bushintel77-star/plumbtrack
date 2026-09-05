@@ -28,6 +28,8 @@ export interface ApiJob {
   timeEntries: ApiTimeEntry[]
   photos?: ApiJobPhoto[]
   createdAt: string
+  /** Geocoded coordinates from the API (null until the address geocodes). */
+  location?: { lat: number; lng: number } | null
   /** Server-authoritative assignment (G-1/G-2 round-trip). `null` when the
    *  job has no schedulable appointment yet. */
   appointment?: ApiAppointment | null
@@ -197,6 +199,7 @@ export function adaptApiBoard(
       clockOnCount: apiJob.timeEntries.length,
       quote,
       documents: [],
+      location: apiJob.location ?? undefined,
       photos: (apiJob.photos ?? []).map(photo => ({
         id: photo.id,
         label: photo.label,

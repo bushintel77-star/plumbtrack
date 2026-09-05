@@ -88,6 +88,10 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           scope: job.scope,
           status: job.status,
           createdAt: job.createdAt,
+          /** Geocoded coordinates (null until the address geocodes). */
+          location: job.lat != null && job.lng != null
+            ? { lat: job.lat, lng: job.lng }
+            : null,
           timeEntries: job.timeEntries.map((entry) => ({
             id: entry.id,
             staffId: entry.staffId,

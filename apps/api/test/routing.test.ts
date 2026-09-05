@@ -80,6 +80,40 @@ describe("routing proxy (GET /api/routing/*) — no-key behaviour (live)", () =>
 
     expect(response.statusCode).toBe(401)
   })
+
+  it("answers 503 for isochrones, geocode and optimize without ORS_API_KEY", async () => {
+    for (const [method, url] of [
+      ["GET", `/api/routing/isochrones?lat=-37.8&lng=144.96&range=15`],
+      ["GET", `/api/routing/geocode?text=1200%20Northgate%20Way`],
+      ["POST", "/api/routing/optimize"],
+    ] as const) {
+      const response = await app.inject({
+        method,
+        url,
+        headers: { "x-organization-id": ORG },
+        ...(method === "POST" ? { payload: { jobs: [{ id: "j-1", location: [144.96, -37.8] }], vehicles: [{ id: "t-1", start: [144.96, -37.8] }] } } : {}),
+      })
+      expect(response.statusCode).toBe(503)
+      expect(response.json().message).toMatch(/ORS_API_KEY/)
+    }
+  })
+
+  it("validates isochrone range and optimize payloads before any upstream call", async () => {
+    const badRange = await app.inject({
+      method: "GET",
+      url: "/api/routing/isochrones?lat=-37.8&lng=144.96&range=abc",
+      headers: { "x-organization-id": ORG },
+    })
+    expect(badRange.statusCode).toBe(400)
+
+    const badOptimize = await app.inject({
+      method: "POST",
+      url: "/api/routing/optimize",
+      headers: { "x-organization-id": ORG },
+      payload: { jobs: [], vehicles: [{ id: "t-1", start: [144.96, -37.8] }] },
+    })
+    expect(badOptimize.statusCode).toBe(400)
+  })
 })
 
 describe("routing proxy — live ORS tier (runs only with a real ORS_API_KEY)", () => {

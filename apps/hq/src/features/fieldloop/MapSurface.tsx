@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { MapPin, Navigation } from "lucide-react"
 
@@ -18,6 +18,12 @@ const MapLibreView = dynamic(() => import("@/features/map/MapLibreView"), {
   ssr: false,
   loading: () => <div className="fl-muted">Loading map…</div>
 })
+
+/** Drive-time reach options for the isochrone shells (minutes). */
+const REACH_OPTIONS = [15, 30, 45] as const
+
+/** Session cache of isochrone shells per job+range. */
+const reachCache = new Map<string, unknown>()
 
 function vehicleKeyOf(van: string): string {
   return `veh-${van.toLowerCase().replace(/\s+/g, "-")}`
@@ -107,6 +113,39 @@ export function MapSurface({
     return map
   }, [technicians, liveLocations, jobs, day])
 
+  /** Drive-time reachability shells around the selected job (isochrones from
+   *  the routing proxy, cached per job+range). Display-only. */
+  const [reachMin, setReachMin] = useState<number | null>(null)
+  const [reachGeo, setReachGeo] = useState<unknown>(null)
+  const reachAnchor = selectedJob?.location ?? null
+  useEffect(() => {
+    if (reachMin == null || !reachAnchor) {
+      setReachGeo(null)
+      return
+    }
+    const key = `${reachAnchor.lat},${reachAnchor.lng},${reachMin}`
+    const cached = reachCache.get(key)
+    if (cached) {
+      setReachGeo(cached)
+      return
+    }
+    let alive = true
+    void (async () => {
+      try {
+        const { apiGet } = await import("@/lib/api")
+        const body = await apiGet<{ geojson?: unknown }>(
+          `/api/routing/isochrones?lat=${reachAnchor.lat}&lng=${reachAnchor.lng}&range=${reachMin}`
+        )
+        if (!alive) return
+        reachCache.set(key, body.geojson)
+        setReachGeo(body.geojson)
+      } catch {
+        // Unreachable — shells simply stay off.
+      }
+    })()
+    return () => { alive = false }
+  }, [reachMin, reachAnchor])
+
   return (
     <>
       <CrewTree
@@ -120,6 +159,21 @@ export function MapSurface({
         role="region"
         aria-label="Job map. WebGL pins are not keyboard reachable — the Crew list beside the map is the accessible job index, and routed stops carry numbered focusable badges."
       >
+        {selectedJob?.location && (
+          <div className="fl-reach" role="group" aria-label="Drive-time reach from this job">
+            <span className="fl-reach-label">REACH</span>
+            {REACH_OPTIONS.map(minutes => (
+              <button
+                key={minutes}
+                type="button"
+                aria-pressed={reachMin === minutes}
+                onClick={() => setReachMin(current => (current === minutes ? null : minutes))}
+              >
+                {minutes}m
+              </button>
+            ))}
+          </div>
+        )}
         <MapErrorBoundary>
           <MapLibreView
             visible={visible}
@@ -127,6 +181,7 @@ export function MapSurface({
             onSelectJob={onSelectJob}
             orderedStopIds={orderedStopIds}
             onsiteByTech={onsiteByTech}
+            reach={reachGeo}
           />
         </MapErrorBoundary>
       </div>

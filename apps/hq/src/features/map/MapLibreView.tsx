@@ -106,9 +106,12 @@ interface MapLibreViewProps {
   /** Which job each van is currently on site at (geofence display only),
    *  keyed by technician id. Computed by the surface, which knows the day. */
   onsiteByTech?: Record<string, string | null>
+  /** Drive-time reachability shells (GeoJSON FeatureCollection from the
+   *  routing proxy) centred on the selected job. Display-only. */
+  reach?: unknown
 }
 
-export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {} }: MapLibreViewProps) {
+export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {}, reach = null }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const styleCandidates = MAP_STYLE_CANDIDATES[theme]
   const [styleIndex, setStyleIndex] = useState(0)
@@ -335,6 +338,18 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   // streamed (nothing is retained or inferred beyond it).
   const liveLocationHistory = useBoardStore(s => s.liveLocationHistory)
   const selectedTech = technicians.find(tech => tech.id === vanId)
+  const trailKey = useMemo(() => {
+    if (!selectedTech) return null
+    const vehicleId = `veh-${selectedTech.van.toLowerCase().replace(/\s+/g, "-")}`
+    const history = liveLocationHistory[vehicleId] ?? []
+    const live = liveLocations[vehicleId]
+    const points: LngLat[] = [
+      ...history.map(ping => [ping.lng, ping.lat] as LngLat),
+      ...(live ? [[live.lng, live.lat] as LngLat] : [])
+    ]
+    return points.length >= 2 ? routeSignature(points) : null
+  }, [selectedTech, liveLocationHistory, liveLocations])
+  const [snappedTrails, setSnappedTrails] = useState<Record<string, LngLat[]>>({})
   const trail = useMemo(() => {
     if (!selectedTech) return null
     const vehicleId = `veh-${selectedTech.van.toLowerCase().replace(/\s+/g, "-")}`
@@ -345,22 +360,50 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       ...(live ? [[live.lng, live.lat] as LngLat] : [])
     ]
     if (points.length < 2) return null
+    // Street-snapped fixes win when the proxy has answered for this path.
+    const coordinates = (trailKey ? snappedTrails[trailKey] : undefined) ?? points
     return {
       type: "FeatureCollection" as const,
       features: [
         {
           type: "Feature" as const,
           properties: {},
-          geometry: { type: "LineString" as const, coordinates: points }
+          geometry: { type: "LineString" as const, coordinates }
         }
       ]
     }
-  }, [selectedTech, liveLocationHistory, liveLocations])
+  }, [selectedTech, liveLocationHistory, liveLocations, snappedTrails, trailKey])
   const trailColor = useMemo(() => {
     if (!selectedTech) return palette.vehicle
     const index = technicians.findIndex(tech => tech.id === selectedTech.id)
     return personColor(index >= 0 ? index : 0, palette)
   }, [selectedTech, technicians, palette])
+
+  // Street-snapped trail: the proxy snaps the raw GPS fixes to the road
+  // network so the path reads as streets. Falls back to the raw fixes.
+  useEffect(() => {
+    if (!trailKey || roadShapeSources[trailKey] === "road") return
+    if (snappedTrails[trailKey]) return
+    let alive = true
+    const coords = (trail?.features[0].geometry as { coordinates: LngLat[] }).coordinates
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const { apiGet } = await import("@/lib/api")
+          const stops = coords.map(([lng, lat]) => `${lng},${lat}`).join(";")
+          const body = await apiGet<{ snapped?: unknown }>(`/api/routing/snap?stops=${encodeURIComponent(stops)}`)
+          const snapped = Array.isArray(body.snapped) && body.snapped.length >= 2 ? (body.snapped as LngLat[]) : null
+          if (alive && snapped) {
+            setSnappedTrails(prev => ({ ...prev, [trailKey]: snapped }))
+          }
+        } catch {
+          // Raw fixes remain — the trail is still honest, just not snapped.
+        }
+      })()
+    }, 600)
+    return () => { alive = false; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trailKey, trail, roadShapeSources])
 
   // Road-following upgrade for the dashed polylines: debounced per board
   // change, cached by stop-chain signature, silent no-op offline. Fetches for
@@ -522,6 +565,33 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           }}
         />
       </Source>
+
+      {/* Drive-time reachability shells around the selected job (isochrones
+          from the routing proxy). Translucent teal washes — the visual answer
+          to "who can reach this emergency in time". */}
+      {reach != null && (
+        <Source id="job-reach" type="geojson" data={reach}>
+          <Layer
+            id="reach-fills"
+            type="fill"
+            paint={{
+              "fill-color": palette.active,
+              // Nested shells stack alpha naturally, deepening toward the job.
+              "fill-opacity": 0.1
+            }}
+          />
+          <Layer
+            id="reach-outline"
+            type="line"
+            paint={{
+              "line-color": palette.active,
+              "line-width": 1.5,
+              "line-opacity": 0.6,
+              "line-dasharray": [2, 1.5]
+            }}
+          />
+        </Source>
+      )}
 
       {/* Job drop pins — real DOM markers: teardrop shape in the status
           colour, hover shows the read-only card, click selects the job into

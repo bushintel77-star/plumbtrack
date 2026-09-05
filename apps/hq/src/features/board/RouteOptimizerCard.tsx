@@ -11,6 +11,7 @@ import {
   type OptimizeConfig,
   type OptimizeResult
 } from "@/lib/optimize"
+import { optimizeFleetViaServer } from "@/lib/fleetOptimize"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import { performRouteApply } from "./actions"
 
@@ -89,6 +90,11 @@ export function RouteOptimizerCard({ date }: { date: string }) {
     maxTasksPerRoute: 8,
     maxHoursPerRoute: 8
   })
+  /** Solver engine: the local deterministic pass, or the server's VROOM
+   *  fleet solver through the routing proxy. Fleet failures fall back to
+   *  the local engine so the dispatcher is never stuck with a dead card. */
+  const [engine, setEngine] = useState<"local" | "fleet">("local")
+  const [solving, setSolving] = useState(false)
   const [result, setResult] = useState<OptimizeResult | null>(null)
 
   const eligibleCount = useMemo(
@@ -100,8 +106,21 @@ export function RouteOptimizerCard({ date }: { date: string }) {
 
   if (!open) return null
 
-  const run = (): void => {
-    setResult(optimizeRoutes(date, jobs, technicians, config))
+  const run = async (): Promise<void> => {
+    setSolving(true)
+    try {
+      if (engine === "fleet") {
+        try {
+          setResult(await optimizeFleetViaServer(date, jobs, technicians, config))
+          return
+        } catch {
+          // Fleet engine unreachable — the local pass still solves the day.
+        }
+      }
+      setResult(optimizeRoutes(date, jobs, technicians, config))
+    } finally {
+      setSolving(false)
+    }
   }
 
   const apply = async (): Promise<void> => {
@@ -145,6 +164,35 @@ export function RouteOptimizerCard({ date }: { date: string }) {
         {/* ── Configuration (reference card controls) ─────────────────── */}
         <section data-testid="opt-config" className="space-y-1">
           <div className="label-mono text-2xs text-ink-low">OPTIMIZE</div>
+          {/* Solver engine: the local deterministic pass, or the server fleet
+              solver — same result shape, same apply pipeline either way. */}
+          <div
+            className="flex items-center rounded-md border border-line bg-recess p-0.5"
+            role="group"
+            aria-label="Solver engine"
+          >
+            {(
+              [
+                { id: "local", label: "THIS VAN" },
+                { id: "fleet", label: "FLEET (SERVER)" }
+              ] as const
+            ).map(option => (
+              <button
+                key={option.id}
+                aria-pressed={engine === option.id}
+                data-testid={`opt-engine-${option.id}`}
+                onClick={() => setEngine(option.id)}
+                className={cn(
+                  "label-mono h-6 flex-1 rounded-[5px] px-2 text-2xs font-semibold transition-colors",
+                  engine === option.id
+                    ? "btn-primary text-on-accent"
+                    : "text-ink-mid hover:text-ink"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <div
             className="flex items-center rounded-md border border-line bg-recess p-0.5"
             role="group"
@@ -213,10 +261,13 @@ export function RouteOptimizerCard({ date }: { date: string }) {
           <Button
             size="sm"
             data-testid="opt-run"
+            disabled={solving}
             className="btn-primary label-mono mt-2 h-7 w-full text-2xs"
-            onClick={run}
+            onClick={() => {
+              void run()
+            }}
           >
-            OPTIMIZE
+            {solving ? "SOLVING…" : engine === "fleet" ? "OPTIMIZE FLEET" : "OPTIMIZE"}
           </Button>
         </section>
 
