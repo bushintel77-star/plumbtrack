@@ -420,13 +420,15 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
   // ── Snap ─────────────────────────────────────────────────────────────────
   // GPS breadcrumbs → nearest road edge, so van trails read as streets.
 
-  app.get("/snap", async (request, reply) => {
+  // POST (not GET-query): the client sends coordinates in the request body —
+  // same contract as /optimize — so no URL is ever assembled from variables.
+  app.post("/snap", async (request, reply) => {
     const orgId = getOrgId(request)
     if (!orgId) return sendMissingOrg(reply)
     const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"])
     if (roleFailure) return roleFailure
 
-    const parsed = parseBody(matrixQuerySchema, request.query)
+    const parsed = parseBody(matrixQuerySchema, request.body)
     if (!parsed.ok) return sendValidationError(reply, parsed.error)
     const points = parseCoordList(parsed.data.points)
     if (!points) {

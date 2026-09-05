@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs"
 import {
   BarChart3,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react"
 
 import { useBoardLifecycle } from "@/features/board/useBoardLifecycle"
-import { authApi } from "@/lib/api"
+import { authApi, FORCE_DEMO } from "@/lib/api"
 import { dayLabel, todayIsoDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { jobDay } from "@/lib/schedule"
@@ -62,6 +63,13 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
   const [zoom, setZoom] = useQueryState("zoom", parseAsStringLiteral(ZOOMS).withDefault("daily"))
   const dataMode = useBoardStore(s => s.dataMode)
   const jobs = useJobsList()
+  const queryClient = useQueryClient()
+  // A transient blip (cold server, 4s query timeout) latches the board into
+  // demo mode and the query disables itself — the badge is the way back.
+  const reconnectLive = () => {
+    useBoardStore.setState({ dataMode: "connecting" })
+    void queryClient.invalidateQueries({ queryKey: ["board"] })
+  }
   const [paletteOpen, setPaletteOpen] = useState(false)
   // Selection lives in the URL so a dispatcher can paste a link to exactly
   // the job or crew member they are talking about.
@@ -140,14 +148,30 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
             )}
           </button>
           {/* Connection state is deliberately outside the job status palette:
-              red/amber/green mean work, never network. */}
-          <span
-            className={cn("fl-conn", dataMode === "live" && "live", dataMode === "demo" && "demo")}
-            data-testid="fl-connection"
-          >
-            <i />
-            {CONNECTION_COPY[dataMode]}
-          </span>
+              red/amber/green mean work, never network. Demo latches after a
+              transient failure — render it as the reconnect affordance so an
+              operator is never stuck dispatching against seed data. */}
+          {dataMode === "demo" && !FORCE_DEMO ? (
+            <button
+              type="button"
+              className="fl-conn demo fl-conn-btn"
+              data-testid="fl-connection"
+              title="Showing seeded demo data after a connection failure — click to reconnect to the live API"
+              aria-label="Reconnect to live data"
+              onClick={reconnectLive}
+            >
+              <i />
+              {CONNECTION_COPY[dataMode]} · reconnect
+            </button>
+          ) : (
+            <span
+              className={cn("fl-conn", dataMode === "live" && "live", dataMode === "demo" && "demo")}
+              data-testid="fl-connection"
+            >
+              <i />
+              {CONNECTION_COPY[dataMode]}
+            </span>
+          )}
           <button
             type="button"
             className="fl-linkbtn"

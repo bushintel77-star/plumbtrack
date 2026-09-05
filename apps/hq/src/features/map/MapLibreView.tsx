@@ -11,6 +11,11 @@ import { blockLabel } from "@/lib/format"
 import { statusStyleFor } from "@/lib/statusStyles"
 import { cn } from "@/lib/utils"
 import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
+import {
+  advanceStyleLadder,
+  isFatalMapError,
+  STYLE_READY_TIMEOUT_MS
+} from "@/lib/basemapLadder"
 
 import { readComputedTokens, personColor, resolvePalette, statusColor, type MapPalette } from "./palette"
 
@@ -45,28 +50,7 @@ const MAP_STYLE_CANDIDATES = {
   ]
 } as const
 
-/** Seconds a candidate style gets to become ready before we fall through to
- *  the next source — generous enough for a cold deploy, short enough that a
- *  dead provider doesn't hold dispatch hostage. */
-const STYLE_READY_TIMEOUT_MS = 12_000
-
 const MELBOURNE = { lng: 144.96, lat: -37.82 }
-
-/**
- * Only genuinely-fatal map errors blank the surface. MapLibre fires `error`
- * for every failed tile/sprite while it keeps retrying those; a single 404 or
- * network abort must not collapse the whole map and lose dispatch. We treat as
- * fatal: WebGL unavailable, an explicit auth failure (401/403), or a style
- * that outright failed to load.
- */
-function isFatalMapError(event: { error?: unknown }): boolean {
-  const error = event.error as { message?: string; status?: number } | undefined
-  const message = (error?.message ?? "").toLowerCase()
-  if (message.includes("webgl")) return true
-  if (error?.status === 401 || error?.status === 403) return true
-  if (message.includes("style") && message.includes("failed")) return true
-  return false
-}
 
 /** Read-only hover card: identity, address, window and crew. Details live in
  *  the right-hand inspector (click the pin or a crew row) — the popup never
@@ -117,6 +101,9 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   const [styleIndex, setStyleIndex] = useState(0)
   const [mapError, setMapError] = useState(false)
   const [styleLoaded, setStyleLoaded] = useState(false)
+  /** Completed ladder passes — bumps remount the Map (it is keyed on this)
+   *  so a fresh pass restarts from the first candidate with a clean slate. */
+  const [ladderPass, setLadderPass] = useState(0)
   const mapRef = useRef<MapRef | null>(null)
   const technicians = useBoardStore(s => s.technicians)
   const vehicles = useBoardStore(s => s.vehicles)
@@ -137,25 +124,29 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     setStyleIndex(0)
     setStyleLoaded(false)
     setMapError(false)
+    setLadderPass(0)
     return () => cancelAnimationFrame(frame)
   }, [theme])
 
   // Backstop: if the current style never becomes ready within the timeout,
   // advance to the next basemap candidate rather than blanking the surface.
-  // Only after every candidate has been exhausted do we show the fallback so
-  // dispatch can continue via the jobs list. Transient tile/sprite errors
-  // below never trip this.
+  // Once every candidate has been tried, restart the ladder from the first
+  // candidate (providers recover from short blips on their own) and only
+  // after MAX_STYLE_LADDER_PASSES show the fallback so dispatch continues
+  // via the jobs list. Transient tile/sprite errors below never trip this.
   useEffect(() => {
     if (styleLoaded || mapError) return
     const timer = window.setTimeout(() => {
-      if (styleIndex + 1 < styleCandidates.length) {
-        setStyleIndex(index => index + 1)
-      } else {
+      const next = advanceStyleLadder({ styleIndex, ladderPass }, styleCandidates.length)
+      if (next === "give-up") {
         setMapError(true)
+        return
       }
+      setStyleIndex(next.styleIndex)
+      setLadderPass(next.ladderPass)
     }, STYLE_READY_TIMEOUT_MS)
     return () => window.clearTimeout(timer)
-  }, [styleLoaded, mapError, styleIndex, styleCandidates.length])
+  }, [styleLoaded, mapError, styleIndex, ladderPass, styleCandidates.length])
   const hoveredJob = visible.find(job => job.id === hoveredJobId)
   const hoveredLocation = hoveredJob?.location
 
@@ -367,9 +358,13 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     const timer = setTimeout(() => {
       void (async () => {
         try {
-          const { apiGet } = await import("@/lib/api")
-          const stops = coords.map(([lng, lat]) => `${lng},${lat}`).join(";")
-          const body = await apiGet<{ snapped?: unknown }>(`/api/routing/snap?stops=${encodeURIComponent(stops)}`)
+          // Coordinates travel in the POST body — the client never assembles
+          // a URL from runtime values (SSRF-scanner contract for the proxy).
+          const { apiRequest } = await import("@/lib/api")
+          const body = await apiRequest<{ snapped?: unknown }>("/api/routing/snap", {
+            method: "POST",
+            body: JSON.stringify({ points: coords.map(([lng, lat]) => `${lng},${lat}`).join(";") })
+          })
           const snapped = Array.isArray(body.snapped) && body.snapped.length >= 2 ? (body.snapped as LngLat[]) : null
           if (alive && snapped) {
             setSnappedTrails(prev => ({ ...prev, [trailKey]: snapped }))
@@ -481,7 +476,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         <div className="max-w-sm">
           <p className="label-mono text-2xs text-pending">MAP UNAVAILABLE</p>
           <p className="mt-2 text-sm text-ink-mid">Live map tiles could not be rendered. Use the Map Jobs list to continue dispatching.</p>
-          <button type="button" className="mt-4 rounded-md bg-chrome-600 px-3 py-2 text-xs font-semibold text-on-accent" onClick={() => { setStyleIndex(0); setStyleLoaded(false); setMapError(false) }}>Retry map</button>
+          <button type="button" className="mt-4 rounded-md bg-chrome-600 px-3 py-2 text-xs font-semibold text-on-accent" onClick={() => { setStyleIndex(0); setStyleLoaded(false); setMapError(false); setLadderPass(0) }}>Retry map</button>
         </div>
       </div>
     )
@@ -490,7 +485,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   return (
     <Map
       ref={mapRef}
-      key={`${theme}-${styleIndex}`}
+      key={`${theme}-${styleIndex}-${ladderPass}`}
       mapLib={maplibregl}
       initialViewState={{ longitude: MELBOURNE.lng, latitude: MELBOURNE.lat, zoom: 10.5 }}
       style={{ width: "100%", height: "100%" }}
@@ -500,9 +495,15 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       onError={(event: { error?: unknown }) => {
         if (!isFatalMapError(event)) return
         // A fatal style failure on the current source: fall through to the
-        // next candidate, or blank immediately once every source is spent.
-        if (styleIndex + 1 < styleCandidates.length) setStyleIndex(index => index + 1)
-        else setMapError(true)
+        // next candidate, restart the ladder on a fresh pass, or blank once
+        // every pass is spent.
+        const next = advanceStyleLadder({ styleIndex, ladderPass }, styleCandidates.length)
+        if (next === "give-up") {
+          setMapError(true)
+          return
+        }
+        setStyleIndex(next.styleIndex)
+        setLadderPass(next.ladderPass)
       }}
     >
       {hoveredJob && hoveredLocation && (

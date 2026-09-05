@@ -200,6 +200,9 @@
   .fl-conn i { width:7px; height:7px; border-radius:50%; background:var(--app-subtle); }
   .fl-conn.live { border-color:var(--reference-blue-bright); color:var(--reference-blue); } .fl-conn.live i { background:var(--reference-blue-bright); }
   .fl-conn.demo { border-style:dashed; }
+  .fl-conn-btn { background:transparent; cursor:pointer; }
+  .fl-conn-btn:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue); }
+  .fl-conn-btn:hover i { background:var(--reference-blue-bright); }
   .fl-linkbtn, .fl-ops { display:flex; gap:6px; align-items:center; border:1px solid #c7cfd4; border-radius:999px; padding:5px 10px; background:transparent; color:var(--app-muted); font:12px var(--font-mono); cursor:pointer; }
   .fl-linkbtn:hover, .fl-ops:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue); }
   .fl-ops.active { border-color:var(--reference-blue-bright); background:var(--wash-chrome); color:var(--reference-blue); }
