@@ -260,10 +260,12 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     return source ? [source.lng, source.lat] : null
   }
 
-  const routes = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: technicians
+  // One chain builder shared by the renderer and the road-shape fetcher —
+  // these MUST be the same chains, or fetched geometry never matches the
+  // rendered signature (the bug that kept lines permanently dashed).
+  const renderChains = useMemo(
+    () =>
+      technicians
         .map((tech, index) => {
           // The selected crew member's line follows the travel-ordered Route
           // plan (same order as the numbered stop badges); everyone else's
@@ -281,23 +283,29 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           const origin = techOrigin(tech)
           const chain = origin ? [origin, ...stops] : stops
           if (chain.length < 2) return null
-          const signature = routeSignature(chain)
-          return {
-            type: "Feature" as const,
-            properties: {
-              techId: tech.id,
-              color: personColor(index, palette),
-              emphasized: !vanId || vanId === tech.id,
-              geometrySource: roadShapeSources[signature] ?? "straight-line"
-            },
-            geometry: { type: "LineString" as const, coordinates: roadShapes[signature] ?? chain }
-          }
+          return { techId: tech.id, index, chain, signature: routeSignature(chain) }
         })
-        .filter(Boolean)
-    }),
-    // techOrigin closes over liveLocations; captured via technicians identity.
+        .filter(Boolean) as Array<{ techId: string; index: number; chain: LngLat[]; signature: string }>,
+    // techOrigin closes over liveLocations.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [technicians, visible, vanId, orderedStopIds, roadShapes, roadShapeSources, palette, liveLocations]
+    [technicians, visible, vanId, orderedStopIds, liveLocations]
+  )
+
+  const routes = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: renderChains.map(({ techId, index, chain, signature }) => ({
+        type: "Feature" as const,
+        properties: {
+          techId,
+          color: personColor(index, palette),
+          emphasized: !vanId || vanId === techId,
+          geometrySource: roadShapeSources[signature] ?? "straight-line"
+        },
+        geometry: { type: "LineString" as const, coordinates: roadShapes[signature] ?? chain }
+      }))
+    }),
+    [renderChains, vanId, roadShapes, roadShapeSources, palette]
   )
 
   // Vehicle markers — live telemetry (shift-gated: the field app streams only
@@ -379,28 +387,17 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   }, [selectedTech, technicians, palette])
 
   // Road-following upgrade for the dashed polylines: debounced per board
-  // change, cached by stop-chain signature, silent no-op offline.
-  const routeChains = useMemo(
-    () =>
-      technicians
-        .map(tech => ({
-          techId: tech.id,
-          stops: visible
-            .filter(j => j.techId === tech.id && j.location)
-            .sort((a, b) => a.startBlock - b.startBlock)
-            .map((j): LngLat => [j.location!.lng, j.location!.lat])
-        }))
-        .filter(chain => chain.stops.length >= 2),
-    [technicians, visible]
-  )
-  const chainsSignature = routeChains.map(c => `${c.techId}~${routeSignature(c.stops)}`).join("||")
+  // change, cached by stop-chain signature, silent no-op offline. Fetches for
+  // EXACTLY the rendered chains (renderChains) — a different chain here would
+  // cache geometry under a signature the renderer never looks up.
+  const chainsSignature = renderChains.map(c => c.signature).join("||")
   useEffect(() => {
-    if (routeChains.length === 0) return
+    if (renderChains.length === 0) return
     const timer = setTimeout(() => {
       void Promise.all(
-        routeChains.map(async chain => {
-          const coords = await fetchRoadShape(chain.stops)
-          return [routeSignature(chain.stops), coords] as const
+        renderChains.map(async ({ chain, signature }) => {
+          const coords = await fetchRoadShape(chain)
+          return [signature, coords] as const
         })
       ).then(landed => {
         setRoadShapes(prev => {

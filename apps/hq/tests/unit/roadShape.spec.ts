@@ -48,18 +48,28 @@ describe("fetchRoadShape (authenticated routing proxy)", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ credentials: "include" })
   })
 
-  it("resolves null when the proxy is unreachable, without caching — a later board change retries", async () => {
+  it("retries transient proxy failures in-module — one hiccup never leaves a line dashed", async () => {
     const stops = chain()
+    const road: LngLat[] = [[144.96, -37.82], [145.0, -37.88]]
     const fetchMock = vi
       .fn()
-      .mockRejectedValueOnce(new Error("API down"))
-      .mockResolvedValueOnce(proxyResponse([[144.96, -37.82], [145.0, -37.88]]))
+      .mockRejectedValueOnce(new Error("proxy hiccup"))
+      .mockResolvedValueOnce(proxyResponse(road))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(fetchRoadShape(stops)).resolves.toEqual(road)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it("resolves null after all retries when the proxy stays unreachable (never caches)", async () => {
+    const stops = chain()
+    const fetchMock = vi.fn().mockRejectedValue(new Error("API down"))
     vi.stubGlobal("fetch", fetchMock)
 
     await expect(fetchRoadShape(stops)).resolves.toBeNull()
-    await expect(fetchRoadShape(stops)).resolves.not.toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-  })
+    expect(fetchRoadShape(stops)).resolves.toBeNull() // fresh attempt cycle — nothing cached
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3)
+  }, 20_000)
 
   it("resolves null when the proxy answers without usable coordinates", async () => {
     const stops = chain()

@@ -26,7 +26,14 @@ export function cachedRoadShape(points: LngLat[]): LngLat[] | null {
 }
 
 /** Never throws: resolves the road path for the stop chain, or null when the
- *  chain is degenerate or the routing proxy is unreachable. */
+ *  chain is degenerate or the routing proxy is unreachable. On a stable board
+ *  the debounce never refires, so transient proxy/ORS hiccups are retried in-
+ *  module (3 attempts, back-off) before the caller sees null. */
+const SHAPE_ATTEMPTS = 3
+const SHAPE_RETRY_MS = 2_500
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 export function fetchRoadShape(points: LngLat[]): Promise<LngLat[] | null> {
   const key = routeSignature(points)
   const cached = shapeCache.get(key)
@@ -46,10 +53,21 @@ export function fetchRoadShape(points: LngLat[]): Promise<LngLat[] | null> {
   const request = (async () => {
     const { apiGet } = await import("@/lib/api")
     const stops = deduped.map(([lng, lat]) => `${lng},${lat}`).join(";")
-    const body = await apiGet<{ coordinates?: unknown }>(`/api/routing/shape?stops=${encodeURIComponent(stops)}`)
-    return Array.isArray(body.coordinates) && body.coordinates.length >= 2
-      ? (body.coordinates as LngLat[])
-      : null
+    for (let attempt = 0; attempt < SHAPE_ATTEMPTS; attempt++) {
+      try {
+        const body = await apiGet<{ coordinates?: unknown }>(`/api/routing/shape?stops=${encodeURIComponent(stops)}`)
+        const coords = Array.isArray(body.coordinates) && body.coordinates.length >= 2
+          ? (body.coordinates as LngLat[])
+          : null
+        if (coords) return coords
+        // A 200 without coordinates means the proxy has no provider — no
+        // point retrying a configuration gap.
+        return null
+      } catch {
+        if (attempt < SHAPE_ATTEMPTS - 1) await delay(SHAPE_RETRY_MS * (attempt + 1))
+      }
+    }
+    return null
   })()
 
   const settled = request
