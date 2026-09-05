@@ -178,28 +178,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   }, [hoveredLocation, styleLoaded, cameraVersion])
 
   useEffect(() => {
-    if (!selectedJobId) {
-      // Allow re-selecting the same job later to pan again.
-      lastPannedJobRef.current = null
-      return
-    }
-    const job = visible.find(item => item.id === selectedJobId)
-    if (!job?.location) return
-    // Pan the map to a freshly selected job so its pin — and the popup that
-    // carries the details action — is comfortably inside the viewport. The
-    // map may still be loading on the first effect run: only record the pan
-    // once it has actually fired, and re-run when the map becomes ready.
-    if (!mapRef.current || !styleLoaded) return
-    if (lastPannedJobRef.current === selectedJobId) return
-    lastPannedJobRef.current = selectedJobId
-    mapRef.current.easeTo({
-      center: [job.location.lng, job.location.lat],
-      duration: 600,
-      padding: { top: 260, bottom: 120, left: 120, right: 160 }
-    })
-  }, [selectedJobId, visible, styleLoaded])
-
-  useEffect(() => {
     const onFocusJob = (event: Event) => {
       const id = (event as CustomEvent<string>).detail
       if (visible.some(job => job.id === id)) setHoveredJobId(id)
@@ -404,6 +382,49 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     return () => { alive = false; clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trailKey, trail, roadShapeSources])
+
+  // Selecting a crew member frames their whole route (fitBounds over the
+  // chain + any located stops) — the dispatcher sees the full day, not a
+  // camera stuck at region zoom with the route as a tiny fragment.
+  const lastFittedTechRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!vanId || !styleLoaded || !mapRef.current) return
+    if (lastFittedTechRef.current === vanId) return
+    const chain = renderChains.find(c => c.techId === vanId)
+    if (!chain || chain.chain.length === 0) return
+    lastFittedTechRef.current = vanId
+    const lngs = chain.chain.map(([lng]) => lng)
+    const lats = chain.chain.map(([, lat]) => lat)
+    mapRef.current.fitBounds(
+      [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+      { padding: { top: 90, bottom: 90, left: 90, right: 90 }, duration: 700, maxZoom: 13 }
+    )
+  }, [vanId, styleLoaded, renderChains])
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      // Allow re-selecting the same job later to pan again.
+      lastPannedJobRef.current = null
+      return
+    }
+    const job = visible.find(item => item.id === selectedJobId)
+    if (!job?.location) return
+    // Pan the map to a freshly selected job so its pin — and the popup that
+    // carries the details action — is comfortably inside the viewport. The
+    // map may still be loading on the first effect run: only record the pan
+    // once it has actually fired, and re-run when the map becomes ready.
+    if (!mapRef.current || !styleLoaded) return
+    if (lastPannedJobRef.current === selectedJobId) return
+    lastPannedJobRef.current = selectedJobId
+    mapRef.current.easeTo({
+      center: [job.location.lng, job.location.lat],
+      // Zoom into street level — without this the camera keeps the region
+      // view and the selection (pin + popup + route) stays a tiny fragment.
+      zoom: Math.max(mapRef.current.getZoom() ?? 10.5, 12.5),
+      duration: 600,
+      padding: { top: 260, bottom: 120, left: 120, right: 160 }
+    })
+  }, [selectedJobId, visible, styleLoaded])
 
   // Road-following upgrade for the dashed polylines: debounced per board
   // change, cached by stop-chain signature, silent no-op offline. Fetches for
