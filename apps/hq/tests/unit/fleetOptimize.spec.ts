@@ -14,40 +14,34 @@ const tech: Technician = {
   absences: []
 }
 
-const job = (overrides: Partial<Job> & { id: string }): Job => ({
-  id: overrides.id,
+const baseJob: Omit<Job, "id"> = {
+  title: "Job",
   client: "Client",
   address: "1 Test St",
-  scope: "Fix",
   priority: "normal",
   techId: null,
   startBlock: 0,
   spanBlocks: 2,
   scheduledDate: DAY,
   status: "unassigned",
-  requiredSkill: null,
-  signature: null,
-  timeEntries: [],
   photos: [],
   documents: [],
   location: { lat: -37.8, lng: 144.96 },
   elapsedSeconds: 0,
   timerRunning: false,
   clockOnCount: 0,
-  quote: { clientName: "Client", lineItems: null, status: "draft" },
-  logEntries: [],
-  dailyReports: [],
-  checklists: [],
-  milestones: [],
-  ...overrides
-})
+  quote: { clientName: "Client", lineItems: null, status: "draft" }
+}
+
+const job = (overrides: Partial<Job> & { id: string }): Job =>
+  ({ ...baseJob, ...overrides, id: overrides.id })
 
 const config = { scope: "unassigned" as const, maxRoutes: 2, maxTasksPerRoute: 8, maxHoursPerRoute: 8 }
 
 describe("buildVroomRequest", () => {
   it("registers skills as stable numeric ids and gates solvable jobs on coordinates", () => {
     const located = job({ id: "j-ok", requiredSkill: "drainage" })
-    const nowhere = job({ id: "j-lost", requiredSkill: "drainage", location: null })
+    const nowhere = job({ id: "j-lost", requiredSkill: "drainage", location: undefined })
     const { request, solvableJobIds, registry } = buildVroomRequest(DAY, [located, nowhere], [tech], config)
 
     expect(registry).toEqual(["drainage"])
