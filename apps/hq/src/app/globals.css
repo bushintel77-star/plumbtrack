@@ -145,7 +145,7 @@
   }
 
   body {
-    background: var(--chassis-void);
+    background: var(--reference-canvas);
     color: var(--app-text);
     font-family: var(--font-ui);
     @apply antialiased;
@@ -179,7 +179,9 @@
      IBM Plex Sans carries the UI, IBM Plex Mono carries every changing or
      column-aligned value.
      ═══════════════════════════════════════════════════════════════════════ */
-  .fl-window { display:flex; flex-direction:column; height:100%; background:var(--reference-canvas); color:var(--app-text); font-family:var(--font-ui); }
+  /* Framed instrument presentation (design reference: app inset on the
+     Blueprint canvas with a soft edge, not full-bleed). */
+  .fl-window { display:flex; flex-direction:column; height:calc(100% - 20px); margin:10px; border:1px solid var(--reference-border); border-radius:14px; overflow:hidden; background:var(--reference-canvas); color:var(--app-text); font-family:var(--font-ui); box-shadow:0 10px 30px -14px rgba(20,24,28,.18); }
   .fl-topbar { position:sticky; top:0; z-index:30; display:flex; flex-shrink:0; align-items:center; gap:9px; height:54px; padding:0 16px 0 14px; background:var(--reference-panel); border-bottom:1px solid var(--reference-border); }
   .fl-brand { font-family:var(--font-display); font-size:17px; font-weight:700; letter-spacing:.07em; }
   .fl-divider { width:1px; height:15px; background:#c7cfd4; }
@@ -239,7 +241,13 @@
   .fl-crew:hover { background:var(--reference-panel-2); }
   .fl-crew.selected { background:var(--wash-chrome); }
   .fl-crew strong { display:block; font-size:13px; } .fl-crew > div > span { display:block; color:var(--app-subtle); font-size:11px; }
-  .fl-crew-job { display:block; width:100%; border:0; background:transparent; padding:4px 0 0; color:var(--app-muted); font:11px var(--font-mono); text-align:left; cursor:pointer; }
+  .fl-crew-job { position:relative; display:block; width:100%; border:0; background:transparent; padding:4px 0 4px 14px; color:var(--app-muted); font:11px var(--font-mono); text-align:left; cursor:pointer; }
+  /* Status dot per design spec — colour always paired with the time+label text. */
+  .fl-crew-job::before { content:""; position:absolute; left:2px; top:8px; width:7px; height:7px; border-radius:50%; background:var(--app-subtle); }
+  .fl-crew-job.complete::before { background:var(--status-complete); }
+  .fl-crew-job.unassigned::before { background:var(--status-pending); }
+  .fl-crew-job.urgent::before { background:var(--status-urgent); }
+  .fl-crew-job.scheduled::before { background:transparent; border:1.5px solid var(--app-subtle); }
   .fl-presence { display:inline-flex; align-items:center; gap:5px; margin-top:3px; font:10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; }
   .fl-presence i { width:8px; height:8px; border-radius:50%; }
   .fl-presence.on-job { color:var(--reference-blue); } .fl-presence.on-job i { background:var(--reference-blue); }
