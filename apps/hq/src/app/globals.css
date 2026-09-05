@@ -459,6 +459,31 @@
     border-top-color: var(--chassis-void);
     border-bottom-color: var(--chassis-void);
   }
+
+  /* Job drop pins — real DOM markers: a focusable button per job with the
+     teardrop SVG inside. The tip anchors at the job location; hover/focus
+     lifts the pin and opens the read-only card. Selected pins scale up. */
+  .jb-pin {
+    display: block;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    filter: drop-shadow(0 2px 3px rgba(20, 24, 28, 0.4));
+    transition: transform 0.12s ease;
+    transform-origin: bottom center;
+  }
+  .jb-pin:hover,
+  .jb-pin:focus-visible {
+    transform: scale(1.12);
+  }
+  .jb-pin:focus-visible {
+    outline: 2px solid var(--chrome-400);
+    outline-offset: 2px;
+  }
+  .jb-pin.is-selected {
+    transform: scale(1.2);
+  }
 }
 
 @layer utilities {

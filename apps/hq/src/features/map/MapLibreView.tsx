@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import Map, { Layer, Marker, Popup, Source, type LayerProps, type MapLayerMouseEvent, type MapRef } from "react-map-gl/maplibre"
+import Map, { Layer, Marker, Popup, Source, type MapRef } from "react-map-gl/maplibre"
 import maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job } from "@/types"
 import { blockLabel } from "@/lib/format"
+import { statusStyleFor } from "@/lib/statusStyles"
+import { cn } from "@/lib/utils"
 import { fetchRoadShape, routeSignature, type LngLat } from "@/lib/roadShape"
 
 import { readComputedTokens, personColor, resolvePalette, statusColor, type MapPalette } from "./palette"
@@ -180,7 +182,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     }
     const job = visible.find(item => item.id === selectedJobId)
     if (!job?.location) return
-    setHoveredJobId(selectedJobId)
     // Pan the map to a freshly selected job so its pin — and the popup that
     // carries the details action — is comfortably inside the viewport. The
     // map may still be loading on the first effect run: only record the pan
@@ -210,31 +211,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       window.removeEventListener("keydown", onEscape)
     }
   }, [visible])
-  const pins = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: visible
-        .filter(job => job.location)
-        .map(job => ({
-          type: "Feature" as const,
-          id: job.id,
-          properties: {
-            jobId: job.id,
-            title: job.title,
-            status: job.status,
-            color: statusColor(job, palette),
-            highlighted: hoveredJobId === job.id || selectedJobId === job.id,
-            draggable: job.status === "unassigned"
-          },
-          geometry: {
-            type: "Point" as const,
-            coordinates: [job.location!.lng, job.location!.lat]
-          }
-        }))
-    }),
-    [visible, hoveredJobId, selectedJobId, palette]
-  )
-
   // Numbered stop badges for the selected crew member's route — DOM markers,
   // so they are focusable buttons and readable by assistive tech (the WebGL
   // pin layers are not). Order comes from the Route plan (travel-ordered).
@@ -435,48 +411,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   // streams only while a technician is clocked on, pauses on breaks, and
   // stops on log-off. No off-shift or break-time movement is ever rendered.
 
-  const pinLayers: LayerProps[] = useMemo(() => {
-    const individual: LayerProps = {
-      id: "job-pins",
-      type: "circle",
-      source: "job-pins",
-      filter: ["!", ["has", "point_count"]],
-      paint: {
-        "circle-radius": ["case", ["boolean", ["get", "highlighted"], false], 9, 6],
-        "circle-color": ["get", "color"],
-        "circle-stroke-width": ["case", ["boolean", ["get", "highlighted"], false], 3, 2],
-        "circle-stroke-color": ["case", ["boolean", ["get", "highlighted"], false], palette.highlightStroke, palette.pinStroke]
-      }
-    }
-    const cluster: LayerProps = {
-      id: "job-clusters",
-      type: "circle",
-      source: "job-pins",
-      filter: ["has", "point_count"],
-      paint: {
-        "circle-radius": ["step", ["get", "point_count"], 14, 10, 17, 50, 21, 200, 25],
-        "circle-color": palette.active,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": palette.highlightStroke,
-        "circle-opacity": 0.9
-      }
-    }
-    const clusterCount: LayerProps = {
-      id: "job-cluster-count",
-      type: "symbol",
-      source: "job-pins",
-      filter: ["has", "point_count"],
-      layout: {
-        "text-field": ["get", "point_count_abbreviated"],
-        "text-size": 11,
-        "text-font": ["Open Sans Bold"],
-        "text-allow-overlap": false
-      },
-      paint: { "text-color": palette.highlightStroke }
-    }
-    return [cluster, clusterCount, individual]
-  }, [palette])
-
   if (mapError) {
     return (
       <div role="alert" className="flex h-full min-h-48 items-center justify-center bg-void p-6 text-center text-ink">
@@ -497,7 +431,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       initialViewState={{ longitude: MELBOURNE.lng, latitude: MELBOURNE.lat, zoom: 10.5 }}
       style={{ width: "100%", height: "100%" }}
       mapStyle={styleCandidates[styleIndex]}
-      interactiveLayerIds={["job-pins", "job-clusters"]}
       onLoad={() => setStyleLoaded(true)}
       onMoveEnd={() => setCameraVersion(version => version + 1)}
       onError={(event: { error?: unknown }) => {
@@ -506,31 +439,6 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         // next candidate, or blank immediately once every source is spent.
         if (styleIndex + 1 < styleCandidates.length) setStyleIndex(index => index + 1)
         else setMapError(true)
-      }}
-      onMouseMove={(event: MapLayerMouseEvent) => {
-        const feature = event.features?.find(f => f.properties?.jobId)
-        if (feature?.properties?.jobId) setHoveredJobId(String(feature.properties.jobId))
-      }}
-      // react-map-gl synthesizes `mouseleave` when the cursor leaves an
-      // interactive FEATURE — that would kill the hover card the instant the
-      // pin is crossed. `onMouseOut` is the real canvas-exit event.
-      onMouseOut={() => setHoveredJobId(null)}
-      onClick={event => {
-        const feature = event.features?.[0]
-        if (!feature) return
-        // A clustered stop: zoom into its bounds so the underlying pins
-        // separate and become clickable. Clusters carry point_count, not jobId.
-        if (feature.properties?.point_count && feature.geometry?.type === "Point") {
-          const coords = feature.geometry.coordinates as [number, number]
-          const [lng, lat] = coords
-          mapRef.current?.easeTo({ center: [lng, lat], zoom: Math.max((mapRef.current.getZoom() ?? 10.5) + 2, 12) })
-          return
-        }
-        const jobId = feature.properties?.jobId
-        if (typeof jobId === "string") {
-          onSelectJob(jobId)
-          window.dispatchEvent(new CustomEvent("hq-map-focus-job", { detail: jobId }))
-        }
       }}
     >
       {hoveredJob && hoveredLocation && (
@@ -615,18 +523,55 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         />
       </Source>
 
-      <Source id="job-pins" type="geojson" data={pins} cluster={true} clusterMaxZoom={12} clusterRadius={44}>
-        {pinLayers.map(layer => (
-          <Layer key={layer.id} {...layer} />
-        ))}
-      </Source>
+      {/* Job drop pins — real DOM markers: teardrop shape in the status
+          colour, hover shows the read-only card, click selects the job into
+          the inspector, and each pin is a focusable button with a full
+          accessible label (WebGL layers can offer none of this). */}
+      {visible
+        .filter(job => job.location)
+        .map(job => {
+          const isSelected = selectedJobId === job.id
+          const tone = statusColor(job, palette)
+          const { label } = statusStyleFor(job)
+          return (
+            <Marker
+              key={`pin-${job.id}`}
+              longitude={job.location!.lng}
+              latitude={job.location!.lat}
+              anchor="bottom"
+              style={{ zIndex: isSelected ? 20 : 1 }}
+            >
+              <button
+                type="button"
+                data-testid={`map-pin-${job.id}`}
+                data-status={job.status}
+                aria-label={`${label}: ${job.title}, ${job.address}`}
+                title={`${job.title} — ${label}`}
+                className={cn("jb-pin", isSelected && "is-selected")}
+                onMouseEnter={() => setHoveredJobId(job.id)}
+                onMouseLeave={() => setHoveredJobId(null)}
+                onFocus={() => setHoveredJobId(job.id)}
+                onClick={event => {
+                  event.stopPropagation()
+                  onSelectJob(job.id)
+                  window.dispatchEvent(new CustomEvent("hq-map-focus-job", { detail: job.id }))
+                }}
+              >
+                <svg width="26" height="34" viewBox="0 0 24 32" aria-hidden="true">
+                  <path
+                    d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.373 18.627 0 12 0z"
+                    fill={tone}
+                    stroke="var(--chassis-void)"
+                    strokeWidth="1.5"
+                  />
+                  <circle cx="12" cy="12" r="4.5" fill="var(--chassis-void)" />
+                </svg>
+              </button>
+            </Marker>
+          )
+        })}
 
       {/* Vehicle markers: live shift-gated telemetry (field app streams only
-          while clocked on, pauses on breaks, stops on log-off) with the
-          last-known clock-in fix as the fallback before the first ping.
-          Ringed dot + van label + a heading arrow rotated by the streamed
-          bearing; parked/fallback vans point north. An on-site van (within
-          its job's geofence, display-only) carries a soft halo. */}
       <Source id="vehicles" type="geojson" data={vehicleMarks}>
         <Layer
           id="vehicle-onsite-halo"
