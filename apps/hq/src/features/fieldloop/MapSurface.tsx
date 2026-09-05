@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { MapPin, Navigation } from "lucide-react"
+import { MapPin, Navigation, PanelLeftOpen, PanelRightOpen } from "lucide-react"
 
 import { MapErrorBoundary } from "@/features/map/MapErrorBoundary"
 import { DAY_START_MINUTES, blockLabel, formatDate } from "@/lib/format"
@@ -80,6 +80,10 @@ export function MapSurface({
   const technicians = useBoardStore(s => s.technicians)
   const liveLocations = useBoardStore(s => s.liveLocations)
   const [techId, setTechId] = useState("")
+  // Both side panels are collapsible: the map is the primary stage of this
+  // surface, and a dispatcher chasing a pin should not fight the chrome.
+  const [crewOpen, setCrewOpen] = useState(true)
+  const [inspectorOpen, setInspectorOpen] = useState(true)
 
   const technician = useMemo(
     () => technicians.find(item => item.id === techId),
@@ -148,12 +152,26 @@ export function MapSurface({
 
   return (
     <>
-      <CrewTree
-        day={day}
-        selectedTechId={techId}
-        onSelectTech={setTechId}
-        onSelectJob={selectJob}
-      />
+      {crewOpen ? (
+        <CrewTree
+          day={day}
+          selectedTechId={techId}
+          onSelectTech={setTechId}
+          onSelectJob={selectJob}
+          onCollapse={() => setCrewOpen(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          className="fl-rail-tab"
+          aria-expanded={false}
+          aria-label="Expand crew panel"
+          onClick={() => setCrewOpen(true)}
+        >
+          <PanelLeftOpen size={14} />
+          <span>Crew</span>
+        </button>
+      )}
       <div
         className="fl-map"
         role="region"
@@ -185,8 +203,14 @@ export function MapSurface({
           />
         </MapErrorBoundary>
       </div>
-      <Inspector job={selectedJob} onClear={() => onSelectJob("")} title="Route plan">
-        {!technician && <div className="fl-muted">Pick a crew member to order their stops.</div>}
+      {inspectorOpen ? (
+        <Inspector
+          job={selectedJob}
+          onClear={() => onSelectJob("")}
+          title="Route plan"
+          onCollapse={() => setInspectorOpen(false)}
+        >
+          {!technician && <div className="fl-muted">Pick a crew member to order their stops.</div>}
         {technician && (
           <>
             <p>
@@ -243,7 +267,19 @@ export function MapSurface({
             </p>
           </>
         )}
-      </Inspector>
+        </Inspector>
+      ) : (
+        <button
+          type="button"
+          className="fl-rail-tab right"
+          aria-expanded={false}
+          aria-label="Expand route plan panel"
+          onClick={() => setInspectorOpen(true)}
+        >
+          <PanelRightOpen size={14} />
+          <span>Route plan</span>
+        </button>
+      )}
     </>
   )
 }

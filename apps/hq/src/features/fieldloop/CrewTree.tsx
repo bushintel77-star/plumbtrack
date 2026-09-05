@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Search } from "lucide-react"
+import { PanelLeftClose, Search } from "lucide-react"
 
 import { blockLabel } from "@/lib/format"
 import { arrivedJobFor, dispatchStatus, jobsOnDay, livePresenceFor } from "@/lib/fieldloop"
@@ -31,12 +31,15 @@ export function CrewTree({
   day,
   selectedTechId,
   onSelectTech,
-  onSelectJob
+  onSelectJob,
+  onCollapse
 }: {
   day: string
   selectedTechId: string
   onSelectTech: (techId: string) => void
   onSelectJob: (job: Job) => void
+  /** Offered only where the surface wants a collapsible panel (map). */
+  onCollapse?: () => void
 }) {
   const technicians = useBoardStore(s => s.technicians)
   const liveLocations = useBoardStore(s => s.liveLocations)
@@ -66,9 +69,21 @@ export function CrewTree({
       </label>
       <div className="fl-kicker">
         Crew
-        <button type="button" onClick={() => onSelectTech("")}>
-          Show all
-        </button>
+        <span className="fl-kicker-actions">
+          <button type="button" onClick={() => onSelectTech("")}>
+            Show all
+          </button>
+          {onCollapse && (
+            <button
+              type="button"
+              className="fl-collapse-btn"
+              aria-label="Collapse crew panel"
+              onClick={onCollapse}
+            >
+              <PanelLeftClose size={13} />
+            </button>
+          )}
+        </span>
       </div>
       {visible.map(tech => {
         const row = today.filter(job => job.techId === tech.id)

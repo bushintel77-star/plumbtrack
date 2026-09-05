@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { AlertTriangle, ChevronLeft, Clock3, MapPin, Phone, RotateCw, X } from "lucide-react"
+import { AlertTriangle, ChevronLeft, Clock3, MapPin, PanelRightClose, Phone, RotateCw, X } from "lucide-react"
 
 import { performAssignment } from "@/features/board/actions"
 import { TOTAL_BLOCKS, blockLabel } from "@/lib/format"
@@ -24,6 +24,7 @@ export function Inspector({
   onClear,
   onAssign,
   title,
+  onCollapse,
   children
 }: {
   job?: Job
@@ -32,6 +33,8 @@ export function Inspector({
   onAssign?: (jobId: string, techId: string, startBlock: number) => Promise<boolean>
   /** Heading for the proactive pane shown when nothing is selected. */
   title: string
+  /** Offered only where the surface wants a collapsible panel (map). */
+  onCollapse?: () => void
   children?: ReactNode
 }) {
   const technicians = useBoardStore(s => s.technicians)
@@ -39,7 +42,19 @@ export function Inspector({
   if (!job) {
     return (
       <aside className="fl-panel fl-inspector" aria-label={title}>
-        <div className="fl-kicker">{title}</div>
+        <div className="fl-kicker">
+          {title}
+          {onCollapse && (
+            <button
+              type="button"
+              className="fl-collapse-btn"
+              aria-label={`Collapse ${title.toLowerCase()} panel`}
+              onClick={onCollapse}
+            >
+              <PanelRightClose size={13} />
+            </button>
+          )}
+        </div>
         {children}
       </aside>
     )
@@ -48,10 +63,22 @@ export function Inspector({
   const tech = technicians.find(item => item.id === job.techId)
   return (
     <aside className="fl-panel fl-inspector" aria-label={job.title}>
-      <button type="button" className="fl-back" onClick={onClear}>
-        <ChevronLeft size={12} />
-        {title}
-      </button>
+      <div className="fl-inspector-head">
+        <button type="button" className="fl-back" onClick={onClear}>
+          <ChevronLeft size={12} />
+          {title}
+        </button>
+        {onCollapse && (
+          <button
+            type="button"
+            className="fl-collapse-btn"
+            aria-label={`Collapse ${title.toLowerCase()} panel`}
+            onClick={onCollapse}
+          >
+            <PanelRightClose size={13} />
+          </button>
+        )}
+      </div>
       <StatusChip status={dispatchStatus(job)} />
       <h2>{job.title}</h2>
       <p>

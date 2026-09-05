@@ -565,14 +565,26 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
             "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.18, 0]
           }}
         />
+        {/* Hard light casing under the emphasized stroke: cartography's way of
+            making a route pop off pale tiles at any line hue. */}
+        <Layer
+          id="route-casing-light"
+          type="line"
+          filter={["==", ["get", "emphasized"], true]}
+          paint={{
+            "line-color": palette.highlightStroke,
+            "line-width": 6.5,
+            "line-opacity": 0.9
+          }}
+        />
         <Layer
           id="route-lines-road"
           type="line"
           filter={["==", ["get", "geometrySource"], "road"]}
           paint={{
             "line-color": ["get", "color"],
-            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 3, 1.5],
-            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.9, 0.2]
+            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 4, 2],
+            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.95, 0.3]
           }}
         />
         <Layer
@@ -581,8 +593,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           filter={["!=", ["get", "geometrySource"], "road"]}
           paint={{
             "line-color": ["get", "color"],
-            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 3, 1.5],
-            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.9, 0.2],
+            "line-width": ["case", ["boolean", ["get", "emphasized"], false], 4, 2],
+            "line-opacity": ["case", ["boolean", ["get", "emphasized"], false], 0.95, 0.3],
             "line-dasharray": [2, 1.5]
           }}
         />
@@ -653,10 +665,10 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
                   <path
                     d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.373 18.627 0 12 0z"
                     fill={tone}
-                    stroke="var(--chassis-void)"
-                    strokeWidth="1.5"
+                    stroke="var(--map-pin-edge)"
+                    strokeWidth="2"
                   />
-                  <circle cx="12" cy="12" r="4.5" fill="var(--chassis-void)" />
+                  <circle cx="12" cy="12" r="4.5" fill="var(--map-pin-edge)" />
                 </svg>
               </button>
             </Marker>
