@@ -68,11 +68,26 @@ export interface ApiStaffMember {
   skills: string[]
 }
 
+/** Mirror of the API's AttentionFlag (§4.6) — computed server-side, served on
+ *  the board payload and GET /api/board/needs-attention. Clients render these;
+ *  they never recompute their own versions. */
+export interface ApiAttentionFlag {
+  id: string
+  reason: "overdue" | "travel_buffer" | "unassigned"
+  severity: "red" | "amber" | "blue"
+  jobIds: string[]
+  title: string
+  detail: string
+  computedAt: string
+}
+
 export interface ApiBoardPayload {
   jobs: ApiJob[]
   quotes: ApiQuote[]
   /** Org roster; absent on older/demo servers (the store keeps its seed). */
   staff?: ApiStaffMember[]
+  /** Server-computed needs-attention flags; absent on older servers. */
+  needsAttention?: ApiAttentionFlag[]
 }
 
 const STATUS_MAP: Record<ApiJob["status"], JobStatus> = {

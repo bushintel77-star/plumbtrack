@@ -13,6 +13,11 @@ export interface DeliveryPayload {
   channel?: string;
   notificationId?: string;
   blocks?: unknown[];
+  /** The org this delivery belongs to — selects the connected SlackWorkspace
+   *  (bot token + channel routes) at delivery time. Absent on legacy rows. */
+  orgId?: string;
+  /** Domain event key — selects the org's SlackChannelRoute for the event. */
+  eventType?: string;
 }
 
 export interface ProviderDeliveryResult {

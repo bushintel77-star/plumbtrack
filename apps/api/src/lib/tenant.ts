@@ -81,6 +81,14 @@ export const tenantPlugin = fp(
         return;
       }
 
+      // The Slack OAuth redirect: Slack's servers land the installer's browser
+      // here with ?code=…&state=… — no tenant session can exist yet. The
+      // callback validates the signed state (timing-safe) and exchanges the
+      // code itself; it never touches tenant data before that.
+      if (request.method === "GET" && (url === "/api/slack/oauth/callback" || url === "/api/slack/oauth/redirect")) {
+        return;
+      }
+
       const bearer = getBearerToken(request) ?? request.cookies?.[SESSION_COOKIE] ?? null;
       if (bearer) {
         const claims = verifyAuthToken(bearer);

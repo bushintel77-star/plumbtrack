@@ -93,3 +93,60 @@ export async function relayToSlack(text: string, appChannel?: string, blocks?: u
     };
   }
 }
+
+/**
+ * Org-aware Slack delivery (design §4.6). When the org has a connected
+ * SlackWorkspace, the automation posts via chat.postMessage with the stored
+ * bot token into the SlackChannelRoute channel for that event (falling back
+ * to the payload channel, then the workspace default). Orgs without a
+ * connected workspace keep the legacy single-webhook relay, so existing
+ * deployments behave exactly as before.
+ *
+ * Best-effort by contract: never throws — callers persist delivery state
+ * from the returned result.
+ */
+export async function relayToSlackForOrg(
+  orgId: string,
+  input: { text: string; channel?: string; blocks?: unknown[]; eventType?: string }
+): Promise<SlackRelayResult & { providerMessageId?: string }> {
+  let workspace: { id: string; accessToken: string } | null = null;
+  try {
+    const { prisma } = await import("@plumbtrack/database");
+    workspace = await prisma.slackWorkspace.findFirst({
+      where: { orgId },
+      select: { id: true, accessToken: true },
+    });
+  } catch {
+    workspace = null; // Table not migrated yet — legacy webhook path.
+  }
+
+  if (workspace) {
+    let channel = input.channel;
+    if (input.eventType) {
+      try {
+        const { prisma } = await import("@plumbtrack/database");
+        const route = await prisma.slackChannelRoute.findUnique({
+          where: { workspaceId_eventType: { workspaceId: workspace.id, eventType: input.eventType } },
+          select: { channelId: true },
+        });
+        if (route?.channelId) channel = route.channelId;
+      } catch {
+        // Routing lookup failed — deliver on the payload channel.
+      }
+    }
+    const { slackPostMessage } = await import("./slackApi");
+    const result = await slackPostMessage(workspace.accessToken, {
+      channel: channel ?? "",
+      text: input.text,
+      ...(input.blocks?.length ? { blocks: input.blocks } : {}),
+    });
+    if (result.ok) {
+      return { delivered: true, providerMessageId: result.data?.ts };
+    }
+    // A connected workspace whose delivery fails is a retryable provider
+    // error, not a silent webhook fallback — the worker's backoff owns it.
+    return { delivered: false, error: result.error ?? "chat.postMessage failed" };
+  }
+
+  return relayToSlack(input.text, input.channel, input.blocks);
+}

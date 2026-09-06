@@ -24,13 +24,28 @@ export interface NotificationCreatedEvent {
   text: string;
 }
 
-export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent;
+/** Emitted when a job is created with no assignable technician — the exact
+ *  signal behind the `job.created_unassigned` automation route (§4.6). */
+export interface JobCreatedUnassignedEvent {
+  type: "job.created_unassigned";
+  eventId: string;
+  occurredAt: string;
+  organizationId: string;
+  jobId: string;
+  client: string;
+  address: string;
+  scope: string;
+}
+
+export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent | JobCreatedUnassignedEvent;
 
 export function isDomainEvent(value: unknown): value is DomainEvent {
   if (!value || typeof value !== "object") return false;
   const event = value as Partial<DomainEvent>;
   return (
-    (event.type === "job.completed" || event.type === "notification.created") &&
+    (event.type === "job.completed" ||
+      event.type === "notification.created" ||
+      event.type === "job.created_unassigned") &&
     typeof event.eventId === "string" &&
     typeof event.organizationId === "string" &&
     typeof event.occurredAt === "string"

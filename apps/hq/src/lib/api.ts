@@ -164,6 +164,67 @@ export const authApi = {
     })
 }
 
+// ── Slack integration (design §4.6) ─────────────────────────────────────────
+// The workspace access token NEVER appears in any response here — it lives in
+// the API's SlackWorkspace table. The messages surfaced through `messages`
+// are Slack's own, read through Slack's API; FieldLoop has no Message entity.
+
+export interface SlackRouteBinding {
+  eventType: string
+  channelId: string
+}
+
+export interface SlackWorkspaceStatus {
+  connected: boolean
+  teamId?: string
+  teamName?: string | null
+  connectedAt?: string
+  botUserId?: string | null
+  oauthConfigured: boolean
+  routes?: SlackRouteBinding[]
+}
+
+export interface SlackChannelSummary {
+  id: string
+  name: string
+  purpose?: string
+  is_private?: boolean
+}
+
+export interface SlackThreadMessage {
+  ts: string
+  text: string
+  fromBot: boolean
+  user?: string
+  username?: string
+}
+
+export const slackApi = {
+  workspace: () => apiRequest<SlackWorkspaceStatus>("/api/slack/workspace"),
+  /** Slack's authorize URL for the Connect button; 503 until the deployment
+   *  configures SLACK_CLIENT_ID/SLACK_CLIENT_SECRET — the honest disconnected
+   *  state the surface renders. */
+  oauthUrl: () => apiRequest<{ url: string }>("/api/slack/oauth/url"),
+  connect: (input: { teamId: string; accessToken: string; teamName?: string }) =>
+    apiRequest<{ connected: boolean; teamId: string }>("/api/slack/workspace", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
+  disconnect: () => apiRequest<void>("/api/slack/workspace", { method: "DELETE" }),
+  routes: () =>
+    apiRequest<{ eventTypes: string[]; routes: SlackRouteBinding[] }>("/api/slack/routes"),
+  setRoute: (eventType: string, channelId: string) =>
+    apiRequest<SlackRouteBinding>(`/api/slack/routes/${eventType}`, {
+      method: "PUT",
+      body: JSON.stringify({ channelId })
+    }),
+  disconnectRoute: (eventType: string) =>
+    apiRequest<void>(`/api/slack/routes/${eventType}`, { method: "DELETE" }),
+  channels: () => apiRequest<{ channels: SlackChannelSummary[] }>("/api/slack/channels"),
+  messages: (channelId: string) =>
+    apiRequest<{ messages: SlackThreadMessage[] }>(`/api/slack/channels/${channelId}/messages`)
+}
+
 export async function persistJobStatus(
   jobId: string,
   status: "scheduled" | "in_progress" | "completed"

@@ -14,7 +14,7 @@ import type {
   Technician
 } from "@/types"
 import { channels as seedChannels, jobs as seedJobs, technicians as seedTechs } from "@/data/seed"
-import type { ApiBoardPayload } from "@/lib/adapter"
+import type { ApiAttentionFlag, ApiBoardPayload } from "@/lib/adapter"
 import { adaptApiBoard, adaptStaffRoster } from "@/lib/adapter"
 import { TOTAL_BLOCKS } from "@/lib/format"
 import { jobDay } from "@/lib/schedule"
@@ -65,6 +65,9 @@ interface BoardState {
   /** Colourway — hardware chassis (dark) default, Soft White toggle. */
   theme: "light" | "dark"
   dataMode: DataMode
+  /** §4.6 Needs-Attention flags — computed server-side, mirrored verbatim
+   *  from the board payload. Never recomputed client-side. */
+  needsAttention: ApiAttentionFlag[]
   /** Deprecated compatibility fields; never populated by live tracking. */
   liveLocations: Record<string, LiveLocation>
   liveLocationHistory: Record<string, LiveLocation[]>
@@ -186,6 +189,7 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   detailsOpen: false,
   theme: "dark",
   dataMode: "connecting",
+  needsAttention: [],
   liveLocations: {},
   liveLocationHistory: {},
   simulateFailure: false,
@@ -255,6 +259,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       return {
         technicians,
         ...adaptApiBoard(payload, technicians),
+        // §4.6 flags are computed server-side on this same snapshot.
+        needsAttention: payload.needsAttention ?? [],
         dataMode: "live"
       }
     }),
@@ -262,6 +268,8 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   enterDemo: () =>
     set(s => ({
       dataMode: "demo",
+      // Demo data is seed data — no honest server flags exist for it.
+      needsAttention: [],
       // Keep whatever the dispatcher already arranged locally; the seed only
       // fills an empty board so a network blip never wipes in-progress work.
       jobs: Object.keys(s.jobs).length > 0 ? s.jobs : seedJobsById

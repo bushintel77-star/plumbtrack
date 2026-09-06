@@ -63,6 +63,7 @@ model Organization {
   documents          JobDocument[]
   rfis               Rfi[]
   jobMessages        JobMessage[]
+  slackWorkspaces    SlackWorkspace[]
 
   @@map("organizations")
 }
@@ -608,4 +609,48 @@ model Rfi {
   @@index([jobId, status])
   @@index([orgId, status])
   @@map("rfis")
+}
+
+/// Slack workspace integration (design §4.6). One connected workspace per org.
+/// The bot access token lives HERE and only ever crosses the API boundary —
+/// it is never returned to any client. There is no FieldLoop Message entity:
+/// the messages are Slack's, read through Slack's own API.
+model SlackWorkspace {
+  id          String   @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// Slack workspace id, e.g. T012345ABC — unique: one Slack team maps to
+  /// exactly one org, which is what inbound Events / slash commands resolve
+  /// against (no payload-controlled org selection).
+  teamId      String   @unique
+  teamName    String?
+  accessToken String
+  botUserId   String?
+  connectedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  channelRoutes SlackChannelRoute[]
+
+  @@index([orgId])
+  @@map("slack_workspaces")
+}
+
+/// Automation routing (design §4.6): which backend event posts to which
+/// Slack channel. Computed delivery reads this table per org — the mapping
+/// the HQ Automation Routing pane renders is this table, live.
+model SlackChannelRoute {
+  id          String @id @default(cuid())
+  workspaceId String
+  workspace   SlackWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Canonical event keys: job.completed · job.created_unassigned ·
+  /// job.status_urgent (the last stored ahead of the server-side urgency
+  /// signal existing — see the route surface copy).
+  eventType   String
+  channelId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([workspaceId, eventType])
+  @@map("slack_channel_routes")
 }

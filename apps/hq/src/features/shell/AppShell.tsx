@@ -11,6 +11,7 @@ import {
   FileText,
   LayoutDashboard,
   Map as MapIcon,
+  MessageSquare,
   Radio,
   Table2,
   Users,
@@ -46,7 +47,8 @@ const NAV: Array<{
     { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
     { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
     { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
-    { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" }
+    { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" },
+    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" }
   ]
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
@@ -65,7 +67,8 @@ const FIELDLOOP_MODULES: Partial<Record<AppModule, Surface>> = {
   // Accounting has no backend of its own; revenue, recorded cost and margin
   // live on Reports, which is the only honest destination for it today.
   accounting: "reports",
-  reports: "reports"
+  reports: "reports",
+  slack: "slack"
 }
 
 function PlaceholderModule({ id, milestone }: { id: AppModule; milestone: string }) {

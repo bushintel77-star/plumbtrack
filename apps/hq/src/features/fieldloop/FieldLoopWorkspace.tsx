@@ -29,9 +29,10 @@ import { DocumentsSurface } from "./DocumentsSurface"
 import { MapSurface } from "./MapSurface"
 import { Palette } from "./Palette"
 import { ReportsSurface } from "./ReportsSurface"
+import { SlackSurface } from "@/features/slack/SlackSurface"
 import { useFailedOps } from "./failedOps"
 
-const SURFACES = ["dispatch", "map", "documents", "crm", "reports"] as const
+const SURFACES = ["dispatch", "map", "documents", "crm", "reports", "slack"] as const
 export type Surface = (typeof SURFACES)[number]
 
 const SURFACE_META: Record<Surface, { label: string; icon: typeof Map }> = {
@@ -39,7 +40,8 @@ const SURFACE_META: Record<Surface, { label: string; icon: typeof Map }> = {
   map: { label: "Map", icon: Map },
   documents: { label: "Documents", icon: FileText },
   crm: { label: "Customers", icon: Users },
-  reports: { label: "Reports", icon: BarChart3 }
+  reports: { label: "Reports", icon: BarChart3 },
+  slack: { label: "Slack", icon: MessageSquare }
 }
 
 const ZOOMS = ["daily", "weekly", "monthly"] as const
@@ -231,6 +233,7 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
         {surface === "documents" && <DocumentsSurface />}
         {surface === "crm" && <CrmSurface />}
         {surface === "reports" && <ReportsSurface />}
+        {surface === "slack" && <SlackSurface />}
       </div>
 
       <Palette
