@@ -72,7 +72,7 @@ describe("adaptApiBoard — server-authoritative assignment", () => {
     expect(job.startBlock).toBe(0) // 08:00 → block 0
   })
 
-  it("keeps round-robin techs and pseudo slots when the job has no appointment", () => {
+  it("keeps unassigned status and pseudo slots when the job has no appointment or assignee", () => {
     const payload: ApiBoardPayload = {
       jobs: [apiJob(), apiJob({ id: "J-2", address: "2 Side St" })],
       quotes: []
@@ -80,11 +80,15 @@ describe("adaptApiBoard — server-authoritative assignment", () => {
 
     const { jobs } = adaptApiBoard(payload, techs)
 
-    expect(jobs["J-1"].techId).toBe("t-mike") // index 0 round-robin
-    expect(jobs["J-2"].techId).toBe("t-dana") // index 1 round-robin
+    // No invented round-robin assignee: an unassigned job IS unassigned, or
+    // the dispatcher's action queue reads permanently empty on live data.
+    expect(jobs["J-1"].techId).toBeNull()
+    expect(jobs["J-1"].status).toBe("unassigned")
+    expect(jobs["J-2"].techId).toBeNull()
+    expect(jobs["J-2"].status).toBe("unassigned")
   })
 
-  it("takes the appointment schedule but round-robins the tech when unassigned", () => {
+  it("takes the appointment schedule but reports unassigned when no tech resolves", () => {
     const payload: ApiBoardPayload = {
       jobs: [
         apiJob({
@@ -104,7 +108,8 @@ describe("adaptApiBoard — server-authoritative assignment", () => {
     const { jobs } = adaptApiBoard(payload, techs)
     const job = jobs["J-1"]
 
-    expect(job.techId).toBe("t-mike") // fallback round-robin
+    expect(job.techId).toBeNull()
+    expect(job.status).toBe("unassigned")
     expect(job.startBlock).toBe(6) // 11:00 → block 6
     expect(job.scheduledDate).toBe("2026-01-03")
   })

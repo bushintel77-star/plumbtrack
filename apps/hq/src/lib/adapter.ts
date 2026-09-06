@@ -138,9 +138,11 @@ function slotFromAppointment(
 }
 
 /** The server-authoritative assignee when it resolves to a known board
- *  technician (id match first, then name); round-robin keeps unassigned or
- *  unknown-staff jobs legible on the matrix. */
-function techForJob(apiJob: ApiJob, technicians: Technician[], index: number): Technician | undefined {
+ *  technician (id match first, then name). `undefined` when the server has
+ *  no assignee — inventing one via round-robin hid the dispatcher's actual
+ *  action queue and fabricated same-row overlaps the assignment validator
+ *  itself would reject. */
+function techForJob(apiJob: ApiJob, technicians: Technician[]): Technician | undefined {
   const appointment = apiJob.appointment
   if (appointment?.assignedStaffId) {
     const byId = technicians.find(tech => tech.id === appointment.assignedStaffId)
@@ -151,7 +153,7 @@ function techForJob(apiJob: ApiJob, technicians: Technician[], index: number): T
     const byName = technicians.find(tech => tech.name.toLowerCase() === name)
     if (byName) return byName
   }
-  return technicians.length > 0 ? technicians[index % technicians.length] : undefined
+  return undefined
 }
 
 /** Map API entities onto board view models. The server-authoritative assignee
@@ -164,10 +166,11 @@ export function adaptApiBoard(
   payload: ApiBoardPayload,
   technicians: Technician[]
 ): { jobs: Record<string, Job> } {  const jobs: Job[] = payload.jobs.map((apiJob, index) => {
-    const tech = techForJob(apiJob, technicians, index)
+    const tech = techForJob(apiJob, technicians)
     const slot = slotFromAppointment(apiJob.appointment) ?? { ...slotForIndex(index), scheduledDate: isoDay(0) }
     const apiQuote = payload.quotes.find(q => q.client === apiJob.client)
     const running = hasOpenEntry(apiJob.timeEntries)
+    const mappedStatus = STATUS_MAP[apiJob.status]
     const quote: Quote = apiQuote
       ? {
         clientName: apiQuote.client,
@@ -193,7 +196,10 @@ export function adaptApiBoard(
       startBlock: slot.startBlock,
       spanBlocks: slot.spanBlocks,
       scheduledDate: slot.scheduledDate,
-      status: STATUS_MAP[apiJob.status],
+      // A job with no resolvable assignee IS unassigned — the server's own
+      // status is secondary to that fact (completed stays completed so a
+      // deleted staff record can't resurrect finished work into the queue).
+      status: tech ? mappedStatus : mappedStatus === "complete" ? "complete" : "unassigned",
       elapsedSeconds: Math.floor(elapsedFromEntries(apiJob.timeEntries)),
       timerRunning: running,
       clockOnCount: apiJob.timeEntries.length,

@@ -183,7 +183,13 @@ export async function persistJobStatus(
       body: JSON.stringify({ status })
     })
     if (!response.ok) {
-      throw new NetworkError(`Persist failed (${response.status}) for ${jobId}`)
+      // 5xx/429/abort are transient (NetworkError → the offline drain retries);
+      // 4xx is a permanent rejection (HttpError → the drain drops the op
+      // instead of re-attempting it on every online event forever).
+      if (response.status >= 500 || response.status === 429) {
+        throw new NetworkError(`Persist failed (${response.status}) for ${jobId}`)
+      }
+      throw new HttpError(response.status, `Persist failed (${response.status}) for ${jobId}`)
     }
   } finally {
     clearTimeout(timeout)

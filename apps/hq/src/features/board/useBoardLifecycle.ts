@@ -39,7 +39,10 @@ export function useBoardLifecycle(): void {
       window.dispatchEvent(new CustomEvent("plumbtrack:session-expired"))
       return
     }
-    if (boardQuery.data && boardQuery.data.jobs.length > 0) {
+    // Hydrate on any successful poll — a live org with zero jobs today is a
+    // legitimate snapshot, and gating on jobs.length > 0 stranded the console
+    // in "Connecting" forever (never hydrated, never demo, badge stuck).
+    if (boardQuery.data) {
       hydrateFromApi(boardQuery.data)
       void cacheJobs(Object.values(useBoardStore.getState().jobs))
     } else if (boardQuery.isError && dataMode === "connecting") {

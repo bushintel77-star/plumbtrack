@@ -1,6 +1,7 @@
 "use client"
 
 import { openDB, type IDBPDatabase } from "idb"
+import { HttpError } from "./api"
 import type { Job } from "@/types"
 
 /**
@@ -110,7 +111,14 @@ export async function drainSyncQueue(
         await persist(op)
         if (op.id !== undefined) await database.delete("sync-queue", op.id)
         drained++
-      } catch {
+      } catch (error) {
+        // A permanent rejection (401/403/404/422…) can never succeed — retrying
+        // it on every online event would poison the queue behind it. Drop the
+        // op; transient failures (network, 5xx, 429) keep it for next drain.
+        if (error instanceof HttpError && error.status >= 400 && error.status < 500 && error.status !== 429) {
+          if (op.id !== undefined) await database.delete("sync-queue", op.id)
+          continue
+        }
         break // Still offline / server unhappy — retry on next drain.
       }
     }
@@ -130,10 +138,14 @@ export function registerSyncDrain(
       if (count > 0) onDrained?.(count)
     })
   }
-  window.addEventListener("online", drain)
-  navigator.serviceWorker?.addEventListener("message", (event: MessageEvent) => {
+  const onSwMessage = (event: MessageEvent): void => {
     if ((event as MessageEvent<{ type?: string }>).data?.type === "drain-sync") drain()
-  })
+  }
+  window.addEventListener("online", drain)
+  navigator.serviceWorker?.addEventListener("message", onSwMessage)
   drain()
-  return () => window.removeEventListener("online", drain)
+  return () => {
+    window.removeEventListener("online", drain)
+    navigator.serviceWorker?.removeEventListener("message", onSwMessage)
+  }
 }
