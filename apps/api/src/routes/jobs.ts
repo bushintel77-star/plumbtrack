@@ -180,6 +180,21 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       : ["manager", "admin", "owner"];
     const roleFailure = requireRole(request, reply, allowedRoles);
     if (roleFailure) return roleFailure;
+    // Cross-tenant linkage guard: a patch may not point this job at another
+    // org's customer/property (create validates ownership; patch must too,
+    // or a manager could graft foreign records onto their job).
+    if (parsed.data.customerId !== undefined || parsed.data.propertyId !== undefined) {
+      const exists = await prisma.job.findFirst({ where: { id, orgId }, select: { id: true } });
+      if (!exists) return reply.code(404).send({ message: "Job not found" });
+      if (parsed.data.customerId) {
+        const customer = await prisma.customer.findFirst({ where: { id: parsed.data.customerId, orgId }, select: { id: true } });
+        if (!customer) return reply.code(404).send({ message: "Customer not found" });
+      }
+      if (parsed.data.propertyId) {
+        const property = await prisma.property.findFirst({ where: { id: parsed.data.propertyId, orgId }, select: { id: true } });
+        if (!property) return reply.code(404).send({ message: "Property not found" });
+      }
+    }
     const updatedJob = await prisma.$transaction(async (tx) => {
       let shouldEmitCompleted = false;
       if (parsed.data.status === "completed") {

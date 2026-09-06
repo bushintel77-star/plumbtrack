@@ -32,8 +32,11 @@ import { readComputedTokens, personColor, resolvePalette, statusColor, type MapP
 
 /** Per-colourway basemap candidates, tried in order. If a style outright
  *  fails to load (fatal), the map advances to the next source instead of
- *  blanking on a single provider. All are keyless; long-term this list can
- *  lead with a self-hosted Protomaps PMTiles style — set
+ *  blanking on a single provider. Light leads with OSM Liberty — a
+ *  full-colour style (blue water, green parks, warm roads) — because the
+ *  grayscale positron bed read as washed-out behind the white dispatch
+ *  chrome; the pale styles remain as fallbacks. All are keyless; long-term
+ *  this list can lead with a self-hosted Protomaps PMTiles style — set
  *  NEXT_PUBLIC_MAP_STYLE_URL to a style.json URL (e.g. a PMTiles style
  *  served from your own origin) and it is tried first for both themes. */
 const SELF_HOSTED_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL?.trim()
@@ -45,6 +48,7 @@ const MAP_STYLE_CANDIDATES = {
   ],
   light: [
     ...(SELF_HOSTED_STYLE ? [SELF_HOSTED_STYLE] : []),
+    "https://tiles.openfreemap.org/styles/liberty",
     "https://tiles.openfreemap.org/styles/positron",
     "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
   ]

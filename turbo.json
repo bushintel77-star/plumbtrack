@@ -1,7 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["DATABASE_URL"],
+  "globalEnv": [
+    "DATABASE_URL",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_ORG_ID",
+    "NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN",
+    "NEXT_PUBLIC_HQ_API_URL",
+    "NEXT_PUBLIC_HQ_DEV_ORG_ID",
+    "NEXT_PUBLIC_MAP_STYLE_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

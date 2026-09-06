@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Stacked pushes to the same PR supersede older runs — no serial 20-minute
+# queues behind builds whose result nobody will read.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DATABASE_URL: postgresql://plumbtrack:plumbtrack@localhost:5432/plumbtrack
 
@@ -91,6 +97,11 @@ jobs:
         run: pnpm db:generate
 
       - name: Install Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Playwright browsers (miss only)
         run: pnpm --filter @plumbtrack/web exec playwright install --with-deps chromium
 
       # dashboard-graphs and job-view-billable still assert seed-era UI

@@ -38,6 +38,23 @@ function verificationToken(): string | null {
   return token || null;
 }
 
+/**
+ * Optional tenant pin. One Slack workspace controls this endpoint, so without
+ * scoping any job id — any org's — can be mutated. When SLACK_ORG_ID is set,
+ * every job write below is scoped to that org; when SLACK_TEAM_ID is also
+ * set, payloads from any other workspace are rejected outright. Unset keeps
+ * the legacy single-org behaviour so existing deployments keep working.
+ */
+function slackOrgScope(): string | null {
+  return process.env.SLACK_ORG_ID?.trim() || null;
+}
+
+function teamAllowed(teamId: unknown): boolean {
+  const expected = process.env.SLACK_TEAM_ID?.trim();
+  if (!expected) return true;
+  return teamId === expected;
+}
+
 function tokenMatches(candidate: unknown): boolean {
   const expected = verificationToken();
   if (!expected || typeof candidate !== "string") return false;
@@ -70,6 +87,7 @@ interface SlackAction {
 interface SlackInteractivityPayload {
   token?: string;
   response_url?: string;
+  team?: { id?: string };
   user?: { username?: string; name?: string };
   actions?: SlackAction[];
 }
@@ -98,6 +116,13 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
 
     const body = request.body as Record<string, unknown>;
 
+    // Tenant pin (see slackOrgScope): reject workspaces this deployment does
+    // not bind, and scope every job write below to the bound org.
+    const orgScope = slackOrgScope();
+    if (!teamAllowed(body.team_id)) {
+      return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
+    }
+
     // Events API handshake: Slack verifies the endpoint by challenge echo.
     if (body?.type === "url_verification" && typeof body.challenge === "string") {
       if (!tokenMatches(body.token)) return reply.code(401).send({ error: "invalid token" });
@@ -114,13 +139,14 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "malformed payload" });
       }
       if (!tokenMatches(payload.token)) return reply.code(401).send({ error: "invalid token" });
+      if (!teamAllowed(payload.team?.id)) return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
 
       const action = payload.actions?.[0];
       if (action?.action_id?.startsWith(ACTION_ACCEPT_PREFIX)) {
         const jobId = action.action_id.slice(ACTION_ACCEPT_PREFIX.length);
         const claimedBy = payload.user?.name ?? payload.user?.username ?? "slack";
         const updated = await prisma.job.updateMany({
-          where: { id: jobId, status: "scheduled" },
+          where: { id: jobId, status: "scheduled", ...(orgScope ? { orgId: orgScope } : {}) },
           data: { status: "in_progress" },
         });
         if (updated.count === 0) {
@@ -161,7 +187,10 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
         if (!status) {
           return ephemeral(`Unknown status “${statusWord}”. Try scheduled, in_progress or completed.`);
         }
-        const updated = await prisma.job.updateMany({ where: { id: jobId }, data: { status } });
+        const updated = await prisma.job.updateMany({
+          where: { id: jobId, ...(orgScope ? { orgId: orgScope } : {}) },
+          data: { status },
+        });
         if (updated.count === 0) {
           return ephemeral(`No job found with id “${jobId}”.`);
         }
