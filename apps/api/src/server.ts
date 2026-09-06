@@ -17,6 +17,7 @@ import { mediaRoutes } from "./routes/media";
 import { appointmentRoutes, customerRoutes } from "./routes/residential";
 import { integrationRoutes } from "./routes/integrations";
 import { slackEventRoutes } from "./routes/slackEvents";
+import { slackRoutes } from "./routes/slack";
 import { streamRoutes } from "./routes/stream";
 import { syncRoutes } from "./routes/sync";
 import { routeRoutes } from "./routes/routes";
@@ -121,6 +122,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(appointmentRoutes, { prefix: "/api/appointments" });
   await app.register(integrationRoutes, { prefix: "/api/integrations" });
   await app.register(slackEventRoutes, { prefix: "/api/slack" });
+  await app.register(slackRoutes, { prefix: "/api/slack" });
   await app.register(streamRoutes);
   await app.register(syncRoutes);
   await app.register(routeRoutes, { prefix: "/api/routes" });

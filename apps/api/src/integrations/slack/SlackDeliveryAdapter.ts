@@ -1,5 +1,5 @@
 import type { DeliveryPayload } from "../../lib/integrationWorker";
-import { relayToSlack } from "../../lib/slack";
+import { relayToSlackForOrg } from "../../lib/slack";
 import type { ProviderDeliveryAdapter, ProviderDeliveryResult } from "../DeliveryRouter";
 
 export class SlackDeliveryAdapter implements ProviderDeliveryAdapter {
@@ -7,8 +7,16 @@ export class SlackDeliveryAdapter implements ProviderDeliveryAdapter {
 
   async deliver(payload: DeliveryPayload): Promise<ProviderDeliveryResult> {
     try {
-      const result = await relayToSlack(payload.text, payload.channel, payload.blocks);
-      if (result.delivered) return { delivered: true, retryable: false };
+      // Org-aware relay (§4.6): a connected SlackWorkspace posts with its own
+      // bot token into its routed channel; orgs without one keep the legacy
+      // webhook relay. The token itself never leaves the API process.
+      const result = await relayToSlackForOrg(payload.orgId ?? "", {
+        text: payload.text,
+        channel: payload.channel,
+        blocks: payload.blocks,
+        eventType: payload.eventType,
+      });
+      if (result.delivered) return { delivered: true, retryable: false, providerMessageId: result.providerMessageId };
       const error = result.error ?? "Slack delivery failed";
       const statusMatch = error.match(/\((\d{3})\)/);
       const httpStatus = statusMatch ? Number(statusMatch[1]) : undefined;

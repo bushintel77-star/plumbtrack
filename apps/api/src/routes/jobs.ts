@@ -77,6 +77,30 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       entityId: job.id,
       metadata: { status: job.status },
     });
+    // A brand-new job has no appointment, therefore no technician — that is
+    // the §4.6 `job.created_unassigned` automation signal (Slack unassigned
+    // card). Best-effort: a failed enqueue must not fail the create.
+    try {
+      await prisma.domainEventOutbox.create({
+        data: {
+          eventId: `job.created_unassigned:${orgId}:${job.id}`,
+          organizationId: orgId,
+          type: "job.created_unassigned",
+          payload: JSON.parse(JSON.stringify({
+            type: "job.created_unassigned",
+            eventId: `job.created_unassigned:${orgId}:${job.id}`,
+            occurredAt: new Date().toISOString(),
+            organizationId: orgId,
+            jobId: job.id,
+            client: job.client,
+            address: job.address,
+            scope: job.scope,
+          })),
+        },
+      });
+    } catch {
+      // Domain-event outbox unavailable — the job itself is already persisted.
+    }
     publishToOrg({ topic: "topic/jobs/created", orgId, job: jobWithChecklist });
     return reply.code(201).send(jobWithChecklist);
   });

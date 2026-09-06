@@ -39,20 +39,27 @@ function verificationToken(): string | null {
 }
 
 /**
- * Optional tenant pin. One Slack workspace controls this endpoint, so without
- * scoping any job id — any org's — can be mutated. When SLACK_ORG_ID is set,
- * every job write below is scoped to that org; when SLACK_TEAM_ID is also
- * set, payloads from any other workspace are rejected outright. Unset keeps
- * the legacy single-org behaviour so existing deployments keep working.
+ * Resolve the org a Slack payload belongs to (§4.6): team_id → SlackWorkspace
+ * (one Slack team maps to exactly one org — the payload never picks the org).
+ * Falls back to the SLACK_ORG_ID/SLACK_TEAM_ID env pin for deployments that
+ * have not connected a workspace. Returns `false` for an explicitly-rejected
+ * foreign team, `null` when no mapping exists (legacy unscoped behaviour).
  */
-function slackOrgScope(): string | null {
-  return process.env.SLACK_ORG_ID?.trim() || null;
-}
-
-function teamAllowed(teamId: unknown): boolean {
-  const expected = process.env.SLACK_TEAM_ID?.trim();
-  if (!expected) return true;
-  return teamId === expected;
+async function resolveOrgForTeam(teamId: unknown): Promise<string | null | false> {
+  if (typeof teamId !== "string" || teamId === "") return null;
+  try {
+    const workspace = await prisma.slackWorkspace.findUnique({
+      where: { teamId },
+      select: { orgId: true },
+    });
+    if (workspace) return workspace.orgId;
+  } catch {
+    // Workspace table not migrated yet — env pin below still applies.
+  }
+  const expectedTeam = process.env.SLACK_TEAM_ID?.trim();
+  const envOrg = process.env.SLACK_ORG_ID?.trim();
+  if (envOrg) return expectedTeam ? (teamId === expectedTeam ? envOrg : false) : envOrg;
+  return null;
 }
 
 function tokenMatches(candidate: unknown): boolean {
@@ -116,12 +123,13 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
 
     const body = request.body as Record<string, unknown>;
 
-    // Tenant pin (see slackOrgScope): reject workspaces this deployment does
-    // not bind, and scope every job write below to the bound org.
-    const orgScope = slackOrgScope();
-    if (!teamAllowed(body.team_id)) {
+    // Tenant resolution (see resolveOrgForTeam): the payload's team maps to
+    // exactly one org; foreign teams are rejected before any data is touched.
+    const bodyOrgScope = await resolveOrgForTeam(body.team_id);
+    if (bodyOrgScope === false) {
       return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
     }
+    const orgScope = bodyOrgScope;
 
     // Events API handshake: Slack verifies the endpoint by challenge echo.
     if (body?.type === "url_verification" && typeof body.challenge === "string") {
@@ -139,14 +147,16 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "malformed payload" });
       }
       if (!tokenMatches(payload.token)) return reply.code(401).send({ error: "invalid token" });
-      if (!teamAllowed(payload.team?.id)) return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
+      const payloadOrgScope = await resolveOrgForTeam(payload.team?.id);
+      if (payloadOrgScope === false) return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
+      const interactivityOrgScope = payloadOrgScope ?? orgScope;
 
       const action = payload.actions?.[0];
       if (action?.action_id?.startsWith(ACTION_ACCEPT_PREFIX)) {
         const jobId = action.action_id.slice(ACTION_ACCEPT_PREFIX.length);
         const claimedBy = payload.user?.name ?? payload.user?.username ?? "slack";
         const updated = await prisma.job.updateMany({
-          where: { id: jobId, status: "scheduled", ...(orgScope ? { orgId: orgScope } : {}) },
+          where: { id: jobId, status: "scheduled", ...(interactivityOrgScope ? { orgId: interactivityOrgScope } : {}) },
           data: { status: "in_progress" },
         });
         if (updated.count === 0) {

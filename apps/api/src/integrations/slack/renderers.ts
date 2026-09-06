@@ -1,4 +1,4 @@
-import type { JobCompletedEvent, NotificationCreatedEvent } from "../../domain/events";
+import type { JobCompletedEvent, JobCreatedUnassignedEvent, NotificationCreatedEvent } from "../../domain/events";
 
 export interface SlackTextObject {
   type: "mrkdwn";
@@ -69,5 +69,32 @@ export function renderNotificationMessage(event: NotificationCreatedEvent): Slac
       type: "section",
       text: { type: "mrkdwn", text: `*${event.author}*\n${event.text}` },
     }],
+  };
+}
+
+/** ⚠️ Unassigned job card — the dispatcher action queue, surfaced where the
+ *  team already lives. Mirrors the HQ amber/blue unassigned treatment. */
+export function renderJobCreatedUnassignedMessage(event: JobCreatedUnassignedEvent): SlackRenderedMessage {
+  return {
+    text: `⚠️ Unassigned job — ${event.scope || "New job"} · ${event.client}, ${event.address}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `Unassigned job · ${event.jobId}`, emoji: true },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Customer*\n${event.client}` },
+          { type: "mrkdwn", text: `*Address*\n${event.address}` },
+          { type: "mrkdwn", text: `*Scope*\n${event.scope || "—"}` },
+        ],
+      },
+      { type: "divider" },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: "Assign from the HQ dispatch board — this job has no technician yet." }],
+      },
+    ],
   };
 }

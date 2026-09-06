@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
+import { computeNeedsAttention, type AttentionFlag } from "../lib/needsAttention";
 
 /**
  * Board view payload (gap G-1). Returns the jobs + quotes the HQ dispatch
@@ -129,6 +130,91 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           unitPrice: line.rate,
         })),
       })),
+      // Needs-Attention flags (§4.6) — computed here, server-side, from the
+      // same snapshot the board serves, so every surface sees identical flags.
+      needsAttention: computeNeedsAttention(
+        jobs.map((job) => {
+          const appointment = job.appointments[0];
+          return {
+            id: job.id,
+            client: job.client,
+            address: job.address,
+            scope: job.scope,
+            status: job.status,
+            lat: job.lat,
+            lng: job.lng,
+            appointment: appointment
+              ? {
+                  assignedStaffId: appointment.assignedStaffId,
+                  assignedStaffName: appointment.assignedStaffId
+                    ? staffNameById.get(appointment.assignedStaffId) ?? null
+                    : null,
+                  scheduledStart: appointment.scheduledStart.toISOString(),
+                  scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
+                }
+              : null,
+            timeEntries: job.timeEntries.map((entry) => ({
+              start: entry.start.toISOString(),
+              end: entry.end ? entry.end.toISOString() : null,
+            })),
+          };
+        })
+      ),
     };
+  });
+
+  // Dedicated flag feed for surfaces that do not pull the whole board (the
+  // mobile PWA polls this instead of forking its own flag rules client-side).
+  app.get("/needs-attention", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const jobs = await prisma.job.findMany({
+      where: { orgId },
+      include: {
+        timeEntries: true,
+        appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
+      },
+    });
+    const assignedStaffIds = Array.from(
+      new Set(
+        jobs
+          .flatMap(job => job.appointments.map(a => a.assignedStaffId))
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+    const staff =
+      assignedStaffIds.length > 0
+        ? await prisma.user.findMany({ where: { id: { in: assignedStaffIds } }, select: { id: true, name: true } })
+        : [];
+    const staffNameById = new Map(staff.map(user => [user.id, user.name]));
+    const flags: AttentionFlag[] = computeNeedsAttention(
+      jobs.map((job) => {
+        const appointment = job.appointments[0];
+        return {
+          id: job.id,
+          client: job.client,
+          address: job.address,
+          scope: job.scope,
+          status: job.status,
+          lat: job.lat,
+          lng: job.lng,
+          appointment: appointment
+            ? {
+                assignedStaffId: appointment.assignedStaffId,
+                assignedStaffName: appointment.assignedStaffId
+                  ? staffNameById.get(appointment.assignedStaffId) ?? null
+                  : null,
+                scheduledStart: appointment.scheduledStart.toISOString(),
+                scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
+              }
+            : null,
+          timeEntries: job.timeEntries.map((entry) => ({
+            start: entry.start.toISOString(),
+            end: entry.end ? entry.end.toISOString() : null,
+          })),
+        };
+      })
+    );
+    return { flags, computedAt: flags[0]?.computedAt ?? new Date().toISOString() };
   });
 }
