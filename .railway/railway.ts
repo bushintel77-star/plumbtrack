@@ -32,6 +32,9 @@ export default defineRailway(() => {
       // without it the API derives URLs from the request Host header (spoofable)
       // and refuses to complete photo uploads instead of storing untrusted URLs.
       PUBLIC_API_BASE_URL: "https://api-production-363e.up.railway.app",
+      // Where the Slack OAuth callback redirects the installer's browser back
+      // to (the HQ Slack surface reads ?slack_connect=connected|denied|failed).
+      HQ_APP_URL: "https://hq-production-7911.up.railway.app",
       // Production auth is on: the legacy x-organization-id owner fallback is
       // rejected. Sessions require the secrets below, which are set in the
       // Railway dashboard (never committed). Set AUTH_SECRET, HQ_BOOTSTRAP_TOKEN

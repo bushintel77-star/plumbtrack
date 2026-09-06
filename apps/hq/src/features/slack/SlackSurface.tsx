@@ -43,6 +43,11 @@ export function SlackSurface() {
   const [messages, setMessages] = useState<SlackThreadMessage[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Outcome of the OAuth round-trip, handed back by the API's callback
+   *  redirect. Denial and failure are first-class states here — not happy
+   *  path only (§9): a cancelled consent screen connects nothing, and the
+   *  surface says so plainly. */
+  const [connectOutcome, setConnectOutcome] = useState<"connected" | "denied" | "failed" | null>(null)
 
   const connected = status?.connected ?? false
 
@@ -57,6 +62,20 @@ export function SlackSurface() {
   }, [])
 
   useEffect(() => { void loadWorkspace() }, [loadWorkspace])
+
+  // Landing back from Slack's OAuth redirect: the API bounced the installer's
+  // browser here with ?slack_connect=connected|denied|failed. Read it, show
+  // the matching honest status, and strip it from the URL so a refresh or a
+  // shared link doesn't replay the message.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const outcome = params.get("slack_connect")
+    if (outcome !== "connected" && outcome !== "denied" && outcome !== "failed") return
+    setConnectOutcome(outcome)
+    params.delete("slack_connect")
+    const rest = params.toString()
+    window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`)
+  }, [])
 
   // Connected: pull the real channel list (conversations.list proxy).
   useEffect(() => {
@@ -212,7 +231,23 @@ export function SlackSurface() {
           <span className="label-mono text-2xs text-ink-low">
             {connected ? `SLACK · ${status?.teamName ?? status?.teamId ?? "WORKSPACE"}` : "SLACK INTEGRATION"}
           </span>
-          {error && <span className="ml-auto max-w-[60%] truncate text-[11px] text-pending" role="status">{error}</span>}
+          {connectOutcome && (
+            <p
+              data-testid={`slack-connect-${connectOutcome}`}
+              role="status"
+              className={cn(
+                "ml-auto max-w-[60%] truncate label-mono text-2xs",
+                connectOutcome === "connected" && "text-chrome-400",
+                connectOutcome === "denied" && "text-ink-low",
+                connectOutcome === "failed" && "text-pending"
+              )}
+            >
+              {connectOutcome === "connected" && "SLACK WORKSPACE CONNECTED — LIVE DATA BELOW"}
+              {connectOutcome === "denied" && "SLACK CONSENT DECLINED — NOTHING WAS CONNECTED"}
+              {connectOutcome === "failed" && "SLACK CONNECT FAILED — TRY AGAIN, OR PROVISION A TOKEN DIRECTLY"}
+            </p>
+          )}
+          {!connectOutcome && error && <span className="ml-auto max-w-[60%] truncate text-[11px] text-pending" role="status">{error}</span>}
         </div>
 
         {!connected && (

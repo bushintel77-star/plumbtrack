@@ -1,5 +1,5 @@
 import { timingSafeEqual, randomBytes } from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
@@ -69,6 +69,20 @@ async function workspaceForOrg(orgId: string) {
   });
 }
 
+/** Where the installer's browser lands after the OAuth round-trip: the HQ
+ *  Slack surface, with the outcome in the query string so the UI can state
+ *  exactly what happened — consent DENIED and API FAILURE are first-class
+ *  outcomes here, not silent no-ops (§9: the connect flow is not happy-path
+ *  only). */
+function hqAppBase(): string {
+  return process.env.HQ_APP_URL?.trim() || "https://hq-production-7911.up.railway.app";
+}
+
+function redirectToConnectResult(reply: FastifyReply, outcome: "connected" | "denied" | "failed"): FastifyReply {
+  // Fastify 5: redirect takes the URL only — the status code rides .code().
+  return reply.code(302).redirect(`${hqAppBase()}/?module=slack&slack_connect=${outcome}`);
+}
+
 export async function slackRoutes(app: FastifyInstance): Promise<void> {
   // ── Connection state (safe for any signed-in operator) ────────────────────
   app.get("/workspace", async (request, reply) => {
@@ -116,19 +130,23 @@ export async function slackRoutes(app: FastifyInstance): Promise<void> {
   app.get("/oauth/callback", async (request, reply) => {
     const orgId = getOrgId(request);
     const query = request.query as { code?: string; state?: string; error?: string };
+    // Slack redirects here with error=access_denied when the installer
+    // declines the consent screen — an expected outcome, handled by
+    // redirecting back with the honest "denied" state.
     if (query.error || !query.code || !query.state) {
-      return reply.code(400).send({ message: "Slack OAuth handshake failed or was cancelled" });
+      const denied = Boolean(query.error);
+      return redirectToConnectResult(reply, denied ? "denied" : "failed");
     }
-    if (!orgId) return sendMissingOrg(reply);
+    if (!orgId) return redirectToConnectResult(reply, "failed");
     const expectedState = request.cookies?.slack_oauth_state;
     if (!expectedState || !stateMatches(query.state, expectedState)) {
-      return reply.code(403).send({ message: "Slack OAuth state mismatch — restart the connect flow" });
+      return redirectToConnectResult(reply, "failed");
     }
     reply.clearCookie("slack_oauth_state", { path: "/" });
 
     const exchange = await exchangeSlackCode(query.code, oauthRedirectUri(request));
     if (!exchange.ok || !exchange.data?.access_token || !exchange.data.team?.id) {
-      return reply.code(502).send({ message: `Slack OAuth exchange failed: ${exchange.error ?? "unknown error"}` });
+      return redirectToConnectResult(reply, "failed");
     }
     const workspace = await prisma.slackWorkspace.upsert({
       where: { teamId: exchange.data.team.id },
@@ -147,7 +165,7 @@ export async function slackRoutes(app: FastifyInstance): Promise<void> {
       entityId: workspace.id,
       metadata: { teamId: workspace.teamId, via: "oauth" },
     });
-    return { connected: true, teamId: workspace.teamId };
+    return redirectToConnectResult(reply, "connected");
   });
 
   // ── Manual provision / disconnect (admin+) ────────────────────────────────
