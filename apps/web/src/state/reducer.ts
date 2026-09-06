@@ -42,18 +42,27 @@ export function reducer(state: AppState, action: Action): AppState {
             const pendingLocal = local.timeEntries.filter(
               (e) => !remoteIds.has(e.id) && state.serverEntryIds[e.id] === undefined,
             );
+            // The API only persists a subset of the local collections —
+            // log entries, daily reports, checklists, milestones and
+            // queued photos are local-first and would otherwise be wiped
+            // by the 5-second poll merge (and the loss persisted with the
+            // state). Keep local items the server snapshot doesn't have;
+            // synced items dedupe against their server twins by id.
+            const mergeLocal = <T extends { id: string }>(remote: T[], localItems: T[] | undefined): T[] => [
+              ...remote,
+              ...(localItems ?? []).filter((item) => !remote.some((remoteItem) => remoteItem.id === item.id)),
+            ];
             return {
               ...j,
               ...collections,
               timeEntries: [...remoteEntries, ...pendingLocal],
-              serviceItems: [
-                ...collections.serviceItems,
-                ...(local.serviceItems ?? []).filter((item) => !collections.serviceItems.some((remoteItem) => remoteItem.id === item.id)),
-              ],
-              voiceNotes: [
-                ...collections.voiceNotes,
-                ...(local.voiceNotes ?? []).filter((note) => !collections.voiceNotes.some((remoteNote) => remoteNote.id === note.id)),
-              ],
+              serviceItems: mergeLocal(collections.serviceItems, local.serviceItems),
+              voiceNotes: mergeLocal(collections.voiceNotes, local.voiceNotes),
+              photos: mergeLocal(collections.photos, local.photos),
+              logEntries: mergeLocal(collections.logEntries, local.logEntries),
+              dailyReports: mergeLocal(collections.dailyReports, local.dailyReports),
+              checklists: mergeLocal(collections.checklists, local.checklists),
+              milestones: mergeLocal(collections.milestones, local.milestones),
               safetyConfirmation: local.safetyConfirmation ?? j.safetyConfirmation,
               phone: local.phone ?? j.phone,
               accessCode: local.accessCode ?? j.accessCode,

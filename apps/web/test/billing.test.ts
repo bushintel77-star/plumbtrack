@@ -65,7 +65,7 @@ describe("notification dispatcher client", () => {
         headers: (init?.headers as Record<string, string>) ?? {},
         body: JSON.parse(String(init?.body)),
       });
-      return { ok: true, status: 201, text: async () => "created" } as Response;
+      return { ok: true, status: 201, text: async () => "created", json: async () => ({ id: "n1" }) } as Response;
     }) as typeof fetch;
 
     try {
@@ -99,7 +99,7 @@ describe("notification dispatcher client", () => {
     }
   });
 
-  it("throws on a non-2xx dispatcher response", async () => {
+  it("throws a retryable NetworkError on a non-2xx dispatcher response", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => {
       return { ok: false, status: 500, text: async () => "boom" } as Response;
@@ -108,7 +108,7 @@ describe("notification dispatcher client", () => {
     try {
       await expect(
         dispatchNotification({ text: "hello", channel: "general", author: "tim" }),
-      ).rejects.toThrow("Notification dispatch failed (500)");
+      ).rejects.toThrow("API request failed (500): boom");
     } finally {
       globalThis.fetch = originalFetch;
     }

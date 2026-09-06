@@ -35,8 +35,10 @@ function getStoredAuthHeader(): Record<string, string> {
  * Request with timeout + tracing. Network/throttling/server errors throw
  * `NetworkError` (retryable); 4xx client errors throw `HttpError` (mostly
  * terminal). The sync outbox uses this split to decide retry vs discard.
+ * Exported as the one authenticated fetch wrapper — feature modules must not
+ * roll their own (unauthenticated copies are how production 401s happen).
  */
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   let response: Response;

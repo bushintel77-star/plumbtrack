@@ -87,6 +87,11 @@ interface MapLibreViewProps {
    *  of the canvas pin — the only per-pin affordance that is reachable
    *  without a pointer, since WebGL layers are invisible to the a11y tree. */
   orderedStopIds?: string[]
+  /** URL-backed FieldLoop selection. The FieldLoop surface keeps selection
+   *  in the query string and never writes the zustand store, so this prop —
+   *  not the store — is the authority here; falling back to the store keeps
+   *  any future consumer that does drive store selection working. */
+  selectedJobId?: string
   /** Which job each van is currently on site at (geofence display only),
    *  keyed by technician id. Computed by the surface, which knows the day. */
   onsiteByTech?: Record<string, string | null>
@@ -95,7 +100,7 @@ interface MapLibreViewProps {
   reach?: unknown
 }
 
-export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {}, reach = null }: MapLibreViewProps) {
+export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {}, reach = null, selectedJobId }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const styleCandidates = MAP_STYLE_CANDIDATES[theme]
   const [styleIndex, setStyleIndex] = useState(0)
@@ -106,8 +111,8 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   const [ladderPass, setLadderPass] = useState(0)
   const mapRef = useRef<MapRef | null>(null)
   const technicians = useBoardStore(s => s.technicians)
-  const vehicles = useBoardStore(s => s.vehicles)
-  const selectedJobId = useBoardStore(s => s.selectedJobId)
+  const storeSelectedJobId = useBoardStore(s => s.selectedJobId)
+  const activeSelectedJobId = selectedJobId ?? storeSelectedJobId
   const [hoveredJobId, setHoveredJobId] = useState<string | null>(null)
   /** Road-following coordinates per stop-chain signature (straight lines until they land). */
   const [roadShapes, setRoadShapes] = useState<Record<string, LngLat[]>>({})
@@ -397,20 +402,20 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
   }, [vanId, styleLoaded, renderChains])
 
   useEffect(() => {
-    if (!selectedJobId) {
+    if (!activeSelectedJobId) {
       // Allow re-selecting the same job later to pan again.
       lastPannedJobRef.current = null
       return
     }
-    const job = visible.find(item => item.id === selectedJobId)
+    const job = visible.find(item => item.id === activeSelectedJobId)
     if (!job?.location) return
     // Pan the map to a freshly selected job so its pin — and the popup that
     // carries the details action — is comfortably inside the viewport. The
     // map may still be loading on the first effect run: only record the pan
     // once it has actually fired, and re-run when the map becomes ready.
     if (!mapRef.current || !styleLoaded) return
-    if (lastPannedJobRef.current === selectedJobId) return
-    lastPannedJobRef.current = selectedJobId
+    if (lastPannedJobRef.current === activeSelectedJobId) return
+    lastPannedJobRef.current = activeSelectedJobId
     mapRef.current.easeTo({
       center: [job.location.lng, job.location.lat],
       // Zoom into street level — without this the camera keeps the region
@@ -419,7 +424,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       duration: 600,
       padding: { top: 260, bottom: 120, left: 120, right: 160 }
     })
-  }, [selectedJobId, visible, styleLoaded])
+  }, [activeSelectedJobId, visible, styleLoaded])
 
   // Road-following upgrade for the dashed polylines: debounced per board
   // change, cached by stop-chain signature, silent no-op offline. Fetches for
@@ -634,7 +639,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
       {visible
         .filter(job => job.location)
         .map(job => {
-          const isSelected = selectedJobId === job.id
+          const isSelected = activeSelectedJobId === job.id
           const tone = statusColor(job, palette)
           const { label } = statusStyleFor(job)
           return (
@@ -675,8 +680,14 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           )
         })}
 
-      {/* Vehicle markers: live shift-gated telemetry (field app streams only
-      <Source id="vehicles" type="geojson" data={vehicleMarks}>
+      {/* Vehicle markers: DISABLED by product decision — technician position
+          is captured point-in-time only and never tracked continuously, so
+          the symbol layer stays switched off. The data plumbing (vehicleMarks,
+          liveLocations) stays intact; re-enable by un-commenting the Source
+          block below. (The prose comment that preceded this block was never
+          terminated, which silently swallowed the entire Source element at
+          compile time — the layers vanished without any type error.) */}
+      {/* <Source id="vehicles" type="geojson" data={vehicleMarks}>
         <Layer
           id="vehicle-onsite-halo"
           type="circle"
@@ -729,7 +740,7 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           }}
           paint={{ "text-color": palette.vehicle, "text-halo-color": palette.pinStroke, "text-halo-width": 1.2 }}
         />
-      </Source>
+      </Source> */}
 
       {/* Recent path of the selected van: exactly the shift-gated pings the
           store has seen (last 20), faint and dashed. */}

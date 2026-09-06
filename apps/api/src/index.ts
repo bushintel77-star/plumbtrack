@@ -29,6 +29,16 @@ async function main(): Promise<void> {
     app.log.error(error);
     process.exit(1);
   }
+
+  // Railway/Docker stop the container with SIGTERM: close gracefully so
+  // in-flight requests finish and the onClose hooks (worker shutdown,
+  // Prisma disconnect) actually run.
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.on(signal, () => {
+      app.log.info({ signal }, "Shutting down");
+      void app.close().finally(() => process.exit(0));
+    });
+  }
 }
 
 void main();

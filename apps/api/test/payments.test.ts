@@ -9,13 +9,15 @@ afterEach(() => {
 });
 
 describe("createCheckoutSession", () => {
-  it("fails closed when Stripe is not configured", async () => {
-    await expect(createCheckoutSession({
+  it("returns an unconfigured result when Stripe is not configured", async () => {
+    const result = await createCheckoutSession({
       jobId: "J-1043",
       client: "OC 4021",
       amountCents: 29500,
       description: "Riser leak repair",
-    })).rejects.toThrow("Stripe is not configured");
+    });
+    expect(result.configured).toBe(false);
+    expect(result.url).toBe("");
   });
 
   it("calls the Stripe Checkout API when a key is configured", async () => {

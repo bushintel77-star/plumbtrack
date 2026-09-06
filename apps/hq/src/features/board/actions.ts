@@ -5,6 +5,7 @@ import { useBoardStore } from "@/stores/boardStore"
 import { authApi, persistJobStatus } from "@/lib/api"
 import { enqueueSync } from "@/lib/offline"
 import type { OptimizeResult } from "@/lib/optimize"
+import type { JobStatus } from "@/types"
 
 /**
  * Board mutations. Every write follows BR-07: apply optimistically, persist,
@@ -234,9 +235,14 @@ export async function performClockOff(jobId: string): Promise<void> {
     try {
       await persistJobStatus(jobId, "completed")
     } catch {
+      // Same contract as clock-on: roll the optimistic state back instead of
+      // letting the next hydration poll silently revert it while the toast
+      // claims the sync "will retry" (nothing was queued).
+      store.rollbackJobs()
       toast({
-        title: `Clocked off — ${job?.title ?? jobId}`,
-        description: "Saved locally; the API sync will retry."
+        variant: "destructive",
+        title: "Clock-off rolled back",
+        description: "Could not reach the API — the timer kept running."
       })
       return
     }
@@ -244,6 +250,54 @@ export async function performClockOff(jobId: string): Promise<void> {
   toast({
     title: `Clocked off — ${job?.title ?? jobId}`,
     description: `Final on-site time frozen at ${Math.floor(finalSeconds / 60)} min.`
+  })
+}
+
+/** Server counterpart for HQ status overrides (right-click menu, slash
+ *  commands). The server vocabulary is smaller than the board's, so only the
+ *  statuses with a faithful mapping are persisted — an override the server
+ *  cannot represent (unassigned, delayed) stays a local flag. Without this
+ *  the 5-second hydration poll silently reverts every local override. */
+const OVERRIDE_SERVER_STATUS: Partial<Record<JobStatus, "scheduled" | "in_progress" | "completed">> = {
+  scheduled: "scheduled",
+  en_route: "in_progress",
+  active: "in_progress",
+  complete: "completed"
+}
+
+export async function performStatusOverride(jobId: string, status: JobStatus): Promise<void> {
+  const store = useBoardStore.getState()
+  const job = store.jobs[jobId]
+  if (!job) return
+  store.snapshotJobs()
+  store.setJobStatus(jobId, status)
+
+  const serverStatus = OVERRIDE_SERVER_STATUS[status]
+  if (isOffline()) {
+    if (serverStatus) await enqueueSync({ jobId, op: "status", payload: { status: serverStatus } })
+    toast({
+      title: `${job.title} → ${status.replace("_", " ").toUpperCase()}`,
+      description: serverStatus ? "Queued offline — syncs on reconnect." : "Saved locally only — this flag is not synced."
+    })
+    return
+  }
+
+  if (store.dataMode === "live" && serverStatus) {
+    try {
+      await persistJobStatus(jobId, serverStatus)
+    } catch {
+      store.rollbackJobs()
+      toast({
+        variant: "destructive",
+        title: "Status change rolled back",
+        description: "Could not reach the API — the job kept its previous status."
+      })
+      return
+    }
+  }
+  toast({
+    title: `${job.title} → ${status.replace("_", " ").toUpperCase()}`,
+    ...(serverStatus ? {} : { description: "Saved locally only — this flag is not synced." })
   })
 }
 
