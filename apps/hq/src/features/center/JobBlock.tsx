@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 import { blockLabel, formatElapsed, TOTAL_BLOCKS } from "@/lib/format"
 import { jobConflicts } from "@/lib/schedule"
+import { performStatusOverride } from "@/features/board/actions"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job, JobStatus } from "@/types"
 
@@ -31,7 +32,6 @@ export function JobBlock({ job, onSelect }: { job: Job; onSelect: (jobId: string
   const selectedJobId = useBoardStore(s => s.selectedJobId)
   const jobs = useJobsList()
   const technicians = useBoardStore(s => s.technicians)
-  const setJobStatus = useBoardStore(s => s.setJobStatus)
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `block:${job.id}`
@@ -52,7 +52,9 @@ export function JobBlock({ job, onSelect }: { job: Job; onSelect: (jobId: string
   const statusItem = (value: JobStatus, label: string): React.ReactNode => (
     <ContextMenuRadioItem
       value={value}
-      onSelect={() => setJobStatus(job.id, value)}
+      // BR-07 path (optimistic set + live persist / offline queue) — a bare
+      // store write is silently reverted by the 5-second hydration poll.
+      onSelect={() => void performStatusOverride(job.id, value)}
       className="label-mono text-2xs"
     >
       {label}

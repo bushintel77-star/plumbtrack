@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { rankCrews } from "@/lib/assignment"
+import { performStatusOverride } from "@/features/board/actions"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { JobStatus, SlackDispatchCard } from "@/types"
 import { performAssignment } from "@/features/board/actions"
@@ -143,7 +144,6 @@ export function SlackCommsPanel() {
   const activeChannelId = useBoardStore(s => s.activeChannelId)
   const setActiveChannel = useBoardStore(s => s.setActiveChannel)
   const postMessage = useBoardStore(s => s.postMessage)
-  const setJobStatus = useBoardStore(s => s.setJobStatus)
   const slackFeed = useBoardStore(s => s.slackFeed)
   const jobs = useJobsList()
   const [draft, setDraft] = useState("")
@@ -179,8 +179,11 @@ export function SlackCommsPanel() {
       toast({ variant: "destructive", title: "Unknown job", description: `No job “${jobId}”.` })
       return true
     }
-    setJobStatus(jobId, statusWord as JobStatus)
-    postMessage("general", `✓ ${job.title} → ${statusWord.replace("_", " ")}`)
+    // Persist through the BR-07 path so the 5s hydration poll cannot revert
+    // the override the command just broadcast.
+    void performStatusOverride(jobId, statusWord as JobStatus).then(() => {
+      postMessage("general", `✓ ${job.title} → ${statusWord.replace("_", " ")}`)
+    })
     return true
   }
 

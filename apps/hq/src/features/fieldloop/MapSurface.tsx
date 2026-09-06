@@ -200,6 +200,7 @@ export function MapSurface({
             orderedStopIds={orderedStopIds}
             onsiteByTech={onsiteByTech}
             reach={reachGeo}
+            selectedJobId={selectedJobId}
           />
         </MapErrorBoundary>
       </div>

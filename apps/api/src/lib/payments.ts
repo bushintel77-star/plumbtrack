@@ -34,13 +34,13 @@ export interface CreateCheckoutSessionInput {
 }
 
 /**
- * Create a Stripe Checkout session (or a marked test fallback when no key is
- * configured). Never throws — returns the result so callers can persist it.
+ * Create a Stripe Checkout session. Never throws for a missing key — that is
+ * the `configured: false` result callers turn into a 503, not a 500.
  */
 export async function createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CheckoutSessionResult> {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
-    throw new Error("Stripe is not configured");
+    return { url: "", mode: "live", configured: false };
   }
 
   const successUrl = process.env.PAYMENT_SUCCESS_URL ?? "https://app.plumbtrack.example/payments/success";
@@ -59,8 +59,10 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
   });
 
   try {
+    // A hung Stripe connection must not stall the request indefinitely.
     const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
+      signal: AbortSignal.timeout(8_000),
       headers: {
         Authorization: `Bearer ${secretKey}`,
         "Content-Type": "application/x-www-form-urlencoded",

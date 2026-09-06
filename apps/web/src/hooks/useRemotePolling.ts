@@ -53,7 +53,10 @@ export function useRemotePolling(dispatch: (action: Action) => void) {
     const protectedJobIds = [
       ...new Set(
         data.ops
-          .filter((op) => op.kind === "update-job")
+          // update-job (status/sign-off) and photo-upload (evidence still
+          // queued) both pin the local job version — the poll must not
+          // revert work that has not flushed yet.
+          .filter((op) => op.kind === "update-job" || op.kind === "photo-upload")
           .map((op) => String((op.payload as { jobId?: unknown }).jobId ?? "")),
       ),
     ].filter(Boolean);

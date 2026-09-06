@@ -51,6 +51,15 @@ const env = (key: string): string | undefined => {
   return value === undefined || value === "" ? undefined : value;
 };
 
+/** Scheme-less hosts (e.g. Railway's RAILWAY_PUBLIC_DOMAIN refs, which carry
+ *  no scheme) must become absolute URLs — a bare host in `fetch` resolves as
+ *  a relative path on the app origin and every API call 404s. */
+function normalizeApiUrl(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return trimmed;
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 export const config: AppConfig = {
   appName: env("NEXT_PUBLIC_APP_NAME") ?? "PlumbTrack",
   orgName: env("NEXT_PUBLIC_ORG_NAME") ?? "Caulfield South Plumbing",
@@ -60,6 +69,6 @@ export const config: AppConfig = {
   gstRate: 0.1, // GST Act 1999 (Cth) s 9-70 — not configurable
   staffHourlyRate: num(env("NEXT_PUBLIC_STAFF_HOURLY_RATE"), 55, "NEXT_PUBLIC_STAFF_HOURLY_RATE"),
   centsPerKm: num(env("NEXT_PUBLIC_CENTS_PER_KM"), 88, "NEXT_PUBLIC_CENTS_PER_KM"),
-  apiUrl: (env("NEXT_PUBLIC_API_URL") ?? "http://localhost:8080").replace(/\/+$/, ""),
+  apiUrl: normalizeApiUrl(env("NEXT_PUBLIC_API_URL") ?? "http://localhost:8080"),
   apiTimeoutMs: num(env("NEXT_PUBLIC_API_TIMEOUT_MS"), 10_000, "NEXT_PUBLIC_API_TIMEOUT_MS"),
 };

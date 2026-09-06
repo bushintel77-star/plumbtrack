@@ -1,8 +1,5 @@
-import { API_URL, DEFAULT_ORG_ID } from "./constants";
+import { request } from "./api";
 import type { NotificationFeedItem } from "@/types";
-import { HttpError } from "./errors";
-
-const ORG_HEADER = "x-organization-id";
 
 export interface NotificationInput {
   text: string;
@@ -17,32 +14,23 @@ export interface NotificationInput {
  * Dispatch a notification to the backend dispatcher. The backend routes it
  * internally first (persisted to Postgres, the source of truth) and relays to
  * Slack downstream via a server-side incoming webhook — no Slack URL ever
- * ships in this bundle. Throws when the API is unreachable so callers can
- * fall back to the local store (offline-first).
+ * ships in this bundle. Goes through the shared authenticated `request`
+ * wrapper (session bearer + timeout + retryable/terminal error split), so
+ * production's fail-closed tenant plugin accepts the call and a transient
+ * failure is retryable instead of terminally failing the outbox op. Throws
+ * when the API is unreachable so callers can fall back to the local store
+ * (offline-first).
  */
 export async function dispatchNotification(input: NotificationInput): Promise<void> {
-  const response = await fetch(`${API_URL}/api/notifications`, {
+  await request("/api/notifications", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      [ORG_HEADER]: DEFAULT_ORG_ID,
-    },
     body: JSON.stringify(input),
   });
-  if (!response.ok) {
-    throw new HttpError(response.status, `Notification dispatch failed (${response.status})`);
-  }
 }
 
 /** Fetch persisted notifications for the HQ feed (API-backed). */
 export async function fetchNotifications(): Promise<NotificationFeedItem[]> {
-  const response = await fetch(`${API_URL}/api/notifications`, {
-    headers: { [ORG_HEADER]: DEFAULT_ORG_ID },
-  });
-  if (!response.ok) {
-    throw new Error(`Notification fetch failed (${response.status})`);
-  }
-  return (await response.json()) as NotificationFeedItem[];
+  return request<NotificationFeedItem[]>("/api/notifications");
 }
 
 export interface NotificationStatus {
@@ -51,11 +39,5 @@ export interface NotificationStatus {
 
 /** Ask the dispatcher whether the server-side Slack relay is configured. */
 export async function fetchSlackStatus(): Promise<NotificationStatus> {
-  const response = await fetch(`${API_URL}/api/notifications/status`, {
-    headers: { [ORG_HEADER]: DEFAULT_ORG_ID },
-  });
-  if (!response.ok) {
-    throw new Error(`Notification status failed (${response.status})`);
-  }
-  return (await response.json()) as NotificationStatus;
+  return request<NotificationStatus>("/api/notifications/status");
 }

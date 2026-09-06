@@ -34,6 +34,11 @@ export interface BuildAppOptions {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   assertAuthConfiguration();
   const app = Fastify({
+    // Behind Railway's edge proxy every request arrives from the proxy IP.
+    // Honour X-Forwarded-For so rate limits key on the real client address —
+    // otherwise all clients share one bucket and one abuser exhausts the
+    // global (and SMS) budget for everyone.
+    trustProxy: true,
     // Default logger (used outside tests): JSON lines with auth-sensitive
     // headers redacted. The request id honours the client's x-request-id so a
     // support ticket can be correlated to server logs; only safe characters

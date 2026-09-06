@@ -73,6 +73,14 @@ export default defineRailway(() => {
 
   const web = service("web", {
     source: github("bushintel77-star/plumbtrack"),
+    // Pin the app Dockerfile explicitly. A Dockerfile also exists at the repo
+    // root (historical copy missing the NEXT_PUBLIC_* ARG block) — without
+    // this pin, a service recreated in the dashboard could silently build
+    // from the root file and ship a bundle with no build-time env inlined.
+    build: {
+      builder: "DOCKERFILE",
+      dockerfilePath: "apps/web/Dockerfile",
+    },
     replicas: { "us-west2": 1 },
     env: {
       PORT: preserve(),
@@ -80,6 +88,8 @@ export default defineRailway(() => {
       // DEVICE_BOOTSTRAP_TOKEN must match the api service's DEVICE_BOOTSTRAP_TOKEN
       // (set in the dashboard) or field enrollment will fail after the legacy
       // tenant header is disabled.
+      // RAILWAY_PUBLIC_DOMAIN refs carry no scheme; the web client normalizes
+      // scheme-less values to https:// at load (apps/web/src/lib/config.ts).
       NEXT_PUBLIC_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
       NEXT_PUBLIC_ORG_ID: "org_caulfield_south",
       NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),

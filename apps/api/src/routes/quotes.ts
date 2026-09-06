@@ -147,6 +147,10 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "accountant", "admin", "owner"]);
     if (roleFailure) return roleFailure;
     const { id, lineId } = request.params as { id: string; lineId: string };
+    // Same parent-quote org verification as PATCH — deleting by line id alone
+    // would let a guessed quoteId+lineId pair from another org be destroyed.
+    const quote = await prisma.quote.findFirst({ where: { id, orgId } });
+    if (!quote) return reply.code(404).send({ message: "Quote not found" });
     const result = await prisma.quoteLine.deleteMany({
       where: { id: lineId, quoteId: id },
     });
