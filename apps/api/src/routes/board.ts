@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
+import { BOARD_JOB_CAP, BOARD_QUOTE_CAP } from "../lib/limits";
 import { computeNeedsAttention, type AttentionFlag } from "../lib/needsAttention";
 
 /**
@@ -28,6 +29,8 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
     const [jobs, quotes] = await Promise.all([
       prisma.job.findMany({
         where: { orgId },
+        // Newest working set only — see lib/limits.ts for the cap contract.
+        take: BOARD_JOB_CAP,
         include: {
           timeEntries: true,
           photos: { orderBy: { takenAt: "desc" } },
@@ -40,6 +43,7 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
       prisma.quote.findMany({
         where: { orgId },
         include: { lines: { orderBy: { sortOrder: "asc" } } },
+        take: BOARD_QUOTE_CAP,
         orderBy: { createdAt: "desc" },
       }),
     ]);

@@ -16,16 +16,25 @@ import type { FastifyInstance } from "fastify";
  *  - audit + live-bus publish on success
  */
 
-const { jobFindFirst, userFindFirst, appointmentFindFirst, appointmentUpdateMany, auditCreate } = vi.hoisted(() => ({
+const { jobFindFirst, userFindFirst, appointmentFindFirst, appointmentUpdateMany, auditCreate, txQueryRaw } = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
   userFindFirst: vi.fn(),
   appointmentFindFirst: vi.fn(),
   appointmentUpdateMany: vi.fn(),
   auditCreate: vi.fn(),
+  txQueryRaw: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
+    // The route runs conflict-check + update inside an interactive
+    // transaction (per-technician advisory lock); the tx client delegates to
+    // the same mocks so per-test expectations keep holding.
+    $transaction: (fn: (tx: unknown) => unknown) =>
+      fn({
+        $queryRaw: txQueryRaw,
+        appointment: { findFirst: appointmentFindFirst, updateMany: appointmentUpdateMany },
+      }),
     job: { findFirst: jobFindFirst },
     user: { findFirst: userFindFirst },
     appointment: { findFirst: appointmentFindFirst, updateMany: appointmentUpdateMany },
@@ -83,6 +92,7 @@ describe("PATCH /api/jobs/:id/assignment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     auditCreate.mockResolvedValue({});
+    txQueryRaw.mockResolvedValue([]);
   });
 
   it("assigns the technician and records an audit event on success", async () => {
@@ -219,6 +229,35 @@ describe("PATCH /api/jobs/:id/assignment", () => {
 
     expect(response.statusCode).toBe(403);
     expect(jobFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("runs the conflict check and update inside the per-technician transactional guard", async () => {
+    // Regression for the 2026-09-07 stress-test finding: two concurrent
+    // assignments both passed a bare findFirst before either update landed,
+    // double-booking the technician 9/10 rounds. The route must issue the
+    // advisory lock, then conflict-check, then update — in that order —
+    // inside $transaction.
+    jobFindFirst.mockResolvedValue(jobWithAppointment());
+    userFindFirst.mockResolvedValue({ id: "user-1", email: "tech@x", name: "Tech" });
+    appointmentFindFirst.mockResolvedValue(null);
+    appointmentUpdateMany.mockResolvedValue({ count: 1 });
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/job-1/assignment",
+      headers: { "x-organization-id": ORG },
+      payload: { technicianId: "user-1", startBlock: 4 },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(txQueryRaw).toHaveBeenCalledTimes(1);
+    const lockSql = txQueryRaw.mock.calls[0][0] as unknown as string[];
+    expect(lockSql.join("?")).toContain("pg_advisory_xact_lock");
+    const lockOrder = txQueryRaw.mock.invocationCallOrder[0];
+    const checkOrder = appointmentFindFirst.mock.invocationCallOrder[0];
+    const updateOrder = appointmentUpdateMany.mock.invocationCallOrder[0];
+    expect(lockOrder).toBeLessThan(checkOrder);
+    expect(checkOrder).toBeLessThan(updateOrder);
   });
 
   it("returns 401 when no valid session is supplied in production mode", async () => {

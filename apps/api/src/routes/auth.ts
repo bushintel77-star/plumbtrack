@@ -6,12 +6,23 @@ import { recordAuditEvent } from "../lib/audit";
 
 /** Field devices re-enroll at most daily; a 30-day session survives quiet periods. */
 const DEVICE_SESSION_SECONDS = 30 * 24 * 60 * 60;
-/** HQ station sessions are shift-length; the toolbar renews every 15 minutes. */
+/** HQ station sessions are shift-length; the console renews every 15 minutes. */
 const HQ_SESSION_SECONDS = 12 * 60 * 60;
 /** Roles an HQ operator session may carry — never the field `technician` role. */
 const HQ_STATION_ROLES = ["dispatcher", "manager", "accountant", "admin", "owner"] as const;
 const SESSION_COOKIE = "plumbtrack_hq_session";
 const COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+
+/**
+ * Session-minting routes get their own tight limiter, on top of the global
+ * per-IP cap: bootstrap-secret guessing must burn out in seconds, not ride a
+ * 500/min shared budget (2026-09-07 stress test measured 1,272 req/s of
+ * wrong-token guesses with zero throttling before this limiter existed).
+ */
+const AUTH_RATE_LIMIT = {
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10),
+  timeWindow: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 60_000),
+};
 
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
@@ -64,7 +75,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * roles — and is bounded by `AUTH_SECRET` signing. The bootstrap secret is
    * public by design; it is a device-enrollment key, not an account.
    */
-  app.post("/device", async (request, reply) => {
+  app.post("/device", { config: { rateLimit: AUTH_RATE_LIMIT } }, async (request, reply) => {
     // The legacy header is only permitted in explicit dev/test environments;
     // anywhere else enrollment must use the deployment bootstrap secret.
     const production = !isLegacyTenantFallbackAllowed();
@@ -122,7 +133,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * `DEVICE_ORG_ID`). The secret is a station-access key entered at the
    * keyboard — never baked into the web bundle — not an account.
    */
-  app.post("/hq-session", async (request, reply) => {
+  app.post("/hq-session", { config: { rateLimit: AUTH_RATE_LIMIT } }, async (request, reply) => {
     const production = !isLegacyTenantFallbackAllowed();
 
     let orgId: string | undefined;
@@ -181,9 +192,14 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.post("/renew", async (request, reply) => {
     if (!request.auth) return sendUnauthorized(reply);
-    const token = issueAuthToken({ userId: request.auth.userId, organizationId: request.auth.organizationId, role: request.auth.role, expiresInSeconds: DEVICE_SESSION_SECONDS });
-    const expiresAt = Math.floor(Date.now() / 1000) + DEVICE_SESSION_SECONDS;
-    reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: DEVICE_SESSION_SECONDS });
+    // Renewal re-issues the caller's own role TTL — never an upgrade: a 12h
+    // HQ station session must not be able to extend itself to a 30-day
+    // field-device session (that asymmetry is what DEVICE_SESSION_SECONDS
+    // exists to prevent).
+    const sessionSeconds = request.auth.role === "technician" ? DEVICE_SESSION_SECONDS : HQ_SESSION_SECONDS;
+    const token = issueAuthToken({ userId: request.auth.userId, organizationId: request.auth.organizationId, role: request.auth.role, expiresInSeconds: sessionSeconds });
+    const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
+    reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
     return { authenticated: true, organizationId: request.auth.organizationId, role: request.auth.role, expiresAt };
   });
 

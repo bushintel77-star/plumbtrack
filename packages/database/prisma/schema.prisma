@@ -362,6 +362,11 @@ model Job {
   messages       JobMessage[]
 
   @@index([orgId, status])
+  // Board poll (orderBy createdAt) and offline sync cursor (updatedAt) are
+  // the two hottest per-org read paths; without these they degrade to scans
+  // as the job table grows.
+  @@index([orgId, createdAt])
+  @@index([orgId, updatedAt])
   @@index([customerId])
   @@index([propertyId])
   @@map("jobs")

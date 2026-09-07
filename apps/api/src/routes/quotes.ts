@@ -10,6 +10,7 @@ import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { BOARD_QUOTE_CAP } from "../lib/limits";
 
 export async function quoteRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (request, reply) => {
@@ -18,6 +19,7 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     return prisma.quote.findMany({
       where: { orgId },
       include: { lines: { orderBy: { sortOrder: "asc" } } },
+      take: BOARD_QUOTE_CAP,
       orderBy: { createdAt: "desc" },
     });
   });

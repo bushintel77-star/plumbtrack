@@ -15,7 +15,12 @@ function verifySignature(payload: string, header: string, secret: string): boole
 }
 
 export async function paymentWebhookRoutes(app: FastifyInstance): Promise<void> {
-  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
+  // Fastify 5 does not attach request.rawBody on its own — capture the exact
+  // wire bytes here or signature verification can never see them.
+  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
+    (request as typeof request & { rawBody?: Buffer }).rawBody = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+    done(null, body);
+  });
   app.post("/stripe", { config: { rawBody: true } }, async (request, reply) => {
     const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
     const signature = request.headers["stripe-signature"];
