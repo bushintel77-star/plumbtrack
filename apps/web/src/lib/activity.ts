@@ -102,17 +102,6 @@ export function buildJobActivity(job: Job): JobActivity[] {
     });
   }
 
-  if (job.xeroSyncedAt) {
-    events.push({
-      id: `invoice:${job.id}`,
-      kind: "invoice",
-      title: "Invoice synced to Xero",
-      detail: "Invoice draft created successfully",
-      createdAt: job.xeroSyncedAt,
-      meta: "XERO",
-    });
-  }
-
   return events
     .filter((event) => !Number.isNaN(new Date(event.createdAt).getTime()))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

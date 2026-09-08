@@ -27,7 +27,6 @@ export type Action =
   | { type: "REMOVE_QUOTE_LINE"; quoteId: string; lineId: string }
   | { type: "CREATE_JOB_FROM_QUOTE"; job: Job }
   | { type: "REPLACE_JOB"; localId: string; job: Job }
-  | { type: "MARK_JOB_XERO_SYNCED"; jobId: string }
   | { type: "POST_MESSAGE"; channelId: string; authorId: string; text: string; parentId?: string }
   | { type: "TOGGLE_REACTION"; messageId: string; emoji: string; userId: string }
   | { type: "MARK_CHANNEL_READ"; channelId: string; ts: string }

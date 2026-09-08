@@ -210,7 +210,6 @@ export interface Job {
   status: JobStatus;
   signature: string | null;
   quoteId?: string | null;
-  xeroSyncedAt?: string | null;
   retentionPercent?: number;
   /** Completion evidence captured when the customer signs off. */
   signatureCapturedAt?: string | null;

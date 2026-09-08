@@ -13,8 +13,10 @@ export const API_URL = config.apiUrl;
 export const API_TIMEOUT_MS = config.apiTimeoutMs;
 export const DEFAULT_ORG_ID = config.orgId;
 
-/** Technician ordinary hourly pay rate ($/hr) — demo stand-in for the
- *  MA000036 ordinary rate used by the shift pay engine. */
+/** Technician ordinary hourly pay rate ($/hr) driving the shift pay engine.
+ *  Deployment owners must set NEXT_PUBLIC_STAFF_HOURLY_RATE to the org's
+ *  actual MA000036-derived rate; config.ts logs loudly when the fallback is
+ *  used in production. */
 export const STAFF_HOURLY_RATE = config.staffHourlyRate;
 
 /** ATO cents-per-km car allowance rate for personal-vehicle travel claimed
@@ -24,8 +26,6 @@ export const CENTS_PER_KM = config.centsPerKm;
 /** localStorage key for persisted state. */
 export const STORAGE_KEY = "plumbtrack-v2";
 
-/** Duration of the simulated GPS lock (ms). */
-export const GPS_LOCK_DURATION_MS = 1500;
-
-/** Duration of the simulated Xero sync (ms). */
-export const XERO_SYNC_DURATION_MS = 2000;
+/** Real geolocation fix window (ms) — how long clock-on waits for a device
+ *  GPS lock before proceeding without coordinates. No artificial delay. */
+export const GPS_TIMEOUT_MS = 10_000;

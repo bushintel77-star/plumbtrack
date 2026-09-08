@@ -60,6 +60,31 @@ function normalizeApiUrl(value: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+const IS_PROD = process.env.NODE_ENV === "production";
+
+function prodWarn(usingDefault: boolean, message: string): void {
+  if (IS_PROD && usingDefault) console.error(`[web] ${message}`);
+}
+
+const ORG_NAME_DEFAULT = !env("NEXT_PUBLIC_ORG_NAME");
+const ORG_ID_DEFAULT = !env("NEXT_PUBLIC_ORG_ID");
+const PAY_RATE_DEFAULT = !env("NEXT_PUBLIC_STAFF_HOURLY_RATE");
+const API_URL_DEFAULT = !env("NEXT_PUBLIC_API_URL");
+if (IS_PROD && (ORG_NAME_DEFAULT || ORG_ID_DEFAULT || API_URL_DEFAULT || PAY_RATE_DEFAULT)) {
+  console.error(
+    "[web] Production build is using default configuration: " +
+      [
+        ORG_NAME_DEFAULT && "NEXT_PUBLIC_ORG_NAME (branding)",
+        ORG_ID_DEFAULT && "NEXT_PUBLIC_ORG_ID (tenancy)",
+        API_URL_DEFAULT && "NEXT_PUBLIC_API_URL (api origin)",
+        PAY_RATE_DEFAULT && "NEXT_PUBLIC_STAFF_HOURLY_RATE (pay engine)",
+      ]
+        .filter(Boolean)
+        .join(", ") +
+      ". Set these at build time.",
+  );
+}
+
 export const config: AppConfig = {
   appName: env("NEXT_PUBLIC_APP_NAME") ?? "PlumbTrack",
   orgName: env("NEXT_PUBLIC_ORG_NAME") ?? "Caulfield South Plumbing",

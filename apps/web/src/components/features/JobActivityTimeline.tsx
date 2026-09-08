@@ -241,7 +241,6 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
   }, []);
 
   const hasPending = !online || syncStatus.pending > 0 || syncStatus.processing > 0;
-  const hasXero = Boolean(job.xeroSyncedAt);
   const slackState = syncStatus.failed > 0 ? "attention" : hasPending ? "queued" : "ready";
   const pendingCount = syncStatus.pending + syncStatus.processing;
 
@@ -365,7 +364,8 @@ export function JobActivityTimeline({ job, members, online, syncStatus }: { job:
         <div className="space-y-2.5">
           <IntegrationStatus icon={Cloud} label="PlumbTrack" detail={online ? "Saved on this device and server" : "Saved locally — will sync when online"} state={online ? "ready" : "queued"} />
           <IntegrationStatus icon={Radio} label="Slack HQ" detail={syncStatus.failed > 0 ? "A delivery needs attention" : hasPending ? syncStatus.label : "Automatic handoff via dispatcher"} state={slackState} />
-          <IntegrationStatus icon={Receipt} label="Xero" detail={hasXero ? "Invoice draft created" : "Runs automatically after sign-off"} state={hasXero ? "ready" : "queued"} />
+          {/* Xero has no integration — say so instead of promising a sync. */}
+          <IntegrationStatus icon={Receipt} label="Xero" detail="Not connected — raise invoices in Xero" state="attention" />
         </div>
         {(syncStatus.pending > 0 || syncStatus.processing > 0 || syncStatus.failed > 0) && (
           <div className={`mt-3 pt-2.5 border-t border-line flex items-center gap-2 text-2xs font-semibold ${syncStatus.failed > 0 ? "text-urgent" : "text-pending"}`}>
