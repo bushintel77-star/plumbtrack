@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { authApi, FORCE_DEMO, HttpError } from "@/lib/api"
+import { API_URL_IS_DEFAULT, authApi, FORCE_DEMO, HttpError } from "@/lib/api"
 import { useQueryState, parseAsString } from "nuqs"
 import {
   BarChart3,
@@ -189,6 +189,15 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
+      {API_URL_IS_DEFAULT && !FORCE_DEMO && (
+        <div
+          role="alert"
+          className="fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-1.5 text-center text-xs font-medium text-white"
+          data-testid="fl-config-error"
+        >
+          Configuration error: NEXT_PUBLIC_HQ_API_URL was not set at build time — the console cannot reach the API. Rebuild the deployment with it configured.
+        </div>
+      )}
       {authGate === "open" ? (
         <HqSignIn onSignedIn={handleSignedIn} />
       ) : authGate === "checking" ? (

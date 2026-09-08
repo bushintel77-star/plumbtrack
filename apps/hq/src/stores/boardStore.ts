@@ -42,13 +42,20 @@ function keyBy<T extends { id: string }>(items: T[]): Record<string, T> {
   return Object.fromEntries(items.map(item => [item.id, item]))
 }
 
-const seedVehicles: Vehicle[] = seedTechs.map(tech => ({
-  id: `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`,
-  label: tech.van,
-  techId: tech.id
-}))
+// The demo seed ships only in non-production bundles: a production console
+// must never render fabricated jobs, technicians, or channels — it boots
+// empty and hydrates from the live API (2026-09-07 zero-mock audit).
+const DEMO_SEED = process.env.NODE_ENV !== "production"
 
-const seedJobsById = keyBy(seedJobs)
+const seedVehicles: Vehicle[] = DEMO_SEED
+  ? seedTechs.map(tech => ({
+      id: `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`,
+      label: tech.van,
+      techId: tech.id
+    }))
+  : []
+
+const seedJobsById = keyBy(DEMO_SEED ? seedJobs : [])
 
 interface BoardState {
   technicians: Technician[]
@@ -99,6 +106,8 @@ interface BoardState {
 
   hydrateFromApi: (payload: ApiBoardPayload) => void
   enterDemo: () => void
+  /** Live console lost the API — drop the "Live" badge honestly. */
+  markReconnecting: () => void
 
   canAssign: (jobId: string, techId: string, startBlock: number) => AssignCheck
   assignJob: (jobId: string, techId: string, startBlock: number) => AssignCheck
@@ -179,12 +188,12 @@ export function missingQuoteFields(quote: Quote): string[] {
 let rollbackSnapshot: Record<string, Job> | null = null
 
 export const useBoardStore = create<BoardState>()((set, get) => ({
-  technicians: seedTechs,
+  technicians: DEMO_SEED ? seedTechs : [],
   vehicles: seedVehicles,
   jobs: seedJobsById,
-  channels: seedChannels,
+  channels: DEMO_SEED ? seedChannels : [],
   activeChannelId: "general",
-  selectedJobId: "j-1001",
+  selectedJobId: DEMO_SEED ? "j-1001" : "",
   paletteOpen: false,
   detailsOpen: false,
   theme: "dark",
@@ -272,8 +281,13 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       needsAttention: [],
       // Keep whatever the dispatcher already arranged locally; the seed only
       // fills an empty board so a network blip never wipes in-progress work.
-      jobs: Object.keys(s.jobs).length > 0 ? s.jobs : seedJobsById
+      // Production never seeds: an unreachable API shows an empty board with
+      // the reconnect affordance, never fabricated jobs.
+      jobs: Object.keys(s.jobs).length > 0 ? s.jobs : DEMO_SEED ? seedJobsById : s.jobs
     })),
+
+  markReconnecting: () =>
+    set(s => (s.dataMode === "live" ? { dataMode: "connecting" } : s)),
 
   canAssign: (jobId, techId, startBlock) => {
     const current = get().jobs[jobId]

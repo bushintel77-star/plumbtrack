@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react"
 import { FileText, Download } from "lucide-react"
 
-import { orgDocuments } from "@/data/seed"
 import { formatDate } from "@/lib/format"
 import { documentVerdict } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
@@ -14,17 +13,21 @@ import { ExpiryChip, HonestAction } from "./common"
 
 function useDocuments(): ComplianceDoc[] {
   const jobs = useJobsList()
-  return useMemo(() => {
-    const fromJobs = jobs.flatMap(job =>
-      job.documents.map(doc => ({
-        ...doc,
-        category: doc.category ?? ("Job Records" as DocCategory),
-        owner: doc.owner ?? job.client,
-        linkedJobId: doc.linkedJobId ?? job.id
-      }))
-    )
-    return [...orgDocuments, ...fromJobs]
-  }, [jobs])
+  // Real job-attached documents only. The hardcoded orgDocuments seed used to
+  // be merged in unconditionally — fabricated compliance records (including a
+  // fake expired accreditation) rendered next to live data in production.
+  return useMemo(
+    () =>
+      jobs.flatMap(job =>
+        job.documents.map(doc => ({
+          ...doc,
+          category: doc.category ?? ("Job Records" as DocCategory),
+          owner: doc.owner ?? job.client,
+          linkedJobId: doc.linkedJobId ?? job.id
+        }))
+      ),
+    [jobs]
+  )
 }
 
 export function DocumentsSurface() {

@@ -12,6 +12,14 @@ function buildApiUrl(raw?: string): string {
 
 export const API_URL = buildApiUrl(process.env.NEXT_PUBLIC_HQ_API_URL)
 
+// A production build without an explicit API URL would poll localhost:8080,
+// fail, and strand the console on an empty fallback board. Fail loudly in the
+// logs instead of silently degrading (2026-09-07 zero-mock audit).
+export const API_URL_IS_DEFAULT = !process.env.NEXT_PUBLIC_HQ_API_URL
+if (process.env.NODE_ENV === "production" && API_URL_IS_DEFAULT) {
+  console.error("[hq] NEXT_PUBLIC_HQ_API_URL is not set — the console cannot reach the API. Set it at build time.")
+}
+
 /** Dev/test-only tenancy header, matching the API's local fallback contract. */
 const ORG_HEADER = "x-organization-id"
 const REQUEST_ID_HEADER = "x-request-id"
@@ -21,6 +29,11 @@ const API_TIMEOUT_MS = 4000
 
 /** `HQ_FORCE_DEMO=1` keeps the board deterministic (Playwright, offline demos). */
 export const FORCE_DEMO = process.env.NEXT_PUBLIC_HQ_FORCE_DEMO === "1"
+if (FORCE_DEMO && process.env.NODE_ENV === "production") {
+  // This flag is baked into the bundle at build time — a production build
+  // that carries it permanently serves demo data with sign-in disabled.
+  console.error("[hq] NEXT_PUBLIC_HQ_FORCE_DEMO=1 is baked into this production build: the console is pinned to demo data and the sign-in gate is disabled. Rebuild without it.")
+}
 
 export interface HqSession {
   authenticated: boolean
