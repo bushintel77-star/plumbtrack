@@ -23,6 +23,17 @@ RUN pnpm install --frozen-lockfile
 
 COPY --from=pruner /app/out/full/ .
 ENV NEXT_OUTPUT_STANDALONE=true
+# Railway passes service variables as Docker build args, not env vars — they
+# must be declared and exported as ENV before the build or Next.js inlines
+# nothing and the browser bundle silently falls back to localhost defaults
+# (live-verified 2026-09-09: the prod bundle carried a baked localhost:8080
+# apiUrl, so field devices ran local-only with no server sync).
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_ORG_ID
+ARG NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_ORG_ID=$NEXT_PUBLIC_ORG_ID \
+    NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN=$NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN
 RUN pnpm turbo run build --filter=@plumbtrack/web
 
 # ---------------------------------------------------------------------------
