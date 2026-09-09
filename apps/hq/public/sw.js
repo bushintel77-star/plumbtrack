@@ -2,7 +2,11 @@
  * Static asset caching for the app shell + a Background Sync listener that
  * nudges open clients to drain their IndexedDB SyncQueue on reconnect. */
 
-const CACHE = "plumbtrack-hq-v1"
+/* v2 (2026-09-09): clients stuck on the v1 shell kept rendering the
+ * pre-hardening UI after deploys — the activate hook below deletes every
+ * cache that doesn't match the current version, so bumping this string is
+ * the forced-refresh mechanism. Bump on every deploy-visible UI change. */
+const CACHE = "plumbtrack-hq-v2"
 const PRECACHE = ["/"]
 
 self.addEventListener("install", event => {
