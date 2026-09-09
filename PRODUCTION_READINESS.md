@@ -1,6 +1,18 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-09-08 (after the zero-mock / stress-test hardening pass, branch `prod-hardening-zero-mock`)
+Updated: 2026-09-09 (post-merge deploy-drift incident + production verification)
+
+## 2026-09-09 deploy-drift incident (found while shipping PR #7)
+
+Shipping the hardening pass exposed that **production had been silently drifting for days**:
+
+- **GitHub auto-deploy stopped triggering after 2026-09-07** — PRs #4–#6 merged but nothing deployed. Still open: check the Railway GitHub app connection in the dashboard.
+- **web had lost its `builder: DOCKERFILE` pin** and fell back to Railpack, which fails the pnpm monorepo with "No start command detected" — every web build since Sep 6 failed.
+- **api had lost `preDeployCommand`** — deploys (including the first PR #7 deploy) ran *without migrations*. Fixed by `railway config apply --yes` + redeploy; migration `20260908090000` confirmed applied via the SUCCESS contract.
+- **api was missing `HQ_APP_URL`** — Slack OAuth redirects fell back to a hardcoded domain.
+- **The production web bundle carried a baked `localhost:8080` apiUrl** (live-verified in the deployed chunk): `apps/web/Dockerfile` had no `NEXT_PUBLIC_*` ARG block, so Railway's build args never reached the Next.js build and the technician PWA silently ran local-only with no server sync. ARG block added and verified in the bundle.
+
+All three services redeployed on PR #7 code and verified live: api rate limiter returns 429 (10/min), web bundle contains the honest-Xero note and no fake sync strings, hq bundle contains the config-banner marker. Also note: `railway up` exits 0 after image push even when the deploy later fails — always confirm with `railway deployment list -s <svc>`.
 
 ## 2026-09-08 hardening pass (stress-test driven)
 
