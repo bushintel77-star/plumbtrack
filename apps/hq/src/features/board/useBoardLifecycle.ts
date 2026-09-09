@@ -18,12 +18,18 @@ export function useBoardLifecycle(): void {
   const dataMode = useBoardStore(s => s.dataMode)
   const hydrateFromApi = useBoardStore(s => s.hydrateFromApi)
   const enterDemo = useBoardStore(s => s.enterDemo)
+  const markReconnecting = useBoardStore(s => s.markReconnecting)
+
+  // Production keeps polling even after the demo latch so a transient API
+  // outage self-heals; dev keeps the manual reconnect affordance for the
+  // seeded demo experience.
+  const production = process.env.NODE_ENV === "production"
 
   const boardQuery = useQuery({
     queryKey: ["board"],
     queryFn: fetchBoardPayload,
     refetchInterval: 5_000,
-    enabled: !FORCE_DEMO && dataMode !== "demo"
+    enabled: !FORCE_DEMO && (dataMode !== "demo" || production)
   })
 
   useEffect(() => {
@@ -47,8 +53,13 @@ export function useBoardLifecycle(): void {
       void cacheJobs(Object.values(useBoardStore.getState().jobs))
     } else if (boardQuery.isError && dataMode === "connecting") {
       enterDemo()
+    } else if (boardQuery.isError && dataMode === "live") {
+      // A live console that loses the API must not keep claiming "Live" over
+      // silently stale data — drop to "Connecting" so the badge tells the
+      // truth until the poll recovers.
+      markReconnecting()
     }
-  }, [boardQuery.data, boardQuery.isError, boardQuery.error, dataMode, hydrateFromApi, enterDemo])
+  }, [boardQuery.data, boardQuery.isError, boardQuery.error, dataMode, hydrateFromApi, enterDemo, markReconnecting])
 
   useEffect(() => {
     const interval = setInterval(() => useBoardStore.getState().tick(), 1000)

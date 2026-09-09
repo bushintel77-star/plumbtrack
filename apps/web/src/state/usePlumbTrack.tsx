@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import type { AppState, DocumentCategory, Job, OutboxOperation, PlumbDocument, PlumbDocumentVersion, Quote, QuoteLineField, Rfi, Shift, ShiftWorkType, SlackMember, TimeEntry, View, Tab, SlackChannel } from "@/types";
-import { API_URL, DEFAULT_ORG_ID, GPS_LOCK_DURATION_MS, STORAGE_KEY, XERO_SYNC_DURATION_MS } from "@/lib/constants";
+import { API_URL, DEFAULT_ORG_ID, GPS_TIMEOUT_MS, STORAGE_KEY } from "@/lib/constants";
 import { disaggregateForStp, interpretShift, previousShiftEnd, type ShiftPayBreakdown, type StpDisaggregation } from "@/lib/award";
 import { api } from "@/lib/api";
 import { enrollDeviceSession, getAuthSession, clearAuthSession } from "@/lib/auth";
@@ -20,19 +20,43 @@ import { reducer } from "./reducer";
 
 // ── Persistence helpers ──────────────────────────────────────────────────────
 
+// The demo seed ships only in non-production bundles: a production device
+// boots empty and fills from the server (offline-first queue + remote poll).
+// Documents/Messages/channels have no server merge path yet, so a production
+// device that booted on the seed would show fictional data forever. The one
+// opt-in exception is NEXT_PUBLIC_E2E_DEMO_SEED: the Playwright suite builds
+// a production bundle (see playwright.config.ts webServer) and its specs
+// assert deterministic seed-era UI — the flag is a test fixture, never set
+// on a real deployment.
+const DEMO_SEED =
+  process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E_DEMO_SEED === "1";
+
 function emptyState(): AppState {
-  return {
-    jobs: seedJobs,
-    quotes: seedQuotes,
-    channels: seedChannels,
-    members: seedMembers,
-    messages: seedMessages,
-    shifts: [],
-    syncQueue: [],
-    serverEntryIds: {},
-    documents: seedDocuments,
-    rfis: seedRfis,
-  };
+  return DEMO_SEED
+    ? {
+        jobs: seedJobs,
+        quotes: seedQuotes,
+        channels: seedChannels,
+        members: seedMembers,
+        messages: seedMessages,
+        shifts: [],
+        syncQueue: [],
+        serverEntryIds: {},
+        documents: seedDocuments,
+        rfis: seedRfis,
+      }
+    : {
+        jobs: [],
+        quotes: [],
+        channels: [],
+        members: [],
+        messages: [],
+        shifts: [],
+        syncQueue: [],
+        serverEntryIds: {},
+        documents: [],
+        rfis: [],
+      };
 }
 
 function loadState(): AppState {
@@ -138,8 +162,6 @@ function usePlumbTrackImpl() {
   const [currentStaffId, setCurrentStaffId] = useState<string>("tim");
   const [clientName, setClientName] = useState("");
   const [gpsLocking, setGpsLocking] = useState(false);
-  const [xeroSyncing, setXeroSyncing] = useState(false);
-  const [xeroDone, setXeroDone] = useState(false);
 
   // Derived
   const job = useMemo(() => jobs.find((j) => j.id === activeId) ?? null, [jobs, activeId]);
@@ -490,7 +512,7 @@ function usePlumbTrackImpl() {
       // Start the real geolocation request immediately.
       const geo = new Promise<{ lat: number; lng: number } | null>((resolve) => {
         if (!navigator.geolocation) return resolve(null);
-        const timeout = setTimeout(() => resolve(null), GPS_LOCK_DURATION_MS);
+        const timeout = setTimeout(() => resolve(null), GPS_TIMEOUT_MS);
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             clearTimeout(timeout);
@@ -500,13 +522,13 @@ function usePlumbTrackImpl() {
             clearTimeout(timeout);
             resolve(null);
           },
-          { enableHighAccuracy: true, timeout: GPS_LOCK_DURATION_MS, maximumAge: 60_000 },
+          { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 60_000 },
         );
       });
 
-      // Wait for either GPS lock or the 1.5s floor (whichever finishes first).
-      const minDelay = new Promise((r) => setTimeout(r, GPS_LOCK_DURATION_MS));
-      void Promise.all([geo, minDelay]).then(([coords]) => {
+      // Proceed as soon as the device resolves the fix — or at the timeout
+      // above — with no artificial delay theatre.
+      void geo.then((coords) => {
         dispatch({
           type: "CLOCK_ON",
           jobId,
@@ -747,20 +769,9 @@ function usePlumbTrackImpl() {
     [quote, clientName, postMessage],
   );
 
-  const startXeroSync = useCallback(() => {
-    if (!activeId) return;
-    setXeroSyncing(true);
-    setXeroDone(false);
-    setTimeout(() => {
-      setXeroSyncing(false);
-      setXeroDone(true);
-      // Persist the sync so the success state survives navigation/reload.
-      dispatch({ type: "MARK_JOB_XERO_SYNCED", jobId: activeId });
-      // Slack integration: announce the Xero draft in #field-updates.
-      postMessage("field-updates", "plumbtrack", `🧾 Invoice draft created in Xero for ${activeId}.`);
-    }, XERO_SYNC_DURATION_MS);
-  }, [activeId, postMessage]);
-
+  // NOTE: startXeroSync was a fabricated setTimeout that asserted "Invoice
+  // created in Xero" with no backend. Xero is not integrated — the invoice
+  // panel now says so honestly instead of inventing a sync.
   const resetDemo = useCallback(() => {
     clearPersistedState();
     window.location.reload();
@@ -935,7 +946,6 @@ function usePlumbTrackImpl() {
         break;
     }
     setClientName("");
-    setXeroDone(false);
   }, [view]);
 
   // Hardware / browser back gesture exits views instead of leaving the PWA.
@@ -959,7 +969,6 @@ function usePlumbTrackImpl() {
     setActiveTab("jobs");
     setView("list");
     setClientName("");
-    setXeroDone(false);
   }, []);
 
   return {
@@ -974,7 +983,6 @@ function usePlumbTrackImpl() {
     clientName, setClientName,
     syncStatus: outboxStatus,
     gpsLocking,
-    xeroSyncing, xeroDone,
 
     // Staff identity
     staffMembers, currentStaff, currentStaffId, setCurrentStaffId, currentStaffName,
@@ -989,7 +997,7 @@ function usePlumbTrackImpl() {
     startClockOn, clockOff, addPhoto, saveSignature,
     addLine, updateLine, removeLine,
     sendQuote, approveQuote,
-    startXeroSync, resetDemo, logOut,
+    resetDemo, logOut,
 
     // Slack
     sendMessage, openChannel, toggleReaction, postMessage,

@@ -10,6 +10,7 @@ import {
   MapPin,
   MessageSquare,
   Plus,
+  Receipt,
   Send,
   Trash2,
   Wifi,
@@ -26,13 +27,7 @@ import {
 } from "lucide-react";
 
 import type { Job, View } from "@/types";
-import {
-  CALLOUT_FEE,
-  CENTS_PER_KM,
-  GPS_LOCK_DURATION_MS,
-  RATE_STANDARD,
-  XERO_SYNC_DURATION_MS,
-} from "@/lib/constants";
+import { CALLOUT_FEE, CENTS_PER_KM, RATE_STANDARD } from "@/lib/constants";
 import {
   disaggregateForStp,
   interpretStoredShift,
@@ -683,7 +678,7 @@ function JobSignoffView({ job }: { job: Job }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }) {
-  const { xeroSyncing, xeroDone, startXeroSync, closeInvoice, quotes } = usePlumbTrackCtx();
+  const { closeInvoice, quotes } = usePlumbTrackCtx();
   const [payLink, setPayLink] = useState<{ url: string; mode: "live" | "test" } | null>(null);
   const [payLinkBusy, setPayLinkBusy] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -695,21 +690,22 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
   const serviceItemsTotal = serviceItems.reduce((sum, item) => sum + item.qty * item.rate, 0);
   const baseInvoiceTotal = hasFixedServiceKit ? 0 : invoiceTotal(billedSeconds);
   const total = baseInvoiceTotal + materialsTotal + serviceItemsTotal;
-  const synced = !!job.xeroSyncedAt || xeroDone;
+  const [payLinkError, setPayLinkError] = useState(false);
 
   const originQuote = job.quoteId ? quotes.find((q) => q.id === job.quoteId) : undefined;
   const costing = jobCosting(originQuote?.lines, billedSeconds);
 
   const createPayLink = async () => {
     setPayLinkBusy(true);
+    setPayLinkError(false);
     try {
       const result = await api.createPaymentLink(job.id, total);
       setPayLink({ url: result.url, mode: result.mode });
     } catch {
-      setPayLink({
-        url: `https://checkout.stripe.com/c/pay/cs_test_plumbtrack_${job.id.replace(/[^A-Za-z0-9-]/g, "")}`,
-        mode: "test",
-      });
+      // Never fabricate a checkout URL: a dead link presented as a payment
+      // option is worse than an honest failure the dispatcher can retry.
+      setPayLink(null);
+      setPayLinkError(true);
     } finally {
       setPayLinkBusy(false);
     }
@@ -791,21 +787,18 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
         </GlassCard>
       )}
 
-      <button type="button" onClick={startXeroSync} disabled={xeroSyncing || synced}      className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 min-h-[48px] active:scale-[0.98] transition ${
-          synced
-            ? "bg-accent-dim text-accent border border-accent-line"
-            : "surface-card text-ink disabled:opacity-50"
-        }`}
-      >
-        {xeroSyncing ? (<><div className="w-4 h-4 border-2 border-edge border-t-edge rounded-full animate-spin" />Syncing to Xero…</>)
-        : synced ? (<><Check size={16} /> Invoice created in Xero</>)
-        : (<><Send size={16} /> Sync to Xero &amp; Close</>)}
-      </button>
-      {synced && (
-        <button type="button" onClick={closeInvoice}
-          className="w-full py-3 rounded-xl bg-fill-strong text-ink-low text-sm font-medium border border-line active:bg-fill-strong transition min-h-[48px]"
-        >Back to Jobs</button>
-      )}
+      {/* Xero is not integrated. The previous control faked a 2s sync and
+          asserted "Invoice created in Xero" with no backend. */}
+      <div className="flex items-center gap-2 text-xs text-ink-low px-1">
+        <Receipt size={14} className="shrink-0" />
+        <span>
+          Xero not connected — raise the invoice in Xero manually for{" "}
+          <strong className="text-ink">{job.id}</strong>.
+        </span>
+      </div>
+      <button type="button" onClick={closeInvoice}
+        className="w-full py-3 rounded-xl bg-fill-strong text-ink-low text-sm font-medium border border-line active:bg-fill-strong transition min-h-[48px]"
+      >Back to Jobs</button>
 
       <GlassCard>
         <div className="flex items-center justify-between mb-2">
@@ -817,6 +810,9 @@ function InvoiceView({ job, billedSeconds }: { job: Job; billedSeconds: number }
           )}
         </div>
         <p className="text-xs text-ink-low mb-2.5">Stripe Checkout is free to use — no subscription; Stripe only takes a cut when the client pays.</p>
+        {payLinkError && (
+          <p className="text-xs text-urgent mb-2">Couldn&apos;t create a payment link right now — check your connection and try again.</p>
+        )}
         {!payLink ? (
           <button
             type="button"
@@ -1160,4 +1156,4 @@ const PAY_CODE_LABELS: Record<string, string> = {
   PH: "Public holiday",
   TOIL: "TOIL",
   KM: "Kilometre allowance",
-};
+};

@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { CalendarClock, Mail, MapPin, Search } from "lucide-react"
+import { Mail, MapPin, Search } from "lucide-react"
 
-import { serviceAgreements } from "@/data/seed"
-import { formatDate, formatMoney } from "@/lib/format"
-import { agreementVerdict, deriveCustomers, dispatchStatus, jobRevenue } from "@/lib/fieldloop"
+import { formatMoney } from "@/lib/format"
+import { deriveCustomers, dispatchStatus, jobRevenue } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
 import { useJobsList } from "@/stores/boardStore"
 
@@ -21,11 +20,11 @@ export function CrmSurface() {
     customer.name.toLowerCase().includes(query.trim().toLowerCase())
   )
   const selected = customers.find(customer => customer.id === selectedId)
-  const agreement = serviceAgreements.find(item => item.customerName === selected?.name)
-  const dueSoon = serviceAgreements
-    .map(item => ({ item, verdict: agreementVerdict(item) }))
-    .filter(entry => entry.verdict.state !== "valid")
-    .sort((a, b) => (a.verdict.days ?? 0) - (b.verdict.days ?? 0))
+  // Service agreements are not backed by the API yet. The hardcoded seed
+  // used to render fictional contracts and "overdue" alerts into the live
+  // CRM view — until a real agreements source exists these stay honest
+  // empty states.
+
 
   return (
     <>
@@ -72,17 +71,9 @@ export function CrmSurface() {
               </div>
             </div>
 
-            {agreement ? (
-              <div className="fl-agreement">
-                <strong>{agreement.serviceType}</strong>
-                <span>
-                  {agreement.frequency} · last serviced {formatDate(agreement.lastServiceDate)}
-                </span>
-                <span>Next due {formatDate(agreement.nextDueDate)}</span>
-              </div>
-            ) : (
-              <div className="fl-muted">No service agreement on file for this customer.</div>
-            )}
+            {/* Service agreements are not backed by the API yet — honest
+                empty state until a real agreements source exists. */}
+            <div className="fl-muted">No service agreement on file for this customer.</div>
 
             <div className="fl-kicker">Job history</div>
             {selected.jobs.map(job => (
@@ -98,26 +89,7 @@ export function CrmSurface() {
 
       <aside className="fl-panel fl-inspector" aria-label="Agreements due soon">
         <div className="fl-kicker">Agreements due soon</div>
-        {dueSoon.length === 0 && <div className="fl-muted">No agreements are due in the next 30 days.</div>}
-        {dueSoon.map(({ item, verdict }) => (
-          <button
-            type="button"
-            key={item.id}
-            className={cn("fl-flag", verdict.state === "expired" ? "red" : "amber")}
-            onClick={() => {
-              const match = customers.find(customer => customer.name === item.customerName)
-              if (match) setSelectedId(match.id)
-            }}
-          >
-            <CalendarClock size={14} />
-            <div>
-              <strong>{item.customerName}</strong>
-              <span>
-                {item.serviceType} · {verdict.label}
-              </span>
-            </div>
-          </button>
-        ))}
+        <div className="fl-muted">No agreements are due in the next 30 days.</div>
         <HonestAction requirement="Twilio or an equivalent SMS provider" icon={<Mail size={13} />}>
           Send renewal reminders
         </HonestAction>

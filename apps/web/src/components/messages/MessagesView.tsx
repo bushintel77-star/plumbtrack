@@ -54,7 +54,7 @@ function fmtDayDivider(iso: string): string {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-// Tokens rendered as tappable deep-link chips: J-1043 opens the job, Q-2091 the quote.
+// Tokens rendered as tappable deep-link chips: a job id (J-123) opens the job, a quote id (Q-456) the quote.
 const DEEP_LINK_RE = /(J-\d+|Q-\d+)/g;
 
 function RichText({

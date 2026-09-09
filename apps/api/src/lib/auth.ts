@@ -31,14 +31,20 @@ function secret(): string | null {
 }
 
 function productionAuthRequired(): boolean {
+  const env = process.env.NODE_ENV;
+  // Production is immutable: the legacy header grants owner-level tenant
+  // selection, so nothing may re-enable it there (the override used to force
+  // this false even in production — live-demonstrated in the 2026-09-07
+  // stress test serving the full org board with no credentials; server.ts
+  // now refuses to boot a production deployment that still sets it).
+  if (env === "production") return true;
+  // Dev/test escape hatches: explicitly force legacy mode on, or rehearse
+  // production-auth behaviour (used by the test suites) with "false".
   const override = process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
   if (override === "true") return false;
   if (override === "false") return true;
-  const env = process.env.NODE_ENV;
-  // Fail closed: the legacy header grants owner-level tenant selection, so it
-  // may only activate in explicit development/test environments. An unset
-  // NODE_ENV (e.g. a container started without its ENV block) must not
-  // silently re-enable it.
+  // Fail closed: an unset NODE_ENV (e.g. a container started without its ENV
+  // block) must not silently re-enable the legacy header.
   return env !== "development" && env !== "test";
 }
 

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
+import { SYNC_JOB_CAP } from "../lib/limits";
 
 /**
  * WatermelonDB sync endpoint — pull protocol.
@@ -103,7 +104,8 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         ...(isFirstPull ? {} : { updatedAt: { gt: new Date(cursorMs) } })
       },
       include: { timeEntries: true, checklistItems: { orderBy: { sortOrder: "asc" } }, appointments: { orderBy: { scheduledStart: "asc" }, take: 1 } },
-      orderBy: { updatedAt: "asc" }
+      orderBy: { updatedAt: "asc" },
+      take: SYNC_JOB_CAP
     });
 
     const rows = jobs.map(toRow);
@@ -115,7 +117,10 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
           deleted: []
         }
       },
-      timestamp: Date.now()
+      // The next cursor must be the last returned row's updatedAt — using
+      // Date.now() here would permanently skip changes beyond the
+      // SYNC_JOB_CAP cap on busy pulls.
+      timestamp: jobs.length > 0 ? jobs[jobs.length - 1].updatedAt.getTime() : Date.now()
     };
   });
 }

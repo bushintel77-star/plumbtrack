@@ -98,7 +98,7 @@ export function SearchSheet({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Try “gas compliance”, “riser leak”, “J-1043”…"
+            placeholder="Try “gas compliance”, “riser leak”, “hot water”…"
             className="w-full min-h-[48px] app-input border rounded-xl pl-10 pr-10 text-sm text-ink placeholder-ink-low"
             aria-label="Search everything"
             autoFocus

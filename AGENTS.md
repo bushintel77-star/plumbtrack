@@ -1,12 +1,19 @@
 # PlumbTrack — Agent Handoff / WIP
 
-Last updated: 2026-09-04
+Last updated: 2026-09-08
 
 ## Current state
 
 - `main` on `bushintel77-star/plumbtrack` is green and deployed.
 - **Branch protection is ON** (2026-09-04): `main` requires the CI check "Build, typecheck, lint and test", force-pushes and deletions blocked; `enforce_admins` is false so the owner can still push directly in an emergency. Land changes via PR.
-- 2026-09-04 production-hardening pass (uncommitted local work at time of writing):
+- **2026-09-08 zero-mock / stress-test hardening pass** (branch `prod-hardening-zero-mock`, see PRODUCTION_READINESS.md for the full register). Highlights:
+  - `PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER` can no longer disable auth in production (was live-demonstrated serving the whole org with no credentials); prod boots refuse to start with the flag set. Removed from `apps/api/.env`.
+  - Assignment double-booking fixed (per-technician advisory-lock transaction; was 9/10 reproducible).
+  - **Stripe webhook verification was broken** (Fastify 5 never attaches `request.rawBody` — every real webhook 503'd). Fixed + first signature tests. Re-verify the Stripe endpoint after deploy.
+  - Slack inbound: HMAC v0 (`SLACK_SIGNING_SECRET`) + fail-closed org scoping; auth routes rate-limited 10/min/IP; read caps + org indexes on jobs (migration `20260908090000`); pull-sync cursor resumes past the cap.
+  - Web PWA + HQ: production bundles carry zero fabricated business data (seeds gated to dev/test; fake Xero sync and fake Stripe URL removed; HQ Documents/Crm render only real data). Misconfig (missing `NEXT_PUBLIC_*` API URL, baked `FORCE_DEMO`) is loud in prod.
+  - `apps/dispatch` no longer built/tested by CI (superseded prototype; dev/start kept).
+- 2026-09-04 production-hardening pass (merged via PR #3/#4/#5/#6):
   - Tenant hook exempts the signature-verified webhooks (`POST /api/webhooks/stripe`, `POST /api/slack/events`) — they were 401'd in production before.
   - Closed cross-tenant holes: checklist-item PATCH (org-scoped), photo DELETE (parent job org-verified), quote-line PATCH (scoped to the org-verified quote).
   - CORS fails closed: `buildApp` refuses to boot in production without `CORS_ORIGINS`.
@@ -87,3 +94,4 @@ pnpm exec expo export --platform web
 - **Local live-mode stack (2026-09-06)**: two traps. (1) This machine has a *global* Windows env `DATABASE_URL=postgres://…kellybet` (another project); Node's `--env-file` lets real env win over `.env`, so start the api with an explicit override: `DATABASE_URL="$(grep ^DATABASE_URL= apps/api/.env | cut -d= -f2- | tr -d '\r"')" pnpm exec tsx --env-file=.env src/index.ts`. Otherwise the api silently runs against the kellybet DB and `/api/board` 500s with Prisma P2022. (2) A local HQ production build needs `NEXT_PUBLIC_HQ_DEV_ORG_ID=org_caulfield_south NEXT_PUBLIC_HQ_API_URL=http://localhost:8080` at build time or the org header mismatches and the board demo-latches. Local demo of the map also needs geocoded jobs — re-PATCH each job's address to populate `lat/lng` via the live heigit proxy.
 - HQ transient-failure behaviour (2026-09-06): the basemap ladder (`src/lib/basemapLadder.ts`) walks style candidates × 3 passes before the MAP UNAVAILABLE fallback; the connection badge (`fl-connection`) becomes a "Demo data · reconnect" button when the board demo-latches after a transient failure — one click re-arms the live query.
 - **Local stack runs detached (2026-09-07)**: `powershell -ExecutionPolicy Bypass -File apps/api/.start-detached.ps1` and `apps/hq/.start-detached.ps1` start each server as a hidden process that survives agent sessions/terminals (logs: `apps/*/.local-*.log`). Background shells tied to an agent session get reaped — do not run the dev servers as agent background tasks. The light-theme basemap leads with OSM Liberty (full colour); positron/carto are ladder fallbacks. HQ sessions expire — a 401 on `/api/board` means re-mint via `POST /api/auth/hq-session` (dev: org header `org_caulfield_south`), not missing data.
+- **Windows traps (2026-09-08 stress test)**: (1) a stale detached `tsx src/index.ts` from an old session holds the Prisma engine DLL — every `pnpm typecheck`/`build` then dies with `EPERM … query_engine-windows.dll.node`, and the process also squats port 8080. Find the holder with `powershell -ExecutionPolicy Bypass -File scripts/find-prisma-lock.ps1`, kill it, rerun `prisma generate`. (2) The global kellybet `DATABASE_URL` DB is *contaminated*: it contains a partial plumbtrack schema with seeded `org_caulfield_south` rows — never trust "orgs exist" as proof you're on the right DB. (3) Reusable load/race/brute probes live in `scripts/` (`load-probe.mjs`, `race-once.mjs`, `brute-probe.mjs`); run node scripts with `MSYS_NO_PATHCONV=1` when passing `/api/...` args or Git Bash rewrites them to Windows paths.

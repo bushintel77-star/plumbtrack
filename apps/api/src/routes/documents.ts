@@ -10,6 +10,7 @@ import {
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
+import { DOCUMENT_LIST_CAP, RFI_LIST_CAP } from "../lib/limits";
 import { parseBody, sendValidationError } from "../lib/validation";
 
 /** Roles allowed to record field work — same surface as time entries/photos. */
@@ -33,6 +34,7 @@ export async function documentRoutes(app: FastifyInstance): Promise<void> {
     return prisma.jobDocument.findMany({
       where: { orgId, ...(jobId ? { jobId } : {}) },
       orderBy: { createdAt: "desc" },
+      take: DOCUMENT_LIST_CAP,
     });
   });
 
@@ -144,7 +146,7 @@ export async function documentRoutes(app: FastifyInstance): Promise<void> {
     const { jobId } = request.params as { jobId: string };
     const job = await prisma.job.findFirst({ where: { id: jobId, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
-    return prisma.rfi.findMany({ where: { jobId, orgId }, orderBy: { raisedAt: "desc" } });
+    return prisma.rfi.findMany({ where: { jobId, orgId }, orderBy: { raisedAt: "desc" }, take: RFI_LIST_CAP });
   });
 
   app.post("/jobs/:jobId/rfis", async (request, reply) => {

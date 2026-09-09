@@ -52,5 +52,11 @@ export default defineConfig({
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     timeout: 300_000,
+    // The suite's specs assert deterministic seed-era UI (documents vault
+    // counts, focused job hero, quote cards, deep-link chips) — the demo seed
+    // is a test fixture here, re-enabled for this production build only via
+    // the opt-in flag in state/usePlumbTrack.tsx. Real deployments never set
+    // it; production bundles without it boot empty.
+    env: { NEXT_PUBLIC_E2E_DEMO_SEED: "1" },
   },
 });

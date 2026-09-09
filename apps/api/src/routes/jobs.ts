@@ -18,6 +18,7 @@ import { geocodeAddress, reverseGeocode } from "./routing";
 import { assignmentSchema } from "../schemas/assignment";
 import { publishToOrg } from "../lib/liveBus";
 import { instantiateChecklist, ensureDefaultTemplates } from "../lib/checklists";
+import { JOB_LIST_DEFAULT, JOB_LIST_MAX } from "../lib/limits";
 
 /** Roles allowed to record field work (time entries and site photos). */
 const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
@@ -26,10 +27,16 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const query = request.query as { limit?: string };
+    const parsedLimit = Number(query.limit);
+    const take = Number.isFinite(parsedLimit) && parsedLimit > 0
+      ? Math.min(Math.floor(parsedLimit), JOB_LIST_MAX)
+      : JOB_LIST_DEFAULT;
     return prisma.job.findMany({
       where: { orgId },
       include: { timeEntries: true, photos: true },
       orderBy: { createdAt: "desc" },
+      take,
     });
   });
 
@@ -165,19 +172,29 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       : MINUTES_PER_BLOCK * 60 * 1000;
     const end = new Date(start.getTime() + durationMs);
 
-    const conflict = await prisma.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: end }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: start } }] } });
-    if (conflict) return reply.code(409).send({ message: "Technician has an overlapping appointment" });
-
-    const updated = await prisma.appointment.updateMany({
-      where: { id: appointment.id, jobId: id, orgId },
-      data: {
-        assignedStaffId: parsed.data.technicianId,
-        scheduledStart: start,
-        scheduledEnd: end,
-        updatedAt: new Date()
-      }
+    // Conflict check + write run inside one transaction guarded by a
+    // per-technician advisory lock: without it, two concurrent assignments
+    // both pass the findFirst before either update lands and the technician
+    // ends up double-booked (reproduced 9/10 rounds in the 2026-09-07 stress
+    // test). The lock serializes exactly the (technician) rows that can
+    // conflict, so the loser observes the winner's write and 409s.
+    const outcome = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${parsed.data.technicianId}))`;
+      const conflict = await tx.appointment.findFirst({ where: { orgId, assignedStaffId: parsed.data.technicianId, id: { not: appointment.id }, scheduledStart: { lt: end }, OR: [{ scheduledEnd: null }, { scheduledEnd: { gt: start } }] } });
+      if (conflict) return { kind: "conflict" as const };
+      const updated = await tx.appointment.updateMany({
+        where: { id: appointment.id, jobId: id, orgId },
+        data: {
+          assignedStaffId: parsed.data.technicianId,
+          scheduledStart: start,
+          scheduledEnd: end,
+          updatedAt: new Date()
+        }
+      });
+      return { kind: updated.count > 0 ? ("assigned" as const) : ("missing" as const) };
     });
-    if (updated.count === 0) return reply.code(409).send({ message: "Job has no schedulable appointment" });
+    if (outcome.kind === "conflict") return reply.code(409).send({ message: "Technician has an overlapping appointment" });
+    if (outcome.kind === "missing") return reply.code(409).send({ message: "Job has no schedulable appointment" });
     recordAuditEvent(request, { action: "job.assigned", entityType: "job", entityId: id, metadata: parsed.data });
     publishToOrg({
       topic: "topic/jobs/updated",

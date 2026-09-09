@@ -569,14 +569,6 @@ export function reducer(state: AppState, action: Action): AppState {
         jobs: state.jobs.map((j) => (j.id === action.localId ? action.job : j)),
       };
 
-    case "MARK_JOB_XERO_SYNCED":
-      return {
-        ...state,
-        jobs: state.jobs.map((j) =>
-          j.id === action.jobId ? { ...j, xeroSyncedAt: new Date().toISOString() } : j,
-        ),
-      };
-
     case "POST_MESSAGE":
       return {
         ...state,

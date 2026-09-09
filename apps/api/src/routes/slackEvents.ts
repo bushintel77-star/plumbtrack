@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
-import type { FastifyInstance } from "fastify";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
 
 /**
@@ -11,11 +11,23 @@ import { prisma } from "@plumbtrack/database";
  * actions posted by Slack update the FSM directly.
  *
  * Security posture:
- *  - Disabled by default. The route 503s until SLACK_VERIFICATION_TOKEN is
- *    configured (credentials live only in the server env).
- *  - Every payload's verification token is compared timing-safely.
+ *  - Disabled by default. The route 503s until SLACK_SIGNING_SECRET or the
+ *    legacy SLACK_VERIFICATION_TOKEN is configured (credentials live only in
+ *    the server env).
+ *  - Preferred verification is Slack's HMAC v0 request signing
+ *    (SLACK_SIGNING_SECRET): HMAC-SHA256 over `v0:{timestamp}:{rawBody}`
+ *    with a ±300s replay window, compared timing-safely. The scoped parsers
+ *    below keep the raw body for signature computation on both content
+ *    types Slack sends (JSON events, urlencoded commands).
+ *  - The legacy verification token (deprecated by Slack, no replay
+ *    protection) is still accepted as a fallback so existing deployments
+ *    keep working; production logs a warning until SLACK_SIGNING_SECRET is
+ *    configured.
  *  - Zero outbound requests: card rewrites ride Slack's block-action
  *    response protocol, so no URL from a payload ever reaches fetch.
+ *  - Tenant resolution is fail-closed: a payload whose team cannot be mapped
+ *    to an org is refused — job mutations never run unscoped (2026-09-07
+ *    audit finding P1-8).
  */
 
 const ACTION_ACCEPT_PREFIX = "accept_job_";
@@ -38,12 +50,41 @@ function verificationToken(): string | null {
   return token || null;
 }
 
+function signingSecret(): string | null {
+  const secret = process.env.SLACK_SIGNING_SECRET?.trim();
+  return secret || null;
+}
+
+/** Slack itself rejects replayed requests outside a 5-minute window; so do we. */
+const SIGNATURE_TIMESTAMP_TOLERANCE_SECONDS = 300;
+
+/**
+ * Verify Slack's `x-slack-signature` HMAC v0 scheme against the raw request
+ * body. Returns null when valid, otherwise a machine-readable reason.
+ */
+function verifySlackSignature(request: FastifyRequest, rawBody: string): string | null {
+  const secret = signingSecret();
+  if (!secret) return "no signing secret configured";
+  const timestamp = request.headers["x-slack-request-timestamp"];
+  const signature = request.headers["x-slack-signature"];
+  if (typeof timestamp !== "string" || typeof signature !== "string") return "missing signature headers";
+  const tsSeconds = Number(timestamp);
+  if (!Number.isFinite(tsSeconds)) return "malformed timestamp";
+  if (Math.abs(Date.now() / 1000 - tsSeconds) > SIGNATURE_TIMESTAMP_TOLERANCE_SECONDS) return "stale timestamp (replay rejected)";
+  const expected = "v0=" + createHmac("sha256", secret).update(`v0:${timestamp}:${rawBody}`).digest("hex");
+  const left = Buffer.from(expected);
+  const right = Buffer.from(signature);
+  if (left.length !== right.length || !timingSafeEqual(left, right)) return "signature mismatch";
+  return null;
+}
+
 /**
  * Resolve the org a Slack payload belongs to (§4.6): team_id → SlackWorkspace
  * (one Slack team maps to exactly one org — the payload never picks the org).
  * Falls back to the SLACK_ORG_ID/SLACK_TEAM_ID env pin for deployments that
  * have not connected a workspace. Returns `false` for an explicitly-rejected
- * foreign team, `null` when no mapping exists (legacy unscoped behaviour).
+ * foreign team, `null` when no mapping exists (callers must treat null as
+ * "refuse to mutate" — never mutate unscoped).
  */
 async function resolveOrgForTeam(teamId: unknown): Promise<string | null | false> {
   if (typeof teamId !== "string" || teamId === "") return null;
@@ -103,25 +144,80 @@ function ephemeral(text: string): { response_type: string; text: string } {
   return { response_type: "ephemeral", text };
 }
 
+const NOT_BOUND_MESSAGE =
+  "This Slack workspace is not linked to an organization on this deployment — job actions are disabled until an admin connects it.";
+
+/** Fastify 5 does not attach the pre-parsed body itself — the scoped parsers
+ * below stash it here so signature verification sees the exact wire bytes. */
+interface RawBodyRequest extends FastifyRequest {
+  rawBody?: Buffer | string;
+}
+
 export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
+  // Scoped parsers so this plugin sees the raw request body (signature
+  // verification) without touching the global JSON config used elsewhere.
   app.addContentTypeParser(
     "application/x-www-form-urlencoded",
     { parseAs: "string" },
-    (_req, body, done) => done(null, parseFormEncoded(String(body)))
+    (req, body, done) => {
+      (req as RawBodyRequest).rawBody = String(body);
+      done(null, parseFormEncoded(String(body)));
+    }
+  );
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (req, body, done) => {
+      const raw = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+      (req as RawBodyRequest).rawBody = raw;
+      try {
+        done(null, JSON.parse(raw.toString("utf8")));
+      } catch {
+        done(new Error("malformed JSON body"), undefined);
+      }
+    }
   );
 
   app.get("/status", async () => ({
-    enabled: verificationToken() !== null,
+    enabled: verificationToken() !== null || signingSecret() !== null,
+    signatureVerification: signingSecret() !== null ? "hmac-v0" : verificationToken() !== null ? "legacy-token" : "disabled",
     commands: ["/dispatch-status", "/dispatch-help"],
   }));
 
-  app.post("/events", async (request, reply) => {
-    const token = verificationToken();
-    if (!token) {
-      return reply.code(503).send({ error: "Slack events endpoint disabled — SLACK_VERIFICATION_TOKEN is not configured" });
+  let warnedLegacyInProduction = false;
+
+  app.post("/events", { config: { rawBody: true } }, async (request, reply) => {
+    const hasSigningSecret = signingSecret() !== null;
+    const hasLegacyToken = verificationToken() !== null;
+    if (!hasSigningSecret && !hasLegacyToken) {
+      return reply.code(503).send({ error: "Slack events endpoint disabled — SLACK_SIGNING_SECRET (or legacy SLACK_VERIFICATION_TOKEN) is not configured" });
+    }
+
+    // Raw body for HMAC verification, captured by the scoped parsers above
+    // for both content types Slack sends. Fastify 5 never attaches
+    // request.rawBody on its own.
+    const rawBody =
+      typeof (request as RawBodyRequest).rawBody === "string"
+        ? (request as RawBodyRequest).rawBody as string
+        : Buffer.isBuffer((request as RawBodyRequest).rawBody)
+          ? ((request as RawBodyRequest).rawBody as Buffer).toString("utf8")
+          : "";
+
+    // HMAC path is mandatory when the signing secret is configured; the
+    // legacy token path (no replay protection) only runs without one.
+    if (hasSigningSecret) {
+      const signatureError = verifySlackSignature(request, rawBody);
+      if (signatureError) return reply.code(401).send({ error: `invalid Slack signature: ${signatureError}` });
+    } else if (process.env.NODE_ENV === "production" && !warnedLegacyInProduction) {
+      warnedLegacyInProduction = true;
+      request.log.warn("Slack inbound is using the deprecated verification token (no replay protection) — configure SLACK_SIGNING_SECRET for HMAC v0 verification");
     }
 
     const body = request.body as Record<string, unknown>;
+    // HMAC-verified requests are authorized wholesale; legacy-token requests
+    // must carry the shared token in each top-level payload (the nested
+    // interactivity payload re-checks its own token below).
+    const authorized = hasSigningSecret ? true : tokenMatches(body?.token);
 
     // Tenant resolution (see resolveOrgForTeam): the payload's team maps to
     // exactly one org; foreign teams are rejected before any data is touched.
@@ -133,7 +229,7 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
 
     // Events API handshake: Slack verifies the endpoint by challenge echo.
     if (body?.type === "url_verification" && typeof body.challenge === "string") {
-      if (!tokenMatches(body.token)) return reply.code(401).send({ error: "invalid token" });
+      if (!authorized) return reply.code(401).send({ error: "invalid token" });
       return { challenge: body.challenge };
     }
 
@@ -146,17 +242,18 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
       } catch {
         return reply.code(400).send({ error: "malformed payload" });
       }
-      if (!tokenMatches(payload.token)) return reply.code(401).send({ error: "invalid token" });
+      if (!authorized && !tokenMatches(payload.token)) return reply.code(401).send({ error: "invalid token" });
       const payloadOrgScope = await resolveOrgForTeam(payload.team?.id);
       if (payloadOrgScope === false) return reply.code(403).send({ error: "Slack workspace not bound to this deployment" });
       const interactivityOrgScope = payloadOrgScope ?? orgScope;
 
       const action = payload.actions?.[0];
       if (action?.action_id?.startsWith(ACTION_ACCEPT_PREFIX)) {
+        if (!interactivityOrgScope) return reply.code(200).send(ephemeral(NOT_BOUND_MESSAGE));
         const jobId = action.action_id.slice(ACTION_ACCEPT_PREFIX.length);
         const claimedBy = payload.user?.name ?? payload.user?.username ?? "slack";
         const updated = await prisma.job.updateMany({
-          where: { id: jobId, status: "scheduled", ...(interactivityOrgScope ? { orgId: interactivityOrgScope } : {}) },
+          where: { id: jobId, status: "scheduled", orgId: interactivityOrgScope },
           data: { status: "in_progress" },
         });
         if (updated.count === 0) {
@@ -178,7 +275,7 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
 
     // Slash command surface.
     if (typeof body?.command === "string") {
-      if (!tokenMatches(body.token)) return reply.code(401).send({ error: "invalid token" });
+      if (!authorized) return reply.code(401).send({ error: "invalid token" });
       const text = typeof body.text === "string" ? body.text.trim() : "";
 
       if (body.command === "/dispatch-help") {
@@ -188,6 +285,7 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
       }
 
       if (body.command === "/dispatch-status") {
+        if (!orgScope) return reply.code(200).send(ephemeral(NOT_BOUND_MESSAGE));
         const match = /^(\S+)\s+(\S+)$/.exec(text);
         if (!match) {
           return ephemeral("Usage: `/dispatch-status {jobId} {scheduled|in_progress|completed}`");
@@ -198,7 +296,7 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
           return ephemeral(`Unknown status “${statusWord}”. Try scheduled, in_progress or completed.`);
         }
         const updated = await prisma.job.updateMany({
-          where: { id: jobId, ...(orgScope ? { orgId: orgScope } : {}) },
+          where: { id: jobId, orgId: orgScope },
           data: { status },
         });
         if (updated.count === 0) {
@@ -213,7 +311,7 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
     // Events API callbacks (job messages etc.) — ack immediately; outbound
     // fan-out stays on the domain-event worker.
     if (typeof body?.type === "string") {
-      if (!tokenMatches(body.token)) return reply.code(401).send({ error: "invalid token" });
+      if (!authorized) return reply.code(401).send({ error: "invalid token" });
       return reply.code(200).send({});
     }
 

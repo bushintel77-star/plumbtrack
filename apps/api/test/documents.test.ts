@@ -53,6 +53,7 @@ vi.mock("@plumbtrack/database", () => ({
   },
 }));
 
+import { DOCUMENT_LIST_CAP, RFI_LIST_CAP } from "../src/lib/limits";
 import { buildApp } from "../src/server";
 
 const ORG = "org_caulfield_south";
@@ -205,6 +206,7 @@ describe("document vault routes", () => {
     expect(docFindMany).toHaveBeenCalledWith({
       where: { orgId: ORG, jobId: "J-1" },
       orderBy: { createdAt: "desc" },
+      take: DOCUMENT_LIST_CAP,
     });
   });
 
@@ -331,7 +333,7 @@ describe("RFI routes", () => {
       headers: headers(),
     });
     expect(response.statusCode).toBe(200);
-    expect(rfiFindMany).toHaveBeenCalledWith({ where: { jobId: "J-1", orgId: ORG }, orderBy: { raisedAt: "desc" } });
+    expect(rfiFindMany).toHaveBeenCalledWith({ where: { jobId: "J-1", orgId: ORG }, orderBy: { raisedAt: "desc" }, take: RFI_LIST_CAP });
   });
 
   it("answers a raised RFI with the responder and timestamp", async () => {
