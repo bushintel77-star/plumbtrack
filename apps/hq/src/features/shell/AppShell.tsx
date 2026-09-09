@@ -192,7 +192,7 @@ export function AppShell() {
       {API_URL_IS_DEFAULT && !FORCE_DEMO && (
         <div
           role="alert"
-          className="fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-1.5 text-center text-xs font-medium text-white"
+          className="fixed inset-x-0 top-0 z-50 bg-urgent px-4 py-1.5 text-center text-xs font-medium text-on-accent"
           data-testid="fl-config-error"
         >
           Configuration error: NEXT_PUBLIC_HQ_API_URL was not set at build time — the console cannot reach the API. Rebuild the deployment with it configured.
