@@ -42,12 +42,30 @@ function num(value: string | undefined, fallback: number, name: string): number 
   return parsed;
 }
 
-/** Empty strings count as unset — Docker builds pass NEXT_PUBLIC_* build args
- *  as possibly-empty env values, and an empty value must fall back to the
- *  code default rather than override it. */
-const env = (key: string): string | undefined => {
-  if (typeof process === "undefined") return undefined;
-  const value = process.env[key];
+/** NEXT_PUBLIC_* values must be read through STATIC `process.env.X` member
+ *  expressions — Next.js inlines only those at build time. The previous
+ *  dynamic `process.env[key]` lookup compiled into the browser bundle and
+ *  every read returned undefined, so the deployed PWA silently fell back to
+ *  the localhost defaults (live-verified 2026-09-09: the production chunk
+ *  carried a baked http://localhost:8080 apiUrl). Empty strings count as
+ *  unset — Docker builds pass NEXT_PUBLIC_* build args as possibly-empty env
+ *  values, and an empty value must fall back to the code default. */
+const STATIC_ENV = {
+  NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+  NEXT_PUBLIC_ORG_NAME: process.env.NEXT_PUBLIC_ORG_NAME,
+  NEXT_PUBLIC_ORG_ID: process.env.NEXT_PUBLIC_ORG_ID,
+  NEXT_PUBLIC_STANDARD_RATE: process.env.NEXT_PUBLIC_STANDARD_RATE,
+  NEXT_PUBLIC_CALLOUT_FEE: process.env.NEXT_PUBLIC_CALLOUT_FEE,
+  NEXT_PUBLIC_STAFF_HOURLY_RATE: process.env.NEXT_PUBLIC_STAFF_HOURLY_RATE,
+  NEXT_PUBLIC_CENTS_PER_KM: process.env.NEXT_PUBLIC_CENTS_PER_KM,
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  NEXT_PUBLIC_API_TIMEOUT_MS: process.env.NEXT_PUBLIC_API_TIMEOUT_MS,
+} as const;
+
+type EnvKey = keyof typeof STATIC_ENV;
+
+const env = (key: EnvKey): string | undefined => {
+  const value = STATIC_ENV[key];
   return value === undefined || value === "" ? undefined : value;
 };
 
