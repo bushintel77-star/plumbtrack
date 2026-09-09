@@ -87,13 +87,15 @@ export default defineRailway(() => {
     replicas: { "us-west2": 1 },
     env: {
       PORT: preserve(),
-      // NEXT_PUBLIC_* are inlined at build time (declared as Dockerfile ARGs).
+      // NEXT_PUBLIC_* are inlined at BUILD time (declared as Dockerfile ARGs).
+      // Build-time vars must be LITERALS: a ref() resolves at runtime only, so
+      // the old `ref(api, "RAILWAY_PUBLIC_DOMAIN")` never reached the Docker
+      // build and the deployed bundle silently fell back to localhost:8080
+      // (live-verified 2026-09-09). If the api domain changes, update here.
       // DEVICE_BOOTSTRAP_TOKEN must match the api service's DEVICE_BOOTSTRAP_TOKEN
       // (set in the dashboard) or field enrollment will fail after the legacy
       // tenant header is disabled.
-      // RAILWAY_PUBLIC_DOMAIN refs carry no scheme; the web client normalizes
-      // scheme-less values to https:// at load (apps/web/src/lib/config.ts).
-      NEXT_PUBLIC_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
+      NEXT_PUBLIC_API_URL: "https://api-production-363e.up.railway.app",
       NEXT_PUBLIC_ORG_ID: "org_caulfield_south",
       NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
     },
@@ -111,7 +113,9 @@ export default defineRailway(() => {
     },
     env: {
       PORT: "3000",
-      NEXT_PUBLIC_HQ_API_URL: ref(api, "RAILWAY_PUBLIC_DOMAIN"),
+      // Build-time literal (see the web service note): refs do not resolve at
+      // Docker-build time, so the console bundle needs the literal URL.
+      NEXT_PUBLIC_HQ_API_URL: "https://api-production-363e.up.railway.app",
       // Seeded org the HQ board falls back to in demo mode — preserved, not
       // deleted, by the IaC import.
       NEXT_PUBLIC_HQ_DEV_ORG_ID: preserve(),
