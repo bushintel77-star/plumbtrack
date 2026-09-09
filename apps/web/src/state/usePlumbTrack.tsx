@@ -23,8 +23,13 @@ import { reducer } from "./reducer";
 // The demo seed ships only in non-production bundles: a production device
 // boots empty and fills from the server (offline-first queue + remote poll).
 // Documents/Messages/channels have no server merge path yet, so a production
-// device that booted on the seed would show fictional data forever.
-const DEMO_SEED = process.env.NODE_ENV !== "production";
+// device that booted on the seed would show fictional data forever. The one
+// opt-in exception is NEXT_PUBLIC_E2E_DEMO_SEED: the Playwright suite builds
+// a production bundle (see playwright.config.ts webServer) and its specs
+// assert deterministic seed-era UI — the flag is a test fixture, never set
+// on a real deployment.
+const DEMO_SEED =
+  process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_E2E_DEMO_SEED === "1";
 
 function emptyState(): AppState {
   return DEMO_SEED
