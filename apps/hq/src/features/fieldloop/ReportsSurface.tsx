@@ -1,18 +1,47 @@
 "use client"
 
+import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
 import { CreditCard } from "lucide-react"
 
+import { apiGet, apiRequest } from "@/lib/api"
 import { formatMoney } from "@/lib/format"
-import { marginRow, marginTotals } from "@/lib/fieldloop"
+import { marginRow, marginTotals, jobRevenue } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
 import { useJobsList } from "@/stores/boardStore"
 
 import { HonestAction } from "./common"
 
+/** Jobs the office can actually collect on: completed, revenue recorded,
+ *  and Stripe not already paid. */
+interface PaymentLinkResponse {
+  url: string
+  mode: "live" | "test"
+}
+
 export function ReportsSurface() {
   const jobs = useJobsList()
   const rows = jobs.map(marginRow)
   const totals = marginTotals(jobs)
+  const [links, setLinks] = useState<Record<string, PaymentLinkResponse>>({})
+
+  const collectable = jobs.filter(
+    job => job.status === "complete" && (job.paymentStatus ?? "unpaid") !== "paid"
+  )
+
+  const createLink = useMutation({
+    mutationFn: async (jobId: string) => {
+      const job = jobs.find(candidate => candidate.id === jobId)
+      const amount = job ? jobRevenue(job) : 0
+      return apiRequest<PaymentLinkResponse>(`/api/jobs/${jobId}/payment-link`, {
+        method: "POST",
+        body: JSON.stringify({ amount })
+      })
+    },
+    onSuccess: (response, jobId) => {
+      setLinks(current => ({ ...current, [jobId]: response }))
+    }
+  })
 
   return (
     <>
@@ -76,14 +105,48 @@ export function ReportsSurface() {
         </table>
       </main>
 
-      <aside className="fl-panel fl-inspector" aria-label="Reporting notes">
-        <div className="fl-kicker">How these numbers are built</div>
-        <p>Revenue is the sum of quoted line items on each job.</p>
-        <p>Cost is only the outlay the office has actually recorded against a job.</p>
-        <p>Jobs that have not completed are marked as estimates.</p>
-        <HonestAction requirement="Stripe or an equivalent payment provider" icon={<CreditCard size={13} />}>
-          Collect payment on open invoices
-        </HonestAction>
+      <aside className="fl-panel fl-inspector" aria-label="Payments">
+        <div className="fl-kicker">Collect payment</div>
+        <p className="fl-muted">
+          Stripe Checkout links for completed jobs, priced from the quoted line items. Payment
+          status updates automatically via the Stripe webhook.
+        </p>
+        {collectable.length === 0 ? (
+          <div className="fl-muted">Nothing outstanding — every completed job is paid.</div>
+        ) : (
+          collectable.map(job => {
+            const link = links[job.id]
+            const amount = jobRevenue(job)
+            return (
+              <div className="fl-flag" key={job.id}>
+                <strong>{job.title}</strong>
+                <span className="fl-muted">
+                  {job.client} · {formatMoney(amount)} · {job.paymentStatus ?? "unpaid"}
+                </span>
+                {link ? (
+                  <a className="fl-download" href={link.url} target="_blank" rel="noreferrer">
+                    Open {link.mode} checkout link
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="fl-download"
+                    onClick={() => createLink.mutate(job.id)}
+                    disabled={createLink.isPending}
+                  >
+                    <CreditCard size={13} />
+                    {createLink.isPending ? "Creating…" : `Create payment link (${formatMoney(amount)})`}
+                  </button>
+                )}
+              </div>
+            )
+          })
+        )}
+        {collectable.length === 0 && (
+          <HonestAction requirement="a completed job with quoted revenue" icon={<CreditCard size={13} />}>
+            Collect payment on open invoices
+          </HonestAction>
+        )}
       </aside>
     </>
   )

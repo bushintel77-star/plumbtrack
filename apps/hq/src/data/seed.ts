@@ -1,6 +1,6 @@
 "use client"
 
-import type { Channel, ComplianceDoc, Job, ServiceAgreement, Technician } from "@/types"
+import type { Channel, Job, Technician } from "@/types"
 import { daysFromNowIso, isoDay } from "@/lib/format"
 
 const day = (offset: number): string => {
@@ -283,27 +283,6 @@ export const jobs: Job[] = [
     quote: { clientName: "Northgate Mall Facilities", lineItems: null, status: "draft" },
     documents: []
   }
-]
-
-/**
- * Compliance and vehicle records that belong to the business rather than to a
- * single job. Job-attached records live on `Job.documents`; the vault reads
- * both. `fileUrl` stays null everywhere until object storage is wired — the
- * UI must not offer a download it cannot serve.
- */
-export const orgDocuments: ComplianceDoc[] = [
-  { id: "od-1", name: "Public Liability Insurance", ref: "INS-2201", expiresAt: daysFromNowIso(45), category: "Compliance & Licenses", docType: "Insurance", entityType: "company", owner: "PlumbTrack Pty Ltd", issuedAt: daysFromNowIso(-320), fileUrl: null },
-  { id: "od-2", name: "Contractor Licence", ref: "LIC-9930", expiresAt: daysFromNowIso(21), category: "Compliance & Licenses", docType: "Licence", entityType: "technician", entityId: "t-dana", owner: "Dana Whitfield", issuedAt: daysFromNowIso(-344), fileUrl: null },
-  { id: "od-3", name: "Backflow Accreditation", ref: "BF-1187", expiresAt: daysFromNowIso(-11), category: "Compliance & Licenses", docType: "Accreditation", entityType: "technician", entityId: "t-carlos", owner: "Carlos Mendes", issuedAt: daysFromNowIso(-376), fileUrl: null },
-  { id: "od-4", name: "Van 1 Registration", ref: "REG-1AB2CD", expiresAt: daysFromNowIso(96), category: "Vehicles", docType: "Registration", entityType: "vehicle", entityId: "van-1", owner: "Van 1", fileUrl: null },
-  { id: "od-5", name: "Van 2 Roadworthy", ref: "RWC-5521", expiresAt: daysFromNowIso(6), category: "Vehicles", docType: "Roadworthy", entityType: "vehicle", entityId: "van-2", owner: "Van 2", fileUrl: null },
-  { id: "od-6", name: "Van 4 Service Log", ref: "SVC-0042", expiresAt: null, category: "Vehicles", docType: "Service log", entityType: "vehicle", entityId: "van-4", owner: "Van 4", fileUrl: null }
-]
-
-export const serviceAgreements: ServiceAgreement[] = [
-  { id: "sa-1", customerName: "Northgate Mall Facilities", serviceType: "Quarterly drainage inspection", frequency: "Quarterly", lastServiceDate: daysFromNowIso(-78), nextDueDate: daysFromNowIso(14) },
-  { id: "sa-2", customerName: "Kestrel Foods Plant", serviceType: "Backflow preventer test", frequency: "Annual", lastServiceDate: daysFromNowIso(-361), nextDueDate: daysFromNowIso(4) },
-  { id: "sa-3", customerName: "Meridian Dental", serviceType: "Hot water system service", frequency: "Bi-annual", lastServiceDate: daysFromNowIso(-120), nextDueDate: daysFromNowIso(62) }
 ]
 
 export const channels: Channel[] = [
