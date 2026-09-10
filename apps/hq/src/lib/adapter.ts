@@ -1,4 +1,4 @@
-import type { Job, JobPriority, JobStatus, Quote, Technician } from "@/types"
+import type { Job, JobPriority, JobStatus, Quote, Technician, AttentionFlag } from "@/types"
 import { DAY_START_MINUTES, isoDay, MINUTES_PER_BLOCK, TOTAL_BLOCKS } from "@/lib/format"
 
 /**
@@ -265,4 +265,26 @@ export function adaptStaffRoster(
 export async function fetchBoardPayload(): Promise<ApiBoardPayload> {
   const { apiGet } = await import("@/lib/api")
   return apiGet<ApiBoardPayload>("/api/board")
+}
+
+/** Server-computed needs-attention flags → the client AttentionFlag shape.
+ *  Spec §2: these flags are computed server-side (or a shared selector) so
+ *  every surface sees IDENTICAL flags — clients must render them, never
+ *  re-derive their own and drift. */
+export function adaptAttentionFlags(
+  flags: NonNullable<ApiBoardPayload["needsAttention"]>
+): AttentionFlag[] {
+  const KIND_BY_REASON: Record<string, AttentionFlag["kind"]> = {
+    overdue: "overrun",
+    travel_buffer: "tight-travel",
+    unassigned: "unassigned"
+  };
+  return flags.map(flag => ({
+    id: flag.id,
+    kind: KIND_BY_REASON[flag.reason] ?? "unassigned",
+    severity: flag.severity,
+    jobId: flag.jobIds[0] ?? "",
+    title: flag.title,
+    detail: flag.detail
+  }));
 }

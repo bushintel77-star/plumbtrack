@@ -14,8 +14,8 @@ import {
 import { ChevronLeft, ChevronRight, Flag } from "lucide-react"
 
 import { performAssignment } from "@/features/board/actions"
+import { adaptAttentionFlags } from "@/lib/adapter"
 import {
-  computeAttentionFlags,
   dispatchStatus,
   jobsOnDay,
   monthGrid,
@@ -308,10 +308,11 @@ export function DispatchSurface({
 
   const now = useMinuteClock()
   const today = jobsOnDay(jobs, day)
-  const flags = useMemo(
-    () => computeAttentionFlags(jobs, technicians, day, now),
-    [jobs, technicians, day, now]
-  )
+  // Spec §2: needs-attention flags are computed server-side on the board
+  // payload so every surface sees identical flags. (The previous client-side
+  // recompute here could drift from what the field agent and API report.)
+  const serverFlags = useBoardStore(s => s.needsAttention)
+  const flags = useMemo(() => adaptAttentionFlags(serverFlags), [serverFlags])
   const [dragJobId, setDragJobId] = useState("")
   const dragSpanBlocks = jobs.find(job => job.id === dragJobId)?.spanBlocks ?? 1
   const selectedJob = jobs.find(job => job.id === selectedJobId)
