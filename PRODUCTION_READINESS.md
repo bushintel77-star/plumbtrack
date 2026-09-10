@@ -12,7 +12,7 @@ Updated: 2026-09-10 (field agent deployed to production web)
 
 ## 2026-09-10 — web service now serves the FieldLoop field agent
 
-The technician URL (web-production-364b4f) serves the **Expo field agent** from the `plumbtrack-mobile` repo — the chosen "Steel Instrument" mockup design — replacing the superseded first-draft PWA (`apps/web` remains in the monorepo, undeployed). Deployed end-to-end verified: enrollment (201 technician, session persisted), WatermelonDB pull-sync (LIVE badge, real jobs listed), clock-on with GPS + pay engine.
+The technician URL (web-production-364b4f) serves the **Expo field agent** from the `plumbtrack-mobile` repo — the chosen "Steel Instrument" mockup design — replacing the superseded first-draft PWA (`apps/web` deleted 2026-09-11 — undeployed and superseded; its quote/invoice/docs/notification surfaces are the porting backlog, recoverable from git history). Deployed end-to-end verified: enrollment (201 technician, session persisted), WatermelonDB pull-sync (LIVE badge, real jobs listed), clock-on with GPS + pay engine.
 
 Deployment fixes required to make it production-viable (all in plumbtrack-mobile):
 - Static `EXPO_PUBLIC_*` reads (dynamic `process.env[key]` never inlines — same failure mode as apps/web's config).
