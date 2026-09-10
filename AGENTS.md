@@ -1,6 +1,10 @@
 # PlumbTrack — Agent Handoff / WIP
 
-Last updated: 2026-09-08
+Last updated: 2026-09-11
+
+> **START HERE:** [`HANDOVER.md`](HANDOVER.md) — the dated engagement handoff
+> (live surfaces, shipped work, owner actions, backlog). This file keeps the
+> standing operational traps and command reference.
 
 ## Current state
 
