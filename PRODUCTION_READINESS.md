@@ -2,6 +2,14 @@
 
 Updated: 2026-09-10 (field agent deployed to production web)
 
+## 2026-09-10 (later) — quote→job automation + HQ CRM/Documents/Payments wired (PR #12)
+
+- **Quote→job automation is live**: Job.quoteId (migration `20260910030000`), org-validated on create/PATCH, quote + lines ride /api/jobs and /api/sync; web create-job ops persist quoteId; the field agent renders the **AGREED WORK panel** (requirements, priced lines, subtotal/GST/total) read-only — live-verified on /job/J-1043 with the sample quote created via the API (disclosed: 4 riser-leak lines, $841.50 inc GST, delete via the quotes API if unwanted). Jobs created before quotes were linked show the honest "No quote linked" state.
+- **HQ CRM** renders the live customer directory + per-customer agreements with due-date verdicts (was a name-derived simulation).
+- **HQ Documents** renders the live /api/documents register with expiry verdicts; downloads work when a version has a media-vault URL.
+- **HQ Payments** creates real Stripe Checkout links for completed unpaid jobs, priced from quoted revenue (STRIPE_SECRET_KEY still required).
+- **Cleanup**: apps/dispatch deleted (superseded twice over); HQ orphaned DashboardModule/OperationsCoverageCard + dead seed exports removed; field agent duplicate jobs screen removed.
+
 ## 2026-09-10 — web service now serves the FieldLoop field agent
 
 The technician URL (web-production-364b4f) serves the **Expo field agent** from the `plumbtrack-mobile` repo — the chosen "Steel Instrument" mockup design — replacing the superseded first-draft PWA (`apps/web` remains in the monorepo, undeployed). Deployed end-to-end verified: enrollment (201 technician, session persisted), WatermelonDB pull-sync (LIVE badge, real jobs listed), clock-on with GPS + pay engine.
