@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FieldLoop — Technician App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg-canvas:#15191d;
+    --bg-base:#0A0E13;
+    --bg-panel:#131A21;
+    --bg-panel-2:#1A232C;
+    --border:#26323C;
+    --border-strong:#34424D;
+    --text-hi:#ECF1F5;
+    --text-mid:#93A4B1;
+    --text-low:#596773;
+
+    --blue-chrome:#3E76AA;
+    --blue-glow:#4F90FF;
+
+    --red:#D7263D;
+    --red-bg:rgba(215,38,61,0.14);
+    --amber:#F2B705;
+    --amber-bg:rgba(242,183,5,0.14);
+    --green:#1FAA59;
+    --green-bg:rgba(31,170,89,0.14);
+
+    --font-display:'Big Shoulders Display', sans-serif;
+    --font-body:'IBM Plex Sans', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg-canvas);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:36px 16px 48px;
+    font-family:var(--font-body);
+    color:var(--text-hi);
+  }
+
+  /* ---------- Phone frame ---------- */
+  .phone-frame{
+    width:100%;
+    max-width:390px;
+    background:#000;
+    border-radius:34px;
+    padding:10px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  }
+  .phone-screen{
+    background:var(--bg-base);
+    border-radius:26px;
+    height:min(844px, 82vh);
+    min-height:600px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* ---------- Header (instrument cluster) ---------- */
+  .app-header{
+    flex-shrink:0;
+    background:var(--bg-panel);
+    padding:16px 18px 12px;
+    position:relative;
+    border-bottom:1px solid var(--border);
+  }
+  .header-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .wordmark{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:1.05rem;
+    letter-spacing:0.08em;
+    color:var(--text-hi);
+  }
+  .sync-badge{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 10px;
+    border-radius:100px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--border-strong);
+    font-family:var(--font-mono);
+    font-size:0.75rem;
+    color:var(--text-mid);
+    cursor:pointer;
+  }
+  .sync-badge:active{ background:var(--bg-panel); }
+  .sync-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--blue-glow);
+    box-shadow:0 0 6px 1px var(--blue-glow);
+  }
+  .sync-badge.conn-offline .sync-dot{ background:var(--text-low); box-shadow:none; }
+  .sync-badge.conn-reconnecting .sync-dot{ animation:pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+
+  .header-sub{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top:9px;
+    font-size:0.78rem;
+    color:var(--text-low);
+  }
+  .header-sub svg{width:13px; height:13px; color:var(--blue-chrome); flex-shrink:0;}
+
+  .glow-strip{
+    position:absolute;
+    left:0; right:0; bottom:-1px;
+    height:2px;
+    background:linear-gradient(90deg, transparent, var(--blue-glow) 50%, transparent);
+    box-shadow:0 0 8px 1px var(--blue-glow);
+    opacity:0.7;
+  }
+
+  /* ---------- Views ---------- */
+  .view{ display:none; flex:1; overflow-y:auto; }
+  .view.active{ display:flex; flex-direction:column; }
+
+  /* ---------- Job list ---------- */
+  #view-jobs{ padding:18px 16px 12px; gap:14px; }
+  .list-heading{
+    display:flex; align-items:flex-end; justify-content:space-between;
+  }
+  .list-title{ font-family:var(--font-display); font-weight:700; font-size:1.5rem; line-height:1;}
+  .list-date{ font-size:0.82rem; color:var(--text-mid); margin-top:4px; }
+  .job-count{ display:flex; align-items:baseline; gap:5px; }
+  .count-num{ font-family:var(--font-display); font-weight:800; font-size:2.1rem; color:var(--blue-glow); line-height:1;}
+  .count-label{ font-size:0.78rem; color:var(--text-mid); }
+
+  .job-list{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .job-card{
+    display:flex; align-items:stretch;
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+    text-align:left;
+    cursor:pointer;
+    font-family:inherit;
+    color:inherit;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .job-card:active{ background:var(--bg-panel-2); }
+  .job-card-bar{ width:5px; flex-shrink:0; }
+  .job-card[data-status="urgent"] .job-card-bar{ background:var(--red); }
+  .job-card[data-status="scheduled"] .job-card-bar{ background:var(--amber); }
+  .job-card[data-status="complete"] .job-card-bar{ background:var(--green); }
+
+  .job-card-body{ flex:1; padding:12px 12px 12px 14px; min-width:0; }
+  .job-card-row1{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .job-time{ font-family:var(--font-mono); font-size:0.78rem; color:var(--text-mid); }
+
+  .status-chip{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 9px 3px 7px;
+    border-radius:100px;
+    font-size:0.72rem; font-weight:600; letter-spacing:0.02em;
+  }
+  .status-chip svg{ width:12px; height:12px; }
+  .status-chip.urgent{ color:var(--red); background:var(--red-bg); }
+  .status-chip.scheduled{ color:var(--amber); background:var(--amber-bg); }
+  .status-chip.complete{ color:var(--green); background:var(--green-bg); }
+
+  .job-card-title{ font-size:1rem; font-weight:600; color:var(--text-hi); margin-bottom:3px; }
+  .job-card-address{ display:flex; align-items:center; gap:5px; font-size:0.82rem; color:var(--text-mid); }
+  .job-card-address svg{ width:13px; height:13px; flex-shrink:0; color:var(--blue-chrome); }
+
+  .chevron-right{ width:18px; align-self:center; margin-right:10px; color:var(--text-low); flex-shrink:0; }
+
+  /* ---------- Job detail ---------- */
+  #view-detail{ }
+  .detail-topbar{
+    flex-shrink:0;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 14px 0;
+  }
+  .back-btn{
+    width:40px; height:40px; border-radius:10px;
+    background:var(--bg-panel); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--text-hi); cursor:pointer;
+  }
+  .back-btn svg{ width:20px; height:20px; }
+
+  .detail-scroll{ flex:1; overflow-y:auto; padding:16px 18px 12px; }
+  .detail-title{ font-family:var(--font-display); font-weight:700; font-size:1.6rem; margin:12px 0 12px; line-height:1.05; }
+
+  .detail-meta{ display:flex; flex-direction:column; gap:9px; margin-bottom:16px; }
+  .meta-row{ display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--text-mid); }
+  .meta-row svg{ width:16px; height:16px; color:var(--blue-chrome); flex-shrink:0; }
+  .meta-row span{ flex:1; }
+  .call-link{
+    display:inline-flex; align-items:center; gap:5px;
+    color:var(--blue-glow); font-size:0.82rem; font-weight:600;
+    text-decoration:none; flex:none !important;
+  }
+  .call-link svg{ width:14px; height:14px; color:var(--blue-glow); }
+
+  .detail-notes{
+    font-size:0.92rem; line-height:1.55; color:var(--text-mid);
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+    padding:12px 13px; margin-bottom:20px;
+  }
+
+  .section-label{
+    font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em;
+    font-size:0.72rem; color:var(--text-low); margin-bottom:10px;
+  }
+
+  .checklist{ list-style:none; display:flex; flex-direction:column; gap:8px; margin-bottom:22px; }
+  .auto-note{
+    font-size:0.9rem; line-height:1.55; color:var(--text-hi);
+    background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--blue-chrome);
+    border-radius:10px; padding:12px 13px; margin-bottom:22px;
+  }
+  .auto-note.empty{ color:var(--text-low); font-style:italic; }
+  .auto-note .auto-tag{
+    display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:0.68rem;
+    color:var(--blue-chrome); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:5px;
+  }
+  .agreement-note{
+    font-size:0.87rem; line-height:1.5; color:var(--text-hi);
+    background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--amber);
+    border-radius:10px; padding:12px 13px; margin-bottom:18px;
+  }
+  .agreement-note .agreement-tag{
+    display:flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:0.68rem;
+    color:var(--amber); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:5px;
+  }
+  .agreement-note .agreement-tag svg{ width:12px; height:12px; }
+
+  /* ---------- On My Way ---------- */
+  .omw-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:48px;
+    background:var(--bg-panel-2); border:1px solid var(--border-strong); border-radius:10px;
+    color:var(--text-hi); font-family:inherit; font-weight:600; font-size:0.88rem; cursor:pointer;
+    margin-bottom:18px;
+  }
+  .omw-btn svg{ width:16px; height:16px; color:var(--blue-glow); }
+  .omw-preview{
+    display:none; background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--blue-glow);
+    border-radius:10px; padding:12px 13px; margin:-10px 0 18px; font-size:0.85rem; color:var(--text-mid); line-height:1.5;
+  }
+  .omw-preview.visible{ display:block; }
+  .omw-preview .omw-tag{
+    display:block; font-family:var(--font-mono); font-size:0.68rem; color:var(--blue-glow);
+    text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;
+  }
+  .omw-preview .omw-actions{ display:flex; gap:8px; margin-top:11px; }
+  .omw-preview .omw-actions button{
+    flex:1; padding:8px; border-radius:8px; font-family:inherit; font-weight:600; font-size:0.8rem; cursor:pointer;
+  }
+  .omw-send{ background:var(--blue-glow); color:#06121F; border:none; }
+  .omw-cancel{ background:none; border:1px solid var(--border-strong); color:var(--text-mid); }
+  .omw-sent{ color:var(--green); }
+
+  /* ---------- Invoice / price book ---------- */
+  .pricebook-toggle{
+    display:flex; align-items:center; justify-content:space-between; width:100%; min-height:46px;
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:0 13px;
+    color:var(--text-hi); font-family:inherit; font-weight:600; font-size:0.85rem; cursor:pointer; margin-bottom:8px;
+  }
+  .pricebook-toggle svg{ width:15px; height:15px; color:var(--blue-chrome); transition:transform 0.2s ease; }
+  .pricebook-toggle.open svg.chev{ transform:rotate(180deg); }
+  .pricebook-list{ display:none; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .pricebook-list.visible{ display:flex; }
+  .pricebook-item{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 12px;
+    background:var(--bg-panel-2); border:1px solid var(--border); border-radius:9px; cursor:pointer;
+  }
+  .pricebook-item-name{ font-size:0.83rem; color:var(--text-hi); }
+  .pricebook-item-price{ font-family:var(--font-mono); font-size:0.78rem; color:var(--blue-chrome); }
+
+  .invoice-lines{ display:flex; flex-direction:column; gap:7px; margin-bottom:4px; }
+  .invoice-line{
+    display:flex; align-items:center; gap:10px; padding:9px 12px;
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:9px;
+  }
+  .invoice-line-name{ flex:1; font-size:0.83rem; color:var(--text-hi); }
+  .invoice-line-qty{ display:flex; align-items:center; gap:6px; }
+  .qty-btn{
+    width:24px; height:24px; border-radius:6px; background:var(--bg-panel-2); border:1px solid var(--border-strong);
+    color:var(--text-hi); font-family:inherit; font-weight:700; font-size:0.9rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .qty-num{ font-family:var(--font-mono); font-size:0.8rem; min-width:16px; text-align:center; }
+  .invoice-line-total{ font-family:var(--font-mono); font-size:0.8rem; color:var(--text-hi); min-width:56px; text-align:right; }
+  .invoice-line-remove{ background:none; border:none; color:var(--text-low); cursor:pointer; padding:2px; display:flex; }
+  .invoice-line-remove svg{ width:14px; height:14px; }
+
+  .invoice-total{
+    display:none; margin-top:10px; padding-top:12px; border-top:1px solid var(--border);
+    flex-direction:column; gap:3px; margin-bottom:12px;
+  }
+  .invoice-total.visible{ display:flex; }
+  .invoice-total-row{ display:flex; justify-content:space-between; font-size:0.82rem; color:var(--text-mid); }
+  .invoice-total-row.grand{ font-family:var(--font-display); font-weight:800; font-size:1.4rem; color:var(--text-hi); margin-top:3px; }
+  .invoice-total-row.grand span:last-child{ color:var(--blue-glow); }
+
+  .send-invoice-btn{
+    display:none; align-items:center; justify-content:center; gap:8px; width:100%; min-height:50px;
+    background:var(--blue-glow); color:#06121F; border:none; border-radius:10px;
+    font-family:inherit; font-weight:700; font-size:0.9rem; cursor:pointer; margin-bottom:22px;
+  }
+  .send-invoice-btn.visible{ display:flex; }
+  .send-invoice-btn svg{ width:16px; height:16px; }
+  .send-invoice-btn.sent{ background:var(--bg-panel-2); color:var(--green); border:1.5px solid var(--green); }
+  .checklist-item{
+    display:flex; align-items:center; gap:11px;
+    padding:12px 13px;
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .checkbox{
+    width:22px; height:22px; border-radius:6px; flex-shrink:0;
+    border:1.75px solid var(--border-strong);
+    display:flex; align-items:center; justify-content:center;
+    color:transparent;
+  }
+  .checkbox svg{ width:14px; height:14px; }
+  .checklist-item.checked .checkbox{ background:var(--green); border-color:var(--green); color:var(--bg-base); }
+  .check-label{ font-size:0.9rem; color:var(--text-hi); }
+  .checklist-item.checked .check-label{ color:var(--text-mid); text-decoration:line-through; text-decoration-color:var(--border-strong); }
+
+  .capture-btn{
+    width:100%; min-height:56px;
+    display:flex; align-items:center; justify-content:center; gap:9px;
+    background:var(--bg-panel-2); border:1.5px dashed var(--border-strong); border-radius:12px;
+    color:var(--text-hi); font-family:inherit; font-size:0.95rem; font-weight:600;
+    cursor:pointer; margin-bottom:6px;
+  }
+  .capture-btn svg{ width:19px; height:19px; color:var(--blue-glow); }
+  .capture-hint{ font-size:0.76rem; color:var(--text-low); margin-bottom:4px; }
+
+  .detail-cta{
+    flex-shrink:0; padding:12px 18px calc(14px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--border); background:var(--bg-panel);
+  }
+  .complete-btn{
+    width:100%; min-height:56px; border-radius:12px; border:none;
+    background:var(--green); color:#062012;
+    font-family:inherit; font-weight:700; font-size:1rem;
+    display:flex; align-items:center; justify-content:center; gap:9px;
+    cursor:pointer;
+  }
+  .complete-btn svg{ width:19px; height:19px; }
+  .complete-btn:disabled{ opacity:0.75; cursor:default; }
+  .complete-btn.done{ background:var(--bg-panel-2); color:var(--green); border:1.5px solid var(--green); }
+  .complete-btn.queued-state{ background:var(--bg-panel-2); color:var(--amber); border:1.5px solid var(--amber); opacity:1; }
+  .complete-btn.static-complete{ background:var(--bg-panel-2); color:var(--green); border:1.5px solid var(--green); cursor:default; }
+
+  /* ---------- Placeholder (Map / Profile) ---------- */
+  #view-map{ position:relative; padding:0; }
+  #mobileMapCanvas{ position:absolute; inset:0; }
+  #mobileMapCanvas .maplibregl-canvas{ filter:invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(0.85); }
+  #mobileMapCanvas .maplibregl-ctrl-attrib{ font-size:9px; }
+  .map-fallback-mobile{
+    display:none; position:absolute; inset:0; align-items:center; justify-content:center;
+    background:var(--bg-base); text-align:center; padding:34px; z-index:2;
+  }
+  .map-fallback-mobile.visible{ display:flex; }
+  .map-fallback-mobile-inner svg{ width:24px; height:24px; color:var(--text-low); margin-bottom:10px; }
+  .map-fallback-mobile-title{ font-family:var(--font-display); font-weight:700; font-size:1.05rem; margin-bottom:6px; }
+  .map-fallback-mobile-desc{ font-size:0.8rem; color:var(--text-mid); line-height:1.45; }
+  .map-loc-banner{
+    position:absolute; top:14px; left:14px; right:14px; z-index:3;
+    display:flex; align-items:flex-start; gap:8px;
+    background:rgba(19,26,33,0.92); backdrop-filter:blur(6px);
+    border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+    font-size:0.76rem; color:var(--text-mid); line-height:1.4;
+  }
+  .map-loc-banner svg{ width:14px; height:14px; color:var(--blue-chrome); flex-shrink:0; margin-top:1px; }
+  .maplibregl-popup-content{
+    font-family:var(--font-body); font-size:0.8rem; color:var(--bg-base);
+    padding:11px 13px; border-radius:10px;
+  }
+  .maplibregl-popup-content b{ font-family:var(--font-display); font-weight:700; font-size:0.88rem; }
+  .maplibregl-popup-content .mp-view{
+    display:inline-block; margin-top:7px; padding:5px 10px; border-radius:7px;
+    background:var(--blue-glow); color:#06121F; font-weight:700; font-size:0.74rem; cursor:pointer;
+  }
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav{
+    flex-shrink:0; display:flex;
+    border-top:1px solid var(--border); background:var(--bg-panel);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .nav-item{
+    flex:1; min-height:60px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    background:none; border:none; color:var(--text-low);
+    font-family:inherit; font-size:0.72rem; font-weight:500;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .nav-item svg{ width:21px; height:21px; }
+  .nav-item.active{ color:var(--blue-glow); }
+
+  /* ---------- Caption / legend below phone ---------- */
+  .canvas-caption{ max-width:390px; width:100%; margin-top:22px; text-align:center; }
+  .caption-title{ font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--text-hi); }
+  .caption-sub{ font-size:0.8rem; color:var(--text-low); margin-top:3px; margin-bottom:14px; }
+  .legend{ display:flex; justify-content:center; gap:16px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; font-size:0.76rem; color:var(--text-mid); font-family:var(--font-mono); }
+  .legend-item .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  /* ---------- Screen layers (clock-in vs. app shell) ---------- */
+  .screen-layer{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    transition:opacity 0.45s ease, transform 0.45s ease;
+  }
+  .layer-active{ opacity:1; pointer-events:auto; transform:translateY(0); }
+  .layer-hidden{ opacity:0; pointer-events:none; transform:translateY(10px); }
+
+  /* ---------- Clock-in / auth screen ---------- */
+  .clockin-screen{ padding:18px 20px calc(20px + env(safe-area-inset-bottom)); }
+  .clockin-top{ display:flex; justify-content:flex-end; }
+  .conn-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 10px; border-radius:100px;
+    background:var(--bg-panel-2); border:1px solid var(--border-strong);
+    font-family:var(--font-mono); font-size:0.72rem; color:var(--text-mid);
+  }
+  .conn-dot{ width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 6px 1px var(--green); }
+
+  .clockin-center{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; position:relative;
+  }
+  .clockin-glow{
+    position:absolute; width:260px; height:260px; border-radius:50%;
+    background:radial-gradient(circle, rgba(79,144,255,0.28), transparent 70%);
+    filter:blur(6px); top:50%; left:50%; transform:translate(-50%,-58%); pointer-events:none;
+  }
+  .clockin-wordmark{ font-family:var(--font-display); font-weight:800; font-size:2.3rem; letter-spacing:0.09em; color:var(--text-hi); position:relative; }
+  .clockin-sub{ font-size:0.82rem; color:var(--text-mid); margin-top:4px; position:relative; }
+  .clockin-greeting{ font-size:1rem; color:var(--text-hi); margin-top:28px; position:relative; }
+  .clockin-greeting span{ font-weight:600; }
+  .clockin-date{ font-family:var(--font-mono); font-size:0.78rem; color:var(--text-low); margin-top:4px; position:relative; }
+
+  .clockin-bottom{ display:flex; flex-direction:column; gap:12px; }
+  .location-disclosure{
+    display:flex; align-items:flex-start; gap:9px;
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+    padding:11px 12px; font-size:0.78rem; color:var(--text-mid); line-height:1.4;
+  }
+  .location-disclosure svg{ width:15px; height:15px; color:var(--blue-chrome); flex-shrink:0; margin-top:1px; }
+  .clockin-btn{
+    width:100%; min-height:58px; border-radius:12px; border:none;
+    background:var(--blue-glow); color:#06121F;
+    font-family:inherit; font-weight:700; font-size:1.02rem;
+    display:flex; align-items:center; justify-content:center; gap:9px; cursor:pointer;
+    box-shadow:0 0 18px -4px rgba(79,144,255,0.55);
+  }
+  .clockin-btn:disabled{ opacity:0.75; cursor:default; box-shadow:none; }
+  .clockin-btn svg{ width:19px; height:19px; }
+
+  /* ---------- Profile / sync screen ---------- */
+  .profile-scroll{ flex:1; overflow-y:auto; padding:20px 18px 24px; display:flex; flex-direction:column; gap:20px; }
+  .profile-header{ display:flex; align-items:center; gap:13px; }
+  .avatar{
+    width:50px; height:50px; border-radius:50%; flex-shrink:0;
+    background:var(--bg-panel-2); border:1.5px solid var(--blue-chrome); color:var(--text-hi);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:700; font-size:1.05rem;
+  }
+  .profile-name{ font-size:1.05rem; font-weight:600; color:var(--text-hi); }
+  .profile-role{ font-size:0.78rem; color:var(--text-mid); margin-top:2px; }
+
+  .status-card, .sync-card{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px; display:flex; flex-direction:column; gap:10px;
+  }
+  .status-card-label{ font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.07em; font-size:0.68rem; color:var(--text-low); }
+  .clock-status-line{ font-size:0.95rem; color:var(--text-hi); font-weight:500; }
+  .clockout-btn{
+    min-height:46px; border-radius:9px; background:transparent;
+    border:1.5px solid var(--border-strong); color:var(--text-hi);
+    font-family:inherit; font-weight:600; font-size:0.88rem; cursor:pointer;
+  }
+
+  .stat-row{ display:flex; gap:10px; }
+  .stat-box{ flex:1; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; padding:14px 8px; text-align:center; }
+  .stat-num{ font-family:var(--font-display); font-weight:800; font-size:1.7rem; line-height:1; color:var(--text-hi); }
+  .stat-label{ font-size:0.7rem; color:var(--text-mid); margin-top:5px; }
+
+  .sync-card .meta-row{ margin:0; }
+  .meta-row .row-icon{ flex:none; display:inline-flex; }
+  .app-footer{ text-align:center; font-family:var(--font-mono); font-size:0.68rem; color:var(--text-low); margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="phone-screen">
+
+    <div id="clockinScreen" class="screen-layer layer-active clockin-screen">
+      <div class="clockin-top">
+        <span class="conn-pill"><span class="conn-dot"></span>Online</span>
+      </div>
+      <div class="clockin-center">
+        <div class="clockin-glow"></div>
+        <div class="clockin-wordmark">FIELDLOOP</div>
+        <div class="clockin-sub">Caulfield South Plumbing</div>
+        <div class="clockin-greeting">Good morning, <span>Dave</span></div>
+        <div class="clockin-date">Sat 29 Aug</div>
+      </div>
+      <div class="clockin-bottom">
+        <div class="location-disclosure">
+          <span id="clockinLocIcon"></span>
+          <span>Clocking in records your location once, right now. FieldLoop never tracks location in the background.</span>
+        </div>
+        <button class="clockin-btn" id="clockinBtn" onclick="clockIn()">
+          <span id="clockinBtnIcon"></span><span id="clockinBtnLabel">Clock In</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="appShell" class="screen-layer layer-hidden">
+
+    <header class="app-header">
+      <div class="header-top">
+        <span class="wordmark">FIELDLOOP</span>
+        <div class="sync-badge" id="syncBadge" onclick="toggleConnection()"><span class="sync-dot"></span><span id="syncLabel">Live</span></div>
+      </div>
+      <div class="header-sub" id="pinRow">
+        <span></span>
+        <span>Clocked in 7:02 AM · location captured once, at clock-in</span>
+      </div>
+      <div class="glow-strip"></div>
+    </header>
+
+    <main id="view-jobs" class="view active">
+      <div class="list-heading">
+        <div>
+          <div class="list-title">Today's Jobs</div>
+          <div class="list-date">Sat 29 Aug</div>
+        </div>
+        <div class="job-count"><span class="count-num" id="jobCount">4</span><span class="count-label">jobs</span></div>
+      </div>
+      <div class="job-list" id="jobList"></div>
+    </main>
+
+    <main id="view-detail" class="view">
+      <div class="detail-topbar">
+        <button class="back-btn" onclick="goBack()"></button>
+        <span class="status-chip" id="detailStatusChip"></span>
+      </div>
+      <div class="detail-scroll">
+        <h1 class="detail-title" id="detailTitle"></h1>
+        <div class="detail-meta">
+          <div class="meta-row" id="detailAddressRow"><span></span></div>
+          <div class="meta-row" id="detailTimeRow"><span></span></div>
+          <div class="meta-row" id="detailCustomerRow"><span></span><a class="call-link" id="detailCall" href="#"></a></div>
+        </div>
+        <button class="omw-btn" id="omwBtn" onclick="openOmwPreview()"></button>
+        <div class="omw-preview" id="omwPreview"></div>
+        <p class="detail-notes" id="detailNotes"></p>
+        <div class="agreement-note" id="agreementNote" style="display:none;"></div>
+        <div class="section-label">Checklist</div>
+        <ul class="checklist" id="detailChecklist"></ul>
+
+        <div class="section-label">Job note</div>
+        <div class="auto-note" id="autoNote"></div>
+
+        <div class="section-label">Invoice</div>
+        <button class="pricebook-toggle" id="pricebookToggle" onclick="togglePricebook()"></button>
+        <div class="pricebook-list" id="pricebookList"></div>
+        <div class="invoice-lines" id="invoiceLines"></div>
+        <div class="invoice-total" id="invoiceTotal"></div>
+        <button class="send-invoice-btn" id="sendInvoiceBtn"></button>
+
+        <div class="section-label">Capture</div>
+        <div class="capture-hint">Photos are stored on-device until synced</div>
+        <button class="capture-btn" id="captureBtn"></button>
+      </div>
+      <div class="detail-cta">
+        <button class="complete-btn" id="completeBtn" onclick="completeJob()"></button>
+      </div>
+    </main>
+
+    <main id="view-map" class="view">
+      <div class="map-loc-banner" id="mapLocBanner"></div>
+      <div id="mobileMapCanvas"></div>
+      <div class="map-fallback-mobile" id="mobileMapFallback">
+        <div class="map-fallback-mobile-inner">
+          <span id="mobileMapFallbackIcon"></span>
+          <div class="map-fallback-mobile-title" id="mobileMapFallbackTitle">Map couldn't load</div>
+          <div class="map-fallback-mobile-desc" id="mobileMapFallbackDesc">This preview may be blocking external map tiles or scripts. Open this HTML file directly in a browser tab to see it.</div>
+        </div>
+      </div>
+    </main>
+
+    <main id="view-profile" class="view">
+      <div class="profile-scroll">
+        <div class="profile-header">
+          <div class="avatar">DM</div>
+          <div>
+            <div class="profile-name">Dave Mitchell</div>
+            <div class="profile-role">Licensed Plumber · Caulfield South Plumbing</div>
+          </div>
+        </div>
+
+        <div class="status-card">
+          <div class="status-card-label">Clock status</div>
+          <div class="clock-status-line" id="clockStatusLine">Not clocked in</div>
+          <button class="clockout-btn" id="clockoutBtn" onclick="clockOut()">Clock Out</button>
+        </div>
+
+        <div>
+          <div class="section-label">Today</div>
+          <div class="stat-row">
+            <div class="stat-box"><div class="stat-num" id="statComplete" style="color:var(--green)">0</div><div class="stat-label">Complete</div></div>
+            <div class="stat-box"><div class="stat-num" id="statRemaining" style="color:var(--amber)">0</div><div class="stat-label">Remaining</div></div>
+            <div class="stat-box"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total jobs</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">Connection</div>
+          <div class="sync-card">
+            <div class="meta-row"><span class="row-icon" id="connCardIcon"></span><span id="connCardLine">Live — realtime updates active</span></div>
+            <div class="meta-row"><span class="row-icon" id="queueIcon"></span><span id="queueLine">Nothing waiting to send</span></div>
+          </div>
+        </div>
+
+        <div class="app-footer">FieldLoop v0.4.1 · Build 2026.08</div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="jobs" onclick="switchTab('jobs')"><span id="navJobsIcon"></span><span>Jobs</span></button>
+      <button class="nav-item" data-tab="map" onclick="switchTab('map')"><span id="navMapIcon"></span><span>Map</span></button>
+      <button class="nav-item" data-tab="profile" onclick="switchTab('profile')"><span id="navProfileIcon"></span><span>Profile</span></button>
+    </nav>
+
+    </div>
+
+  </div>
+</div>
+
+<div class="canvas-caption">
+  <div class="caption-title">FieldLoop — Technician App</div>
+  <div class="caption-sub">Today's Jobs &amp; Job Detail · dark instrument-panel direction</div>
+  <div class="legend">
+    <span class="legend-item"><i class="dot" style="background:var(--red)"></i>Urgent</span>
+    <span class="legend-item"><i class="dot" style="background:var(--amber)"></i>Scheduled</span>
+    <span class="legend-item"><i class="dot" style="background:var(--green)"></i>Complete</span>
+  </div>
+</div>
+
+<script>
+  const S = (p,w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.75}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const ICON_ALERT   = S('<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.3 2.25h17.76a1.5 1.5 0 0 0 1.3-2.25L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z"/>');
+  const ICON_CLOCK   = S('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+  const ICON_CHECK   = S('<path d="M20 6 9 17l-5-5"/>');
+  const ICON_PIN     = S('<path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>');
+  const ICON_CHEV_L  = S('<path d="M15 18l-6-6 6-6"/>');
+  const ICON_CHEV_R  = S('<path d="M9 18l6-6-6-6"/>');
+  const ICON_PHONE   = S('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.32 1.85.55 2.81.68A2 2 0 0 1 22 16.92Z"/>');
+  const ICON_CAMERA  = S('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/>');
+  const ICON_USER    = S('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>');
+  const ICON_BRIEF   = S('<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><path d="M2 13h20"/>');
+  const ICON_MAP     = S('<path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>');
+  const ICON_CLOUD   = S('<path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2A4 4 0 0 0 5 20h12.5Z"/>');
+  const ICON_LAYERS  = S('<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>');
+  const ICON_MSG     = S('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/>');
+  const ICON_CHEV_D  = S('<path d="M6 9l6 6 6-6"/>');
+  const ICON_PLUS    = S('<path d="M12 5v14"/><path d="M5 12h14"/>');
+  const ICON_TRASH   = S('<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>');
+  const ICON_RECEIPT = S('<path d="M4 2h16v20l-3-2-3 2-3-2-3 2-3-2-1 2Z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/>');
+
+  const STATUS = {
+    urgent:    { label:'Urgent',    icon:ICON_ALERT, cls:'urgent',    hex:'#D7263D' },
+    scheduled: { label:'Scheduled', icon:ICON_CLOCK, cls:'scheduled', hex:'#F2B705' },
+    complete:  { label:'Complete',  icon:ICON_CHECK, cls:'complete',  hex:'#1FAA59' }
+  };
+
+  const AGREEMENTS = [
+    { customer:'P. Alessi', type:'Hot Water System Service', frequency:'12 months', next:'29 Aug 2027', fulfillsThisJob:true },
+    { customer:'S. Whitfield', type:'Annual Gas Safety Check', frequency:'12 months', next:'15 Sep 2026', fulfillsThisJob:false }
+  ];
+
+  const PRICE_BOOK = [
+    { id:'callout', name:'Callout fee', price:85 },
+    { id:'labour',  name:'Labour (per hour)', price:110 },
+    { id:'drain',   name:'Blocked drain clearing', price:180 },
+    { id:'camera',  name:'Camera drain inspection', price:150 },
+    { id:'tap',     name:'Tap / mixer replacement (labour)', price:95 },
+    { id:'hws',     name:'Hot water system service', price:220 },
+    { id:'prv',     name:'Pressure relief valve replacement', price:65 },
+    { id:'materials', name:'General plumbing materials (small)', price:35 }
+  ];
+  const GST_RATE = 0.10;
+
+  const jobs = [
+    { id:1, status:'urgent', time:'8:00 – 8:30 AM', title:'Blocked drain', address:'24 Wattle St, Caulfield South',
+      customer:'R. Nguyen', phone:'0412 555 118', lng:145.0334, lat:-37.8891,
+      notes:'Kitchen sink and laundry both backing up. Customer reports odour — possible full blockage in main line.',
+      checklist:['Confirm site access','Isolate water supply','Clear blockage','Camera inspection of line','Test drainage flow','Clean up work area'] },
+    { id:2, status:'scheduled', time:'10:00 – 11:00 AM', title:'Hot water system service', address:'8 Grange Rd, Malvern East',
+      customer:'P. Alessi', phone:'0433 209 447', lng:145.0584, lat:-37.8677,
+      notes:'Annual service on 250L gas storage unit. Check anode, pressure relief valve, and flue.',
+      checklist:['Isolate gas supply','Inspect anode rod','Test pressure relief valve','Check flue and ventilation','Reinstate and test'] },
+    { id:3, status:'scheduled', time:'1:00 – 1:30 PM', title:'Leaking tap replacement', address:'15 Sycamore Ct, Bentleigh',
+      customer:'H. Okafor', phone:'0405 881 220', lng:145.0456, lat:-37.9198,
+      notes:'Ensuite basin mixer tap leaking at base. Replacement fitting supplied by customer, already on site.',
+      checklist:['Isolate water supply','Remove old fitting','Fit new mixer tap','Test for leaks','Confirm with customer'] },
+    { id:4, status:'complete', time:'7:00 – 7:20 AM', title:'Gas leak inspection', address:'42 Kooyong Rd, Armadale',
+      customer:'S. Whitfield', phone:'0419 662 903', lng:145.0217, lat:-37.8554,
+      notes:'Customer reported gas odour near meter. Inspected and cleared — no leak detected, fitting re-sealed as a precaution.',
+      checklist:['Isolate gas at meter','Leak-test all fittings','Reseal joint','Confirm safe with customer','Log completion'] }
+  ];
+  jobs.forEach(j => { if(!j.invoiceItems) j.invoiceItems = []; });
+  jobs[3].invoiceItems = [{ id:'callout', qty:1 }, { id:'labour', qty:1 }];
+  jobs[3].invoiceSent = true;
+
+  let currentJobId = null;
+  let pricebookOpen = false;
+  let mobileMap = null, mobileMapInitialized = false;
+  let clockInTime = null;
+  let isLive = true;
+  let outboxCount = 0;
+
+  function statusChip(status){
+    const s = STATUS[status];
+    return `<span class="status-chip ${s.cls}">${s.icon}${s.label}</span>`;
+  }
+
+  function renderList(){
+    document.getElementById('jobCount').textContent = jobs.length;
+    document.getElementById('jobList').innerHTML = jobs.map(j => `
+      <button class="job-card" data-status="${j.status}" onclick="openDetail(${j.id})">
+        <div class="job-card-bar"></div>
+        <div class="job-card-body">
+          <div class="job-card-row1">${statusChip(j.status)}<span class="job-time">${j.time}</span></div>
+          <div class="job-card-title">${j.title}</div>
+          <div class="job-card-address">${ICON_PIN}${j.address}</div>
+        </div>
+        <span class="chevron-right">${ICON_CHEV_R}</span>
+      </button>
+    `).join('');
+  }
+
+  function renderAutoNote(){
+    const checked = Array.from(document.querySelectorAll('#detailChecklist .checklist-item.checked .check-label')).map(el => el.textContent);
+    const note = document.getElementById('autoNote');
+    if(checked.length === 0){
+      note.className = 'auto-note empty';
+      note.innerHTML = `<span class="auto-tag">${ICON_CHECK}Auto-generated</span><br>Check off checklist items above — this fills in on its own. Nothing to type.`;
+    } else {
+      note.className = 'auto-note';
+      note.innerHTML = `<span class="auto-tag">${ICON_CHECK}Auto-generated from checklist</span><br>${checked.join(' · ')}`;
+    }
+  }
+
+  function money(n){ return '$' + n.toFixed(2); }
+
+  function togglePricebook(){
+    pricebookOpen = !pricebookOpen;
+    renderPricebook();
+  }
+
+  function renderPricebook(){
+    const toggle = document.getElementById('pricebookToggle');
+    toggle.className = 'pricebook-toggle' + (pricebookOpen ? ' open' : '');
+    toggle.innerHTML = `${ICON_PLUS}<span style="flex:1; text-align:left; margin-left:8px;">Add from price book</span>${ICON_CHEV_D.replace('<svg ', '<svg class="chev" ')}`;
+    const list = document.getElementById('pricebookList');
+    list.className = 'pricebook-list' + (pricebookOpen ? ' visible' : '');
+    list.innerHTML = PRICE_BOOK.map(p => `
+      <div class="pricebook-item" onclick="addToInvoice('${p.id}')">
+        <span class="pricebook-item-name">${p.name}</span>
+        <span class="pricebook-item-price">${money(p.price)}</span>
+      </div>
+    `).join('');
+  }
+
+  function currentJob(){ return jobs.find(j => j.id === currentJobId); }
+
+  function addToInvoice(priceBookId){
+    const j = currentJob();
+    if(!j) return;
+    const existing = j.invoiceItems.find(i => i.id === priceBookId);
+    if(existing) existing.qty += 1;
+    else j.invoiceItems.push({ id:priceBookId, qty:1 });
+    renderInvoice();
+  }
+
+  function changeQty(priceBookId, delta){
+    const j = currentJob();
+    if(!j) return;
+    const item = j.invoiceItems.find(i => i.id === priceBookId);
+    if(!item) return;
+    item.qty += delta;
+    if(item.qty <= 0) j.invoiceItems = j.invoiceItems.filter(i => i.id !== priceBookId);
+    renderInvoice();
+  }
+
+  function removeInvoiceLine(priceBookId){
+    const j = currentJob();
+    if(!j) return;
+    j.invoiceItems = j.invoiceItems.filter(i => i.id !== priceBookId);
+    renderInvoice();
+  }
+
+  function renderInvoice(){
+    const j = currentJob();
+    if(!j) return;
+    const lines = j.invoiceItems.map(item => {
+      const p = PRICE_BOOK.find(pb => pb.id === item.id);
+      const lineTotal = p.price * item.qty;
+      return `<div class="invoice-line">
+        <span class="invoice-line-name">${p.name}</span>
+        <div class="invoice-line-qty">
+          <button class="qty-btn" onclick="changeQty('${p.id}',-1)">−</button>
+          <span class="qty-num">${item.qty}</span>
+          <button class="qty-btn" onclick="changeQty('${p.id}',1)">+</button>
+        </div>
+        <span class="invoice-line-total">${money(lineTotal)}</span>
+        <button class="invoice-line-remove" onclick="removeInvoiceLine('${p.id}')">${ICON_TRASH}</button>
+      </div>`;
+    });
+    document.getElementById('invoiceLines').innerHTML = lines.join('');
+
+    const subtotal = j.invoiceItems.reduce((sum, item) => sum + PRICE_BOOK.find(pb => pb.id === item.id).price * item.qty, 0);
+    const gst = subtotal * GST_RATE;
+    const total = subtotal + gst;
+    const totalEl = document.getElementById('invoiceTotal');
+    const hasItems = j.invoiceItems.length > 0;
+    totalEl.className = 'invoice-total' + (hasItems ? ' visible' : '');
+    totalEl.innerHTML = `
+      <div class="invoice-total-row"><span>Subtotal</span><span>${money(subtotal)}</span></div>
+      <div class="invoice-total-row"><span>GST (10%)</span><span>${money(gst)}</span></div>
+      <div class="invoice-total-row grand"><span>Total</span><span>${money(total)}</span></div>
+    `;
+
+    const sendBtn = document.getElementById('sendInvoiceBtn');
+    sendBtn.className = 'send-invoice-btn' + (hasItems ? ' visible' : '') + (j.invoiceSent ? ' sent' : '');
+    sendBtn.innerHTML = j.invoiceSent
+      ? `${ICON_CHECK}Invoice sent — ${money(total)}`
+      : `${ICON_RECEIPT}Send invoice — ${j.customer}`;
+    sendBtn.onclick = () => sendInvoice();
+  }
+
+  function sendInvoice(){
+    const j = currentJob();
+    if(!j || j.invoiceItems.length === 0) return;
+    j.invoiceSent = true;
+    renderInvoice();
+  }
+
+  function openOmwPreview(){
+    const j = currentJob();
+    if(!j) return;
+    const preview = document.getElementById('omwPreview');
+    const arriveTime = j.time ? j.time.split('–')[0].trim() : 'shortly';
+    const msg = `Hi ${j.customer}, this is Dave from Caulfield South Plumbing — I'm on my way and should arrive around ${arriveTime}.`;
+    const visible = preview.classList.contains('visible');
+    if(visible){
+      preview.classList.remove('visible');
+      return;
+    }
+    preview.classList.add('visible');
+    preview.innerHTML = `<span class="omw-tag">Message preview — SMS to ${j.phone}</span>${msg}<div class="omw-actions"><button class="omw-send" onclick="sendOmw()">Send</button><button class="omw-cancel" onclick="document.getElementById('omwPreview').classList.remove('visible')">Cancel</button></div>`;
+  }
+
+  function sendOmw(){
+    const preview = document.getElementById('omwPreview');
+    preview.innerHTML = `<span class="omw-tag omw-sent">${ICON_CHECK} Sent</span>Customer notified you're on your way.`;
+    setTimeout(() => preview.classList.remove('visible'), 2200);
+  }
+
+  function openDetail(id){
+    currentJobId = id;
+    const j = jobs.find(x => x.id === id);
+    document.getElementById('detailStatusChip').outerHTML = statusChip(j.status).replace('status-chip', 'status-chip" id="detailStatusChip');
+    document.getElementById('detailTitle').textContent = j.title;
+    document.getElementById('detailAddressRow').innerHTML = `${ICON_PIN}<span>${j.address}</span>`;
+    document.getElementById('detailTimeRow').innerHTML = `${ICON_CLOCK}<span>${j.time}</span>`;
+    document.getElementById('detailCustomerRow').innerHTML = `${ICON_USER}<span>${j.customer}</span><a class="call-link" href="#" onclick="return false;">${ICON_PHONE}Call</a>`;
+    document.getElementById('detailNotes').textContent = j.notes;
+
+    const agreement = AGREEMENTS.find(a => a.customer === j.customer);
+    const agreementEl = document.getElementById('agreementNote');
+    if(agreement){
+      agreementEl.style.display = 'block';
+      agreementEl.innerHTML = agreement.fulfillsThisJob
+        ? `<span class="agreement-tag">${ICON_CLOCK}Recurring agreement</span>This visit fulfils their ${agreement.type} agreement (every ${agreement.frequency}) — next due ${agreement.next}.`
+        : `<span class="agreement-tag">${ICON_CLOCK}Recurring customer</span>Different job, but their ${agreement.type} is due ${agreement.next} — worth a mention while you're here.`;
+    } else {
+      agreementEl.style.display = 'none';
+    }
+    document.getElementById('detailChecklist').innerHTML = j.checklist.map(item => `
+      <li class="checklist-item ${j.status==='complete' ? 'checked' : ''}" onclick="this.classList.toggle('checked'); renderAutoNote();">
+        <span class="checkbox">${ICON_CHECK}</span>
+        <span class="check-label">${item}</span>
+      </li>
+    `).join('');
+    renderAutoNote();
+    document.getElementById('captureBtn').innerHTML = `${ICON_CAMERA}Capture Photo`;
+
+    document.getElementById('omwBtn').innerHTML = `${ICON_MSG}Notify customer — On my way`;
+    document.getElementById('omwPreview').classList.remove('visible');
+    pricebookOpen = false;
+    renderPricebook();
+    renderInvoice();
+
+    const btn = document.getElementById('completeBtn');
+    if(j.status === 'complete'){
+      btn.className = 'complete-btn static-complete';
+      btn.disabled = true;
+      btn.innerHTML = `${ICON_CHECK}Job Completed`;
+    } else {
+      btn.className = 'complete-btn';
+      btn.disabled = false;
+      btn.innerHTML = `${ICON_CHECK}Complete Job`;
+    }
+
+    setConnection(isLive ? 'live' : 'offline');
+    document.getElementById('view-jobs').classList.remove('active');
+    document.getElementById('view-map').classList.remove('active');
+    document.getElementById('view-detail').classList.add('active');
+  }
+
+  function goBack(){
+    document.getElementById('view-detail').classList.remove('active');
+    document.getElementById('view-jobs').classList.add('active');
+  }
+
+  function completeJob(){
+    const btn = document.getElementById('completeBtn');
+    btn.disabled = true;
+    btn.innerHTML = `${ICON_CHECK}Completing…`;
+    setTimeout(() => {
+      const j = jobs.find(x => x.id === currentJobId);
+      if(j){
+        j.status = 'complete';
+        document.getElementById('detailStatusChip').outerHTML = statusChip('complete').replace('status-chip', 'status-chip" id="detailStatusChip');
+      }
+      renderList();
+
+      if(isLive){
+        btn.className = 'complete-btn done';
+        btn.innerHTML = `${ICON_CHECK}Job Complete`;
+      } else {
+        btn.className = 'complete-btn queued-state';
+        btn.disabled = true;
+        btn.innerHTML = `${ICON_CLOUD}Queued — sends when back online`;
+        outboxCount += 1;
+      }
+      renderProfile();
+    }, 900);
+  }
+
+  function clockIn(){
+    const btn = document.getElementById('clockinBtn');
+    btn.disabled = true;
+    document.getElementById('clockinBtnLabel').textContent = 'Capturing location…';
+    setTimeout(() => {
+      const now = new Date();
+      clockInTime = now.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
+      document.getElementById('pinRow').innerHTML = `${ICON_PIN}<span>Clocked in ${clockInTime} · location captured once, at clock-in</span>`;
+      document.getElementById('clockinScreen').classList.remove('layer-active');
+      document.getElementById('clockinScreen').classList.add('layer-hidden');
+      document.getElementById('appShell').classList.remove('layer-hidden');
+      document.getElementById('appShell').classList.add('layer-active');
+      renderProfile();
+    }, 900);
+  }
+
+  function clockOut(){
+    document.getElementById('appShell').classList.remove('layer-active');
+    document.getElementById('appShell').classList.add('layer-hidden');
+    document.getElementById('clockinScreen').classList.remove('layer-hidden');
+    document.getElementById('clockinScreen').classList.add('layer-active');
+    const btn = document.getElementById('clockinBtn');
+    btn.disabled = false;
+    document.getElementById('clockinBtnLabel').textContent = 'Clock In';
+    clockInTime = null;
+    isLive = true;
+    outboxCount = 0;
+    setConnection('live');
+    switchTab('jobs');
+  }
+
+  function renderProfile(){
+    const complete = jobs.filter(j => j.status === 'complete').length;
+    const total = jobs.length;
+    document.getElementById('statComplete').textContent = complete;
+    document.getElementById('statRemaining').textContent = total - complete;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('clockStatusLine').textContent = clockInTime ? `Clocked in — ${clockInTime}` : 'Not clocked in';
+    document.getElementById('connCardLine').textContent = isLive ? 'Live — realtime updates active' : 'Offline — using cached data';
+    document.getElementById('queueLine').textContent = outboxCount === 0 ? 'Nothing waiting to send' : `${outboxCount} item${outboxCount > 1 ? 's' : ''} waiting to send`;
+  }
+
+  function setConnection(state){
+    const badge = document.getElementById('syncBadge');
+    const label = document.getElementById('syncLabel');
+    badge.className = 'sync-badge conn-' + state;
+    label.textContent = { live:'Live', offline:'Offline', reconnecting:'Reconnecting…' }[state];
+  }
+
+  function toggleConnection(){
+    if(isLive){
+      isLive = false;
+      setConnection('offline');
+      renderProfile();
+    } else {
+      setConnection('reconnecting');
+      setTimeout(() => {
+        isLive = true;
+        setConnection('live');
+        drainOutbox();
+        renderProfile();
+      }, 1200);
+    }
+  }
+
+  function drainOutbox(){
+    if(outboxCount === 0) return;
+    outboxCount = 0;
+    const btn = document.getElementById('completeBtn');
+    if(btn && btn.classList.contains('queued-state')){
+      btn.className = 'complete-btn done';
+      btn.innerHTML = `${ICON_CHECK}Job Complete`;
+    }
+  }
+
+  function showMobileMapFallback(title, desc){
+    document.getElementById('mobileMapFallbackTitle').textContent = title;
+    document.getElementById('mobileMapFallbackDesc').textContent = desc;
+    document.getElementById('mobileMapFallback').classList.add('visible');
+  }
+
+  function initMobileMapIfNeeded(){
+    document.getElementById('mapLocBanner').innerHTML = clockInTime
+      ? `${ICON_PIN}<span>Location captured once, at clock-in (${clockInTime}) — not tracked since.</span>`
+      : `${ICON_PIN}<span>Location will be captured once you clock in.</span>`;
+
+    if(mobileMapInitialized){ if(mobileMap) mobileMap.resize(); return; }
+    mobileMapInitialized = true;
+
+    if(typeof maplibregl === 'undefined'){
+      showMobileMapFallback("Map script didn't load", "This preview is blocking the external MapLibre script. Open this file directly in a browser tab to see it.");
+      return;
+    }
+
+    let loaded = false;
+    const stallTimer = setTimeout(() => {
+      if(!loaded) showMobileMapFallback("Map is taking too long", "Tiles haven't loaded — likely blocked network access in this preview. Try opening the file directly in a browser tab.");
+    }, 6000);
+
+    try{
+      mobileMap = new maplibregl.Map({
+        container: 'mobileMapCanvas',
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [145.04, -37.89],
+        zoom: 11.5,
+        attributionControl: { compact: true }
+      });
+    } catch(err){
+      showMobileMapFallback("Map failed to start", "MapLibre threw an error: " + err.message);
+      return;
+    }
+
+    mobileMap.on('error', () => {
+      if(!loaded) showMobileMapFallback("Map tiles couldn't load", "Tile requests are being blocked in this preview. Open this file directly in a browser tab.");
+    });
+
+    mobileMap.on('load', () => {
+      loaded = true;
+      clearTimeout(stallTimer);
+      jobs.forEach(j => {
+        const s = STATUS[j.status];
+        const popupHtml = `<b>${j.title}</b><br>${j.address}<br><span style="color:${s.hex};">${s.label}</span><br><span class="mp-view" onclick="openDetail(${j.id}); switchTab('jobs');">View job</span>`;
+        new maplibregl.Marker({ color: s.hex })
+          .setLngLat([j.lng, j.lat])
+          .setPopup(new maplibregl.Popup({ offset: 22 }).setHTML(popupHtml))
+          .addTo(mobileMap);
+      });
+      mobileMap.fitBounds(
+        jobs.reduce((b, j) => b.extend([j.lng, j.lat]), new maplibregl.LngLatBounds([jobs[0].lng, jobs[0].lat], [jobs[0].lng, jobs[0].lat])),
+        { padding: 56, maxZoom: 13 }
+      );
+    });
+  }
+
+  function switchTab(tab){
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    if(tab === 'jobs'){
+      document.getElementById('view-jobs').classList.add('active');
+    } else if(tab === 'profile'){
+      renderProfile();
+      document.getElementById('view-profile').classList.add('active');
+    } else {
+      document.getElementById('view-map').classList.add('active');
+      requestAnimationFrame(initMobileMapIfNeeded);
+    }
+  }
+
+  document.querySelector('.back-btn').innerHTML = ICON_CHEV_L;
+  document.getElementById('navJobsIcon').innerHTML = ICON_BRIEF;
+  document.getElementById('navMapIcon').innerHTML = ICON_MAP;
+  document.getElementById('mobileMapFallbackIcon').innerHTML = ICON_ALERT;
+  document.getElementById('navProfileIcon').innerHTML = ICON_USER;
+  document.getElementById('clockinLocIcon').innerHTML = ICON_PIN;
+  document.getElementById('clockinBtnIcon').innerHTML = ICON_PIN;
+  document.getElementById('connCardIcon').innerHTML = ICON_CLOUD;
+  document.getElementById('queueIcon').innerHTML = ICON_LAYERS;
+
+  setConnection('live');
+  renderList();
+  renderProfile();
+</script>
+</body>
+</html>

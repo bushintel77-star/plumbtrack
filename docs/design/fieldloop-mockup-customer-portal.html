@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caulfield South Plumbing — Your Account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-canvas:#EEF0F0;
+    --bg-page:#FAFBFB;
+    --bg-panel:#FFFFFF;
+    --bg-panel-2:#F3F5F5;
+    --border:#E2E6E6;
+    --border-strong:#CDD3D3;
+
+    --text-primary:#161B1B;
+    --text-secondary:#5B6666;
+    --text-tertiary:#8D9696;
+
+    --blue:#2E5F8A;
+    --blue-bright:#2F6FED;
+    --blue-tint:#EAF1FA;
+
+    --amber:#A2660A;
+    --amber-tint:#FBF1DC;
+    --green:#158C48;
+    --green-tint:#E6F6EC;
+
+    --font-display:'Big Shoulders Display', sans-serif;
+    --font-body:'IBM Plex Sans', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg-canvas);
+    font-family:var(--font-body);
+    color:var(--text-primary);
+    display:flex; justify-content:center;
+    padding:30px 20px;
+  }
+
+  .phone-frame{
+    width:100%; max-width:390px;
+    background:#0d0f0f; border-radius:34px; padding:10px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.06);
+  }
+  .phone-screen{
+    background:var(--bg-page); border-radius:26px;
+    height:min(844px, 84vh); min-height:620px;
+    display:flex; flex-direction:column; overflow:hidden; position:relative;
+  }
+
+  .screen-layer{ position:absolute; inset:0; display:flex; flex-direction:column; transition:opacity 0.4s ease, transform 0.4s ease; }
+  .layer-active{ opacity:1; pointer-events:auto; transform:translateY(0); }
+  .layer-hidden{ opacity:0; pointer-events:none; transform:translateY(8px); }
+
+  /* ---------- Access screen ---------- */
+  .access-screen{ padding:0 26px; align-items:center; justify-content:center; text-align:center; }
+  .access-brand{ font-family:var(--font-display); font-weight:800; font-size:1.5rem; letter-spacing:0.02em; color:var(--text-primary); }
+  .access-brand span{ color:var(--blue-bright); }
+  .access-sub{ font-size:0.85rem; color:var(--text-secondary); margin-top:6px; margin-bottom:34px; }
+  .access-field{ width:100%; text-align:left; margin-bottom:14px; }
+  .access-field label{ display:block; font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-tertiary); margin-bottom:6px; }
+  .access-field input{
+    width:100%; padding:13px 14px; border-radius:10px; border:1.5px solid var(--border-strong);
+    background:var(--bg-panel); font-family:inherit; font-size:0.92rem; color:var(--text-primary); outline:none;
+  }
+  .access-field input:focus{ border-color:var(--blue-bright); }
+  .access-btn{
+    width:100%; min-height:52px; border-radius:11px; border:none; background:var(--blue-bright); color:#fff;
+    font-family:inherit; font-weight:700; font-size:0.94rem; cursor:pointer; margin-top:8px;
+  }
+  .access-btn:disabled{ opacity:0.6; }
+  .access-note{ font-size:0.74rem; color:var(--text-tertiary); margin-top:14px; line-height:1.5; }
+  .access-sent{ display:none; font-size:0.86rem; color:var(--green); margin-top:16px; }
+  .access-sent.visible{ display:block; }
+
+  /* ---------- Portal ---------- */
+  .portal-header{
+    flex-shrink:0; padding:18px 20px 14px; background:var(--bg-panel); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .portal-brand{ font-family:var(--font-display); font-weight:700; font-size:0.95rem; letter-spacing:0.03em; }
+  .portal-greeting{ font-size:0.78rem; color:var(--text-secondary); margin-top:2px; }
+  .portal-avatar{
+    width:38px; height:38px; border-radius:50%; background:var(--blue-tint); color:var(--blue);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:0.85rem;
+  }
+
+  .portal-scroll{ flex:1; overflow-y:auto; padding:18px 18px 26px; display:flex; flex-direction:column; gap:16px; }
+
+  .card{ background:var(--bg-panel); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .card-label{ font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-tertiary); margin-bottom:8px; }
+
+  /* Reminder card */
+  .reminder-card{ border-left:3px solid var(--amber); }
+  .reminder-title{ font-size:0.95rem; font-weight:600; margin-bottom:4px; }
+  .reminder-desc{ font-size:0.82rem; color:var(--text-secondary); line-height:1.5; margin-bottom:12px; }
+  .reminder-btn{
+    display:inline-flex; align-items:center; gap:6px; padding:9px 15px; border-radius:9px;
+    background:var(--amber-tint); color:var(--amber); border:none; font-family:inherit; font-weight:700; font-size:0.82rem; cursor:pointer;
+  }
+
+  /* Job status card */
+  .status-track{ display:flex; align-items:center; margin:6px 0 14px; }
+  .status-step{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; }
+  .status-dot{ width:12px; height:12px; border-radius:50%; background:var(--border-strong); z-index:1; }
+  .status-step.done .status-dot{ background:var(--green); }
+  .status-step.done .status-label{ color:var(--text-primary); font-weight:600; }
+  .status-label{ font-size:0.66rem; color:var(--text-tertiary); text-align:center; }
+  .status-line{ position:absolute; top:5px; left:-50%; width:100%; height:2px; background:var(--border-strong); z-index:0; }
+  .status-step.done .status-line{ background:var(--green); }
+  .status-step:first-child .status-line{ display:none; }
+
+  .job-title{ font-family:var(--font-display); font-weight:700; font-size:1.15rem; margin-bottom:2px; }
+  .job-meta{ font-size:0.8rem; color:var(--text-secondary); }
+  .job-tech-row{ display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:0.8rem; color:var(--text-secondary); }
+  .job-tech-avatar{
+    width:26px; height:26px; border-radius:50%; background:var(--blue-tint); color:var(--blue);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:0.7rem;
+  }
+  .job-summary-line{ font-size:0.82rem; color:var(--text-secondary); line-height:1.5; margin-top:10px; font-style:italic; }
+
+  /* Invoice card */
+  .invoice-card{ position:relative; overflow:hidden; }
+  .invoice-stamp{
+    position:absolute; top:14px; right:-30px; transform:rotate(28deg);
+    font-family:var(--font-display); font-weight:800; font-size:0.72rem; letter-spacing:0.1em;
+    padding:4px 34px; text-transform:uppercase;
+  }
+  .invoice-stamp.due{ background:var(--amber-tint); color:var(--amber); border:1.5px solid var(--amber); }
+  .invoice-stamp.paid{ background:var(--green-tint); color:var(--green); border:1.5px solid var(--green); }
+  .invoice-num{ font-family:var(--font-mono); font-size:0.72rem; color:var(--text-tertiary); margin-bottom:12px; }
+  .invoice-lines{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .invoice-line{ display:flex; justify-content:space-between; font-size:0.82rem; color:var(--text-secondary); }
+  .invoice-divider{ border-top:1px dashed var(--border-strong); margin:10px 0; }
+  .invoice-total-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .invoice-total-label{ font-size:0.85rem; color:var(--text-secondary); }
+  .invoice-total-num{ font-family:var(--font-display); font-weight:800; font-size:1.7rem; color:var(--text-primary); }
+  .pay-btn{
+    width:100%; min-height:48px; border-radius:11px; border:none; background:var(--blue-bright); color:#fff;
+    font-family:inherit; font-weight:700; font-size:0.88rem; cursor:pointer; margin-top:14px;
+  }
+  .pay-btn.paid{ background:var(--green-tint); color:var(--green); }
+
+  /* Quote card */
+  .quote-card{ border-left:3px solid var(--blue-bright); }
+  .quote-title{ font-size:0.95rem; font-weight:600; margin-bottom:4px; }
+  .quote-desc{ font-size:0.82rem; color:var(--text-secondary); line-height:1.5; margin-bottom:12px; }
+  .quote-price-row{ display:flex; justify-content:space-between; align-items:baseline; padding:10px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .quote-price-label{ font-size:0.8rem; color:var(--text-secondary); }
+  .quote-price-num{ font-family:var(--font-display); font-weight:800; font-size:1.3rem; color:var(--text-primary); }
+  .quote-actions{ display:flex; gap:8px; }
+  .quote-actions button{ flex:1; min-height:44px; border-radius:10px; font-family:inherit; font-weight:700; font-size:0.84rem; cursor:pointer; }
+  .quote-approve{ background:var(--blue-bright); color:#fff; border:none; }
+  .quote-decline{ background:none; border:1.5px solid var(--border-strong); color:var(--text-secondary); }
+  .quote-resolved{ display:flex; align-items:center; gap:8px; padding:10px 0; font-size:0.85rem; font-weight:600; }
+  .quote-resolved.approved{ color:var(--green); }
+  .quote-resolved.declined{ color:var(--text-tertiary); }
+  .quote-resolved svg{ width:16px; height:16px; }
+
+  /* History */
+  .history-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:0.82rem; }
+  .history-row:last-child{ border-bottom:none; }
+  .history-dot{ width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; }
+  .history-title{ flex:1; font-weight:600; }
+  .history-date{ font-family:var(--font-mono); font-size:0.72rem; color:var(--text-tertiary); }
+
+  .portal-footer{ text-align:center; font-size:0.78rem; color:var(--text-tertiary); padding:6px 0 4px; }
+  .portal-footer a{ color:var(--blue-bright); text-decoration:none; font-weight:600; }
+
+  .toast{
+    position:absolute; bottom:18px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--text-primary); color:#fff; padding:10px 18px; border-radius:10px;
+    font-size:0.82rem; opacity:0; pointer-events:none; transition:opacity 0.2s ease, transform 0.2s ease; z-index:20;
+  }
+  .toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="phone-screen">
+
+    <div id="accessScreen" class="screen-layer layer-active access-screen">
+      <div class="access-brand">CAULFIELD SOUTH <span>PLUMBING</span></div>
+      <div class="access-sub">Track your visit, view invoices, and book your next service.</div>
+      <div class="access-field">
+        <label>Mobile number or email</label>
+        <input type="text" id="accessInput" placeholder="e.g. sarah.w@email.com" oninput="document.getElementById('accessBtn').disabled = !this.value.trim();">
+      </div>
+      <button class="access-btn" id="accessBtn" disabled onclick="sendAccessLink()">Send me a secure link</button>
+      <div class="access-sent" id="accessSent">Link sent — for this demo, tap below to continue.</div>
+      <div class="access-note">No password needed. We'll text or email a one-tap link that's valid for 15 minutes.</div>
+    </div>
+
+    <div id="portalScreen" class="screen-layer layer-hidden">
+      <header class="portal-header">
+        <div>
+          <div class="portal-brand">CAULFIELD SOUTH PLUMBING</div>
+          <div class="portal-greeting">Hi, S. Whitfield</div>
+        </div>
+        <div class="portal-avatar">SW</div>
+      </header>
+
+      <div class="portal-scroll">
+        <div class="card reminder-card">
+          <div class="card-label">Service reminder</div>
+          <div class="reminder-title">Annual Gas Safety Check due soon</div>
+          <div class="reminder-desc">Your last check was 15 Sep 2025. It's due again by 15 Sep 2026 — book now to lock in a time that suits you.</div>
+          <button class="reminder-btn" id="bookBtn"></button>
+        </div>
+
+        <div class="card" id="jobCard"></div>
+
+        <div class="card quote-card" id="quoteCard"></div>
+
+        <div class="card invoice-card" id="invoiceCard"></div>
+
+        <div class="card">
+          <div class="card-label">Service history</div>
+          <div id="historyList"></div>
+        </div>
+
+        <div class="portal-footer">Questions? <a href="#" onclick="return false;">Call (03) 5000 1234</a></div>
+      </div>
+
+      <div class="toast" id="portalToast"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const S = (p,w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.75}" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">${p}</svg>`;
+  const ICON_CAL = S('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>');
+  const ICON_CHECK = S('<path d="M20 6 9 17l-5-5"/>');
+
+  function sendAccessLink(){
+    const btn = document.getElementById('accessBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    setTimeout(() => {
+      document.getElementById('accessSent').classList.add('visible');
+      btn.textContent = 'Continue to your account';
+      btn.disabled = false;
+      btn.onclick = enterPortal;
+    }, 900);
+  }
+
+  function enterPortal(){
+    document.getElementById('accessScreen').classList.remove('layer-active');
+    document.getElementById('accessScreen').classList.add('layer-hidden');
+    document.getElementById('portalScreen').classList.remove('layer-hidden');
+    document.getElementById('portalScreen').classList.add('layer-active');
+  }
+
+  function renderJobCard(){
+    document.getElementById('jobCard').innerHTML = `
+      <div class="card-label">Most recent visit</div>
+      <div class="job-title">Gas leak inspection</div>
+      <div class="job-meta">Sat 29 Aug 2026 · 42 Kooyong Rd, Armadale</div>
+      <div class="status-track">
+        <div class="status-step done"><span class="status-line"></span><span class="status-dot"></span><span class="status-label">Booked</span></div>
+        <div class="status-step done"><span class="status-line"></span><span class="status-dot"></span><span class="status-label">On the way</span></div>
+        <div class="status-step done"><span class="status-line"></span><span class="status-dot"></span><span class="status-label">In progress</span></div>
+        <div class="status-step done"><span class="status-line"></span><span class="status-dot"></span><span class="status-label">Complete</span></div>
+      </div>
+      <div class="job-summary-line">"Inspected and cleared — no leak detected, fitting re-sealed as a precaution."</div>
+      <div class="job-tech-row"><div class="job-tech-avatar">DM</div><span>Dave Mitchell attended this visit</span></div>
+    `;
+  }
+
+  let quoteStatus = 'pending'; // pending | approved | declined
+  function renderQuoteCard(){
+    const card = document.getElementById('quoteCard');
+    if(quoteStatus === 'pending'){
+      card.innerHTML = `
+        <div class="card-label">Quote — found during your visit</div>
+        <div class="quote-title">Pressure relief valve replacement</div>
+        <div class="quote-desc">While inspecting your gas system, Dave noticed the pressure relief valve is past its service life and recommends replacing it. Separate from today's invoice — this needs your OK before any work happens.</div>
+        <div class="quote-price-row"><span class="quote-price-label">Quoted price (inc. GST)</span><span class="quote-price-num">$71.50</span></div>
+        <div class="quote-actions">
+          <button class="quote-decline" onclick="declineQuote()">Decline</button>
+          <button class="quote-approve" onclick="approveQuote()">Approve</button>
+        </div>
+      `;
+    } else if(quoteStatus === 'approved'){
+      card.innerHTML = `
+        <div class="card-label">Quote — found during your visit</div>
+        <div class="quote-title">Pressure relief valve replacement</div>
+        <div class="quote-resolved approved">${ICON_CHECK} Approved — $71.50 · we'll be in touch to schedule</div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="card-label">Quote — found during your visit</div>
+        <div class="quote-title">Pressure relief valve replacement</div>
+        <div class="quote-resolved declined">Declined — let us know if you change your mind</div>
+      `;
+    }
+  }
+  function approveQuote(){ quoteStatus = 'approved'; renderQuoteCard(); showToast("Quote approved — we'll be in touch to schedule"); }
+  function declineQuote(){ quoteStatus = 'declined'; renderQuoteCard(); showToast('Quote declined'); }
+
+  let invoicePaid = false;
+  function renderInvoiceCard(){
+    const card = document.getElementById('invoiceCard');
+    card.innerHTML = `
+      <div class="invoice-stamp ${invoicePaid ? 'paid' : 'due'}">${invoicePaid ? 'Paid' : 'Due'}</div>
+      <div class="card-label">Invoice</div>
+      <div class="invoice-num">INV-2026-0142 · Issued 29 Aug 2026</div>
+      <div class="invoice-lines">
+        <div class="invoice-line"><span>Callout fee</span><span>$85.00</span></div>
+        <div class="invoice-line"><span>Labour (1 hr)</span><span>$110.00</span></div>
+        <div class="invoice-line"><span>GST (10%)</span><span>$19.50</span></div>
+      </div>
+      <div class="invoice-divider"></div>
+      <div class="invoice-total-row">
+        <span class="invoice-total-label">Total</span>
+        <span class="invoice-total-num">$214.50</span>
+      </div>
+      <button class="pay-btn ${invoicePaid ? 'paid' : ''}" id="payBtn" ${invoicePaid ? 'disabled' : ''}>${invoicePaid ? ICON_CHECK + ' Paid — thank you' : 'Pay $214.50'}</button>
+    `;
+    if(!invoicePaid){
+      document.getElementById('payBtn').onclick = payInvoice;
+    }
+  }
+
+  function payInvoice(){
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    setTimeout(() => {
+      invoicePaid = true;
+      renderInvoiceCard();
+      showToast('Payment received — receipt emailed to you');
+    }, 1000);
+  }
+
+  function renderHistory(){
+    document.getElementById('historyList').innerHTML = `
+      <div class="history-row"><span class="history-dot"></span><span class="history-title">Gas leak inspection</span><span class="history-date">29 Aug 2026</span></div>
+    `;
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('portalToast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 2600);
+  }
+
+  document.getElementById('bookBtn').innerHTML = `${ICON_CAL}Book now`;
+  document.getElementById('bookBtn').onclick = () => showToast("Booking request sent — we'll confirm a time shortly");
+
+  renderJobCard();
+  renderQuoteCard();
+  renderInvoiceCard();
+  renderHistory();
+</script>
+</body>
+</html>

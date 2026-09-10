@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FieldLoop — Dispatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg-canvas:#EEF1F2;
+    --bg-page:#F3F5F6;
+    --bg-panel:#FFFFFF;
+    --bg-panel-2:#F8F9FA;
+    --border:#DDE3E7;
+    --border-strong:#C7CFD4;
+
+    --text-primary:#14181C;
+    --text-secondary:#57646D;
+    --text-tertiary:#8B96A0;
+
+    --blue:#2E5F8A;
+    --blue-bright:#2F6FED;
+    --blue-tint:#EAF1FA;
+
+    --red:#C81E2C;
+    --red-tint:#FCEBEC;
+    --amber:#A2660A;
+    --amber-tint:#FBF1DC;
+    --green:#158C48;
+    --green-tint:#E6F6EC;
+
+    --font-display:'Big Shoulders Display', sans-serif;
+    --font-body:'IBM Plex Sans', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg-canvas);
+    font-family:var(--font-body);
+    color:var(--text-primary);
+    display:flex; justify-content:center;
+    padding:26px 20px;
+  }
+
+  .window{
+    width:100%; max-width:1480px;
+    background:var(--bg-page);
+    border-radius:16px;
+    box-shadow:0 28px 64px -26px rgba(20,24,28,0.3), 0 0 0 1px rgba(20,24,28,0.05);
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    height:min(780px, 84vh); min-height:620px;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    flex-shrink:0; height:54px;
+    display:flex; align-items:center; gap:18px; padding:0 16px 0 14px;
+    background:var(--bg-panel); border-bottom:1px solid var(--border);
+  }
+  .topbar-left{ display:flex; align-items:center; gap:9px; flex-shrink:0; }
+  .wordmark{ font-family:var(--font-display); font-weight:700; font-size:1rem; letter-spacing:0.07em; }
+  .topbar-divider{ width:1px; height:15px; background:var(--border-strong); }
+  .topbar-section{ font-size:0.82rem; color:var(--text-secondary); font-weight:500; }
+
+  .topbar-search{
+    flex:1; max-width:360px; display:flex; align-items:center; gap:8px;
+    background:var(--bg-panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:7px 10px; color:var(--text-tertiary); cursor:pointer;
+  }
+  .topbar-search svg{ width:14px; height:14px; flex-shrink:0; }
+  .topbar-search span.ph{ flex:1; font-size:0.82rem; }
+  .kbd-hint{
+    font-family:var(--font-mono); font-size:0.65rem; color:var(--text-tertiary);
+    background:var(--bg-panel); border:1px solid var(--border-strong); border-radius:4px; padding:1px 5px;
+  }
+
+  .topbar-right{ margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .date-label{ font-family:var(--font-mono); font-size:0.78rem; color:var(--text-secondary); margin-right:6px; }
+  .chip{
+    display:flex; align-items:center; gap:6px; padding:5px 9px; border-radius:100px;
+    background:var(--bg-panel-2); border:1px solid var(--border-strong);
+    font-family:var(--font-mono); font-size:0.72rem; color:var(--text-secondary); cursor:pointer;
+  }
+  .chip:active{ background:var(--border); }
+  .live-dot{ width:7px; height:7px; border-radius:50%; background:var(--blue-bright); }
+  .chip.conn-offline .live-dot{ background:var(--text-tertiary); }
+  .chip.conn-reconnecting .live-dot{ animation:pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  .chip.fail-chip{ color:var(--red); border-color:var(--red); background:var(--red-tint); display:none; }
+  .chip.fail-chip.visible{ display:flex; }
+  .chip.fail-chip .fail-dot{ width:7px; height:7px; border-radius:50%; background:var(--red); }
+
+  /* ---------- Shell ---------- */
+  .shell{ flex:1; display:flex; overflow-x:auto; overflow-y:hidden; position:relative; background:var(--bg-canvas); }
+
+  .rail{
+    width:52px; flex-shrink:0; display:flex; flex-direction:column; align-items:center;
+    gap:6px; padding:12px 0; background:rgba(255,255,255,0.85); backdrop-filter:blur(10px);
+    border-right:1px solid var(--border);
+    position:sticky; left:0; z-index:10;
+  }
+  .rail-btn{
+    width:36px; height:36px; border-radius:10px; border:none; background:none;
+    color:var(--text-tertiary); display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .rail-btn svg{ width:18px; height:18px; }
+  .rail-btn:hover{ background:rgba(255,255,255,0.8); color:var(--text-secondary); }
+  .rail-btn.active{ background:var(--blue-bright); color:#fff; }
+  .rail-btn.disabled{ opacity:0.35; cursor:default; }
+  .rail-btn.disabled:hover{ background:none; color:var(--text-tertiary); }
+
+  .panel{
+    background:rgba(255,255,255,0.78); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,0.7); border-radius:14px;
+    box-shadow:0 10px 30px -14px rgba(20,24,28,0.2);
+  }
+
+  .tree-panel{ width:236px; flex-shrink:0; margin:12px 0 12px 12px; overflow-y:auto; padding:12px; }
+  .tree-search{
+    display:flex; align-items:center; gap:6px; background:var(--bg-panel-2); border:1px solid var(--border);
+    border-radius:7px; padding:6px 8px; margin-bottom:10px;
+  }
+  .tree-search svg{ width:12px; height:12px; color:var(--text-tertiary); }
+  .tree-search input{ border:none; background:none; outline:none; font-size:0.78rem; font-family:inherit; flex:1; color:var(--text-primary); }
+  .tree-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .panel-heading{
+    font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.07em; font-size:0.68rem;
+    color:var(--text-tertiary); font-weight:500;
+  }
+  .show-all-link{ font-family:var(--font-mono); font-size:0.68rem; color:var(--blue-bright); background:none; border:none; cursor:pointer; display:none; }
+  .show-all-link.visible{ display:inline; }
+
+  .tech-row{
+    display:flex; align-items:center; gap:9px; padding:8px 7px; border-radius:8px; cursor:pointer;
+    border:1px solid transparent; outline:none;
+  }
+  .tech-row:hover, .tech-row:focus{ background:var(--bg-panel-2); }
+  .tech-row.active{ background:var(--blue-tint); border-color:var(--blue-bright); }
+  .tech-row.dimmed{ opacity:0.4; }
+  .tech-avatar{
+    width:30px; height:30px; border-radius:50%; flex-shrink:0; position:relative;
+    background:var(--bg-panel-2); border:1.5px solid var(--blue);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:700; font-size:0.76rem; color:var(--blue);
+  }
+  .presence-dot{ position:absolute; bottom:-1px; right:-1px; width:9px; height:9px; border-radius:50%; border:2px solid var(--bg-panel); background:var(--text-tertiary); }
+  .presence-dot.on-job{ background:var(--blue-bright); }
+  .presence-dot.available{ background:var(--bg-panel); box-shadow:inset 0 0 0 1.5px var(--blue-bright); }
+  .presence-dot.leave{ background:repeating-linear-gradient(45deg, var(--text-tertiary) 0 2px, var(--bg-panel-2) 2px 4px); }
+  .tech-van{ font-family:var(--font-mono); font-size:0.66rem; color:var(--text-tertiary); }
+  .tech-name{ font-size:0.8rem; font-weight:600; }
+  .tech-meta{ font-size:0.68rem; color:var(--text-tertiary); margin-top:1px; }
+  .tech-jobs{ margin:2px 0 6px 39px; display:flex; flex-direction:column; gap:2px; }
+  .tech-job-mini{
+    display:flex; align-items:center; gap:5px; font-size:0.7rem; color:var(--text-secondary);
+    padding:2px 0; cursor:pointer;
+  }
+  .tech-job-mini .dot{ width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .tree-divider{ height:1px; background:var(--border); margin:10px 0; }
+
+  /* ---------- Canvas ---------- */
+  .canvas-wrap{ flex:1; overflow:auto; position:relative; padding:12px 10px 12px 12px; }
+  .canvas-toolbar{ display:flex; align-items:center; justify-content:space-between; padding:0 4px 10px; }
+  .northstar{ display:flex; align-items:baseline; gap:10px; }
+  .ns-num{ font-family:var(--font-display); font-weight:800; font-size:2.2rem; line-height:1; }
+  .ns-num.ns-red{ color:var(--red); }
+  .ns-num.ns-amber{ color:var(--amber); }
+  .ns-num.ns-green{ color:var(--green); }
+  .ns-label{ font-size:0.95rem; font-weight:600; color:var(--text-primary); }
+  .ns-sub{ font-size:0.78rem; color:var(--text-tertiary); margin-left:2px; }
+  .day-nav{ display:flex; align-items:center; gap:9px; }
+  .day-nav-btn{ width:24px; height:24px; border-radius:6px; border:1px solid var(--border-strong); background:var(--bg-panel); color:var(--text-secondary); display:flex; align-items:center; justify-content:center; cursor:default; }
+  .day-nav-btn svg{ width:13px; height:13px; }
+  .day-nav-label{ font-family:var(--font-mono); font-size:0.76rem; color:var(--text-secondary); }
+  .zoom-toggle{ display:flex; gap:2px; background:var(--bg-panel-2); border:1px solid var(--border); border-radius:7px; padding:2px; }
+  .zoom-btn{ padding:3px 9px; border-radius:5px; border:none; background:none; font-family:var(--font-mono); font-size:0.68rem; color:var(--text-tertiary); cursor:pointer; }
+  .zoom-btn.active{ background:var(--bg-panel); color:var(--text-primary); box-shadow:0 1px 3px rgba(20,24,28,0.12); }
+
+  .week-grid-scroll{ min-width:760px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel); overflow:hidden; margin:0 4px; }
+  .week-header-row, .week-row{ display:grid; grid-template-columns:130px repeat(7, minmax(90px,1fr)); }
+  .week-header-row{ border-bottom:1px solid var(--border); }
+  .week-tech-col{ display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:0.8rem; font-weight:600; color:var(--text-primary); }
+  .week-day-head{ text-align:center; font-family:var(--font-mono); font-size:0.72rem; color:var(--text-secondary); padding:9px 4px; border-left:1px solid var(--border); }
+  .week-day-head span{ display:block; color:var(--text-tertiary); font-size:0.68rem; margin-top:1px; }
+  .week-day-head.today{ color:var(--blue-bright); font-weight:700; background:var(--blue-tint); }
+  .week-day-head.today span{ color:var(--blue-bright); }
+  .week-row{ border-top:1px solid var(--border); min-height:58px; }
+  .week-row:first-of-type{ border-top:none; }
+  .week-cell{ display:flex; flex-direction:column; gap:3px; padding:6px 5px; border-left:1px solid var(--border); justify-content:center; }
+  .week-cell.today{ background:var(--blue-tint); }
+  .week-chip{
+    font-size:0.66rem; padding:2px 6px; border-radius:4px; cursor:pointer;
+    border-left:2px solid; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .week-chip.status-urgent{ background:var(--red-tint); border-color:var(--red); color:var(--red); }
+  .week-chip.status-scheduled{ background:var(--amber-tint); border-color:var(--amber); color:var(--amber); }
+  .week-chip.status-complete{ background:var(--green-tint); border-color:var(--green); color:var(--green); }
+
+  .month-grid-scroll{ min-width:640px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel); overflow:hidden; margin:0 4px; }
+  .month-head-row{ display:grid; grid-template-columns:repeat(7,1fr); border-bottom:1px solid var(--border); }
+  .month-head-cell{ text-align:center; font-family:var(--font-mono); font-size:0.7rem; color:var(--text-tertiary); padding:8px 0; }
+  .month-body{ display:grid; grid-template-columns:repeat(7,1fr); }
+  .month-cell{
+    border-left:1px solid var(--border); border-top:1px solid var(--border);
+    min-height:78px; padding:7px; cursor:pointer;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .month-cell:nth-child(7n+1){ border-left:none; }
+  .month-cell.out-of-month{ background:var(--bg-panel-2); }
+  .month-cell.today{ background:var(--blue-tint); }
+  .month-day-num{ font-family:var(--font-mono); font-size:0.75rem; font-weight:600; color:var(--text-secondary); }
+  .month-cell.out-of-month .month-day-num{ color:var(--text-tertiary); }
+  .month-cell.today .month-day-num{ color:var(--blue-bright); font-weight:700; }
+  .month-dots{ display:flex; gap:3px; flex-wrap:wrap; }
+  .month-dot{ width:7px; height:7px; border-radius:50%; }
+
+  .unassigned-lane{ display:flex; align-items:center; gap:9px; padding:9px 11px; margin:0 4px 12px; background:var(--blue-tint); border:1px dashed var(--blue-bright); border-radius:10px; }
+  .unassigned-label{ font-family:var(--font-mono); font-size:0.7rem; color:var(--blue); text-transform:uppercase; letter-spacing:0.05em; flex-shrink:0; }
+  .unassigned-chip{ display:flex; align-items:center; gap:7px; background:var(--bg-panel); border:1px solid var(--border-strong); border-radius:7px; padding:6px 10px; cursor:pointer; font-size:0.78rem; }
+  .unassigned-chip svg{ width:12px; height:12px; color:var(--blue-bright); }
+  .unassigned-chip .addr{ color:var(--text-tertiary); font-size:0.72rem; }
+
+  .grid-scroll{ min-width:740px; }
+  .hour-ruler{ position:relative; height:18px; margin:0 4px 2px; }
+  .hour-tick{ position:absolute; top:0; font-family:var(--font-mono); font-size:0.66rem; color:var(--text-tertiary); }
+
+  .tech-rows-container{
+    position:relative; margin:0 4px; border-radius:12px; background-color:var(--bg-panel);
+    border:1px solid var(--border); overflow:hidden;
+    background-image:repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent calc(100%/10));
+  }
+  .schedule-row{ position:relative; height:72px; border-bottom:1px solid var(--border); transition:background 0.15s ease, box-shadow 0.15s ease; }
+  .schedule-row:last-child{ border-bottom:none; }
+  .schedule-row.drop-target{ background:var(--blue-tint); box-shadow:inset 0 0 0 2px var(--blue-bright); }
+
+  .now-line{ position:absolute; top:0; bottom:0; width:2px; background:var(--blue-bright); z-index:3; pointer-events:none; }
+  .now-flag{ position:absolute; top:-19px; transform:translateX(-50%); font-family:var(--font-mono); font-size:0.65rem; color:var(--blue-bright); background:var(--bg-panel); padding:0 4px; white-space:nowrap; }
+
+  .job-block{
+    position:absolute; top:7px; bottom:7px; border-radius:7px; border-left:3px solid; padding:5px 8px;
+    overflow:hidden; cursor:grab; text-align:left; display:flex; flex-direction:column; justify-content:center; gap:1px;
+    transition:left 0.25s ease, top 0.15s ease, box-shadow 0.15s ease;
+  }
+  .job-block:active{ cursor:grabbing; }
+  .job-block.pending{ opacity:0.6; border-style:dashed; animation:pendingPulse 0.8s ease-in-out infinite; }
+  .job-block.flash-ok{ box-shadow:0 0 0 2px var(--green); }
+  @keyframes pendingPulse{0%,100%{opacity:0.55;} 50%{opacity:0.85;}}
+  .jb-time{ font-family:var(--font-mono); font-size:0.65rem; font-weight:600; white-space:nowrap; }
+  .jb-title{ font-size:0.77rem; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .jb-addr{ font-size:0.69rem; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .job-block.status-urgent{ background:var(--red-tint); border-color:var(--red); } .job-block.status-urgent .jb-time{ color:var(--red); }
+  .job-block.status-scheduled{ background:var(--amber-tint); border-color:var(--amber); } .job-block.status-scheduled .jb-time{ color:var(--amber); }
+  .job-block.status-complete{ background:var(--green-tint); border-color:var(--green); } .job-block.status-complete .jb-time{ color:var(--green); }
+
+  /* ---------- Map mode ---------- */
+  #mapWrap{ display:none; position:absolute; inset:12px; border-radius:14px; overflow:hidden; border:1px solid var(--border); }
+  #mapWrap.active{ display:block; }
+  #mapCanvas{ width:100%; height:100%; }
+  .map-legend{
+    position:absolute; left:14px; bottom:14px; z-index:5; padding:10px 12px; display:flex; flex-direction:column; gap:6px;
+  }
+  .map-legend .row{ display:flex; align-items:center; gap:7px; font-size:0.74rem; color:var(--text-secondary); }
+  .map-legend .dot{ width:9px; height:9px; border-radius:50%; }
+
+  .route-summary{
+    position:absolute; right:14px; bottom:14px; z-index:5; padding:12px 14px;
+    max-width:230px; display:none;
+  }
+  .route-summary.visible{ display:block; }
+  .route-summary-title{ font-family:var(--font-display); font-weight:700; font-size:0.9rem; margin-bottom:2px; }
+  .route-summary-tag{ font-family:var(--font-mono); font-size:0.64rem; color:var(--text-tertiary); margin-bottom:9px; }
+  .route-summary-list{ display:flex; flex-direction:column; gap:6px; }
+  .route-stop{ display:flex; align-items:center; gap:8px; font-size:0.78rem; color:var(--text-secondary); }
+  .route-stop-num{
+    width:16px; height:16px; border-radius:50%; background:var(--blue-tint); color:var(--blue-bright);
+    font-family:var(--font-mono); font-size:0.66rem; font-weight:700;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .map-fallback{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:var(--bg-panel-2); text-align:center; padding:30px;
+  }
+  .map-fallback.visible{ display:flex; }
+  .map-fallback-inner{ max-width:340px; }
+  .map-fallback-inner svg{ width:26px; height:26px; color:var(--text-tertiary); margin-bottom:10px; }
+  .map-fallback-title{ font-family:var(--font-display); font-weight:700; font-size:1.05rem; margin-bottom:6px; }
+  .map-fallback-desc{ font-size:0.82rem; color:var(--text-secondary); line-height:1.5; }
+  .maplibregl-popup-content{ font-family:var(--font-body); font-size:0.8rem; color:var(--text-primary); padding:10px 12px; border-radius:9px; }
+  .maplibregl-popup-content b{ font-family:var(--font-display); font-weight:700; font-size:0.85rem; }
+
+  /* ---------- Inspector ---------- */
+  .inspector-panel{ width:296px; flex-shrink:0; margin:12px 12px 12px 0; overflow-y:auto; padding:14px; position:sticky; right:0; z-index:10; }
+  .pane{ display:none; }
+  .pane.active{ display:block; }
+
+  .flag-list{ display:flex; flex-direction:column; gap:9px; margin-top:10px; }
+  .flag-card{ display:flex; gap:9px; padding:10px; border-radius:9px; cursor:pointer; background:var(--bg-panel-2); border:1px solid var(--border); }
+  .flag-card:hover{ border-color:var(--border-strong); }
+  .flag-icon{ width:24px; height:24px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .flag-icon svg{ width:13px; height:13px; }
+  .flag-card.sev-red .flag-icon{ background:var(--red-tint); color:var(--red); }
+  .flag-card.sev-amber .flag-icon{ background:var(--amber-tint); color:var(--amber); }
+  .flag-card.sev-blue .flag-icon{ background:var(--blue-tint); color:var(--blue-bright); }
+  .flag-title{ font-size:0.8rem; font-weight:600; margin-bottom:2px; }
+  .flag-desc{ font-size:0.74rem; color:var(--text-secondary); line-height:1.4; }
+
+  .back-link{ display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:0.73rem; color:var(--blue-bright); background:none; border:none; cursor:pointer; margin-bottom:12px; }
+  .back-link svg{ width:12px; height:12px; }
+
+  .status-chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px 3px 7px; border-radius:6px; font-size:0.7rem; font-weight:600; }
+  .status-chip svg{ width:11px; height:11px; }
+  .status-chip.status-urgent{ color:var(--red); background:var(--red-tint); }
+  .status-chip.status-scheduled{ color:var(--amber); background:var(--amber-tint); }
+  .status-chip.status-complete{ color:var(--green); background:var(--green-tint); }
+  .status-chip.status-unassigned{ color:var(--blue); background:var(--blue-tint); }
+
+  .jd-title{ font-family:var(--font-display); font-weight:700; font-size:1.18rem; margin:8px 0 12px; line-height:1.1; }
+  .jd-row{ display:flex; align-items:center; gap:8px; font-size:0.83rem; color:var(--text-secondary); margin-bottom:9px; }
+  .jd-row svg{ width:14px; height:14px; color:var(--blue); flex-shrink:0; }
+  .jd-row .call{ margin-left:auto; color:var(--blue-bright); font-weight:600; text-decoration:none; font-size:0.76rem; display:flex; align-items:center; gap:4px; }
+  .jd-row .call svg{ width:12px; height:12px; color:var(--blue-bright); }
+  .jd-tech-row{ display:flex; align-items:center; gap:9px; padding:9px; margin:13px 0; border-radius:9px; background:var(--bg-panel-2); border:1px solid var(--border); }
+  .jd-tech-avatar{ width:26px; height:26px; border-radius:50%; background:var(--bg-panel); border:1.5px solid var(--blue); color:var(--blue); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:0.7rem; }
+  .assign-btn{ display:flex; align-items:center; gap:6px; width:100%; padding:9px; margin:13px 0; border-radius:9px; background:var(--blue-tint); border:1px dashed var(--blue-bright); color:var(--blue); font-family:inherit; font-weight:600; font-size:0.78rem; cursor:pointer; }
+  .assign-btn svg{ width:13px; height:13px; }
+  .jd-notes{ font-size:0.8rem; color:var(--text-secondary); line-height:1.5; margin-top:6px; }
+
+  .sync-row{ display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px; }
+  .sync-row svg{ width:15px; height:15px; color:var(--blue); flex-shrink:0; }
+  .failed-card{ padding:11px; border-radius:10px; background:var(--red-tint); border:1px solid var(--red); margin-top:10px; }
+  .failed-card .ft{ font-size:0.8rem; font-weight:600; color:var(--red); margin-bottom:4px; }
+  .failed-card .fd{ font-size:0.76rem; color:var(--text-secondary); line-height:1.4; margin-bottom:10px; }
+  .failed-actions{ display:flex; gap:8px; }
+  .failed-actions button{ flex:1; padding:7px; border-radius:7px; font-family:inherit; font-size:0.76rem; font-weight:600; cursor:pointer; }
+  .btn-retry{ background:var(--bg-panel); border:1px solid var(--border-strong); color:var(--text-primary); }
+  .btn-discard{ background:none; border:1px solid var(--border-strong); color:var(--text-tertiary); }
+
+  /* ---------- Command palette ---------- */
+  .palette-overlay{ display:none; position:fixed; inset:0; background:rgba(20,24,28,0.35); z-index:50; align-items:flex-start; justify-content:center; padding-top:12vh; }
+  .palette-overlay.active{ display:flex; }
+  .palette{ width:520px; max-width:90vw; background:var(--bg-panel); border-radius:12px; box-shadow:0 30px 70px -20px rgba(0,0,0,0.4); overflow:hidden; }
+  .palette-input-row{ display:flex; align-items:center; gap:9px; padding:13px 14px; border-bottom:1px solid var(--border); }
+  .palette-input-row svg{ width:16px; height:16px; color:var(--text-tertiary); }
+  .palette-input-row input{ flex:1; border:none; outline:none; font-family:var(--font-body); font-size:0.92rem; }
+  .palette-esc{ font-family:var(--font-mono); font-size:0.66rem; color:var(--text-tertiary); border:1px solid var(--border-strong); border-radius:4px; padding:1px 5px; }
+  .palette-results{ max-height:320px; overflow-y:auto; padding:6px; }
+  .palette-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; }
+  .palette-item.active{ background:var(--blue-tint); }
+  .palette-item svg{ width:15px; height:15px; color:var(--text-tertiary); flex-shrink:0; }
+  .palette-item .pt{ font-size:0.85rem; font-weight:500; }
+  .palette-item .ps{ font-size:0.72rem; color:var(--text-tertiary); margin-left:auto; }
+  .palette-empty{ padding:20px; text-align:center; font-size:0.82rem; color:var(--text-tertiary); }
+
+  .toast{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%) translateY(-10px);
+    background:var(--text-primary); color:#fff; padding:9px 16px; border-radius:9px;
+    font-size:0.82rem; opacity:0; pointer-events:none; transition:opacity 0.2s ease, transform 0.2s ease; z-index:20;
+  }
+  .toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ---------- CRM ---------- */
+  .crm-item{ display:flex; align-items:center; gap:9px; padding:9px 8px; border-radius:8px; cursor:pointer; }
+  .crm-item:hover, .crm-item.active{ background:var(--bg-panel-2); }
+  .crm-item.active{ background:var(--blue-tint); }
+  .crm-avatar{
+    width:30px; height:30px; border-radius:50%; flex-shrink:0;
+    background:var(--bg-panel-2); border:1.5px solid var(--blue); color:var(--blue);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:0.72rem;
+  }
+  .crm-item-name{ font-size:0.82rem; font-weight:600; }
+  .crm-item-meta{ font-size:0.7rem; color:var(--text-tertiary); }
+
+  .canvas-inner{ padding:18px 20px; max-width:820px; }
+  .canvas-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-tertiary); gap:8px; }
+  .canvas-empty svg{ width:26px; height:26px; }
+  .customer-card{
+    display:flex; align-items:center; gap:14px; padding:16px; margin-bottom:20px;
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+  }
+  .customer-card .crm-avatar{ width:44px; height:44px; font-size:1rem; }
+  .customer-card-name{ font-family:var(--font-display); font-weight:700; font-size:1.2rem; }
+  .customer-card-row{ display:flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--text-secondary); margin-top:3px; }
+  .customer-card-row svg{ width:13px; height:13px; color:var(--blue); }
+  .customer-card .call{ margin-left:auto; color:var(--blue-bright); font-weight:600; text-decoration:none; font-size:0.8rem; display:flex; align-items:center; gap:5px; align-self:flex-start; }
+  .customer-card .call svg{ width:14px; height:14px; color:var(--blue-bright); }
+
+  .job-history-row{
+    display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:9px;
+    background:var(--bg-panel); border:1px solid var(--border); margin-bottom:8px; cursor:pointer;
+  }
+  .job-history-row:hover{ border-color:var(--border-strong); }
+  .job-history-date{ font-family:var(--font-mono); font-size:0.72rem; color:var(--text-tertiary); width:64px; flex-shrink:0; }
+  .job-history-title{ font-size:0.85rem; font-weight:600; flex:1; }
+  .job-history-tech{ font-size:0.75rem; color:var(--text-tertiary); }
+
+  .agreement-dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--blue-bright); margin-left:2px; vertical-align:middle; }
+  .agreement-card{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px; margin-bottom:20px;
+  }
+  .agreement-card-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .agreement-freq{ font-family:var(--font-mono); font-size:0.7rem; color:var(--text-tertiary); }
+  .agreement-type{ font-size:0.95rem; font-weight:600; color:var(--text-primary); margin-bottom:6px; }
+  .agreement-dates{ display:flex; gap:16px; font-size:0.78rem; color:var(--text-secondary); font-family:var(--font-mono); }
+
+  /* ---------- Documents ---------- */
+  .doc-cat-item{ display:flex; align-items:center; justify-content:space-between; padding:9px 8px; border-radius:8px; font-size:0.82rem; color:var(--text-secondary); }
+  .doc-cat-count{ font-family:var(--font-mono); font-size:0.7rem; color:var(--text-tertiary); }
+
+  .doc-group-heading{ font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.06em; font-size:0.68rem; color:var(--text-tertiary); margin:18px 0 8px; }
+  .doc-group-heading:first-child{ margin-top:0; }
+  .doc-row{
+    display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:9px;
+    background:var(--bg-panel); border:1px solid var(--border); margin-bottom:7px; cursor:pointer;
+  }
+  .doc-row:hover{ border-color:var(--border-strong); }
+  .doc-icon{ width:30px; height:30px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--bg-panel-2); color:var(--blue); }
+  .doc-icon svg{ width:15px; height:15px; }
+  .doc-row-name{ font-size:0.85rem; font-weight:600; }
+  .doc-row-entity{ font-size:0.75rem; color:var(--text-tertiary); }
+  .doc-row-right{ margin-left:auto; text-align:right; }
+  .doc-status-chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:6px; font-size:0.7rem; font-weight:600; }
+  .doc-status-chip.expired{ color:var(--red); background:var(--red-tint); }
+  .doc-status-chip.expiring{ color:var(--amber); background:var(--amber-tint); }
+  .doc-status-chip.valid{ color:var(--green); background:var(--green-tint); }
+  .doc-status-chip.record{ color:var(--text-secondary); background:var(--bg-panel-2); }
+  .doc-expiry-date{ font-family:var(--font-mono); font-size:0.68rem; color:var(--text-tertiary); margin-top:3px; }
+
+  .dd-title{ font-family:var(--font-display); font-weight:700; font-size:1.15rem; margin:10px 0 12px; }
+  .dd-row{ display:flex; align-items:center; gap:8px; font-size:0.83rem; color:var(--text-secondary); margin-bottom:9px; }
+  .dd-row svg{ width:14px; height:14px; color:var(--blue); flex-shrink:0; }
+  .view-doc-btn{
+    display:flex; align-items:center; gap:6px; width:100%; margin-top:8px;
+    padding:9px; border-radius:9px; background:var(--bg-panel-2); border:1px dashed var(--border-strong);
+    color:var(--text-secondary); font-family:inherit; font-weight:600; font-size:0.8rem; cursor:pointer;
+  }
+  .view-doc-btn svg{ width:14px; height:14px; }
+
+  /* ---------- Shared stat boxes (CRM snapshot + Reports) ---------- */
+  .stat-row{ display:flex; gap:10px; }
+  .stat-box{ flex:1; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; padding:14px 10px; text-align:center; }
+  .stat-num{ font-family:var(--font-display); font-weight:800; font-size:1.6rem; line-height:1; color:var(--text-primary); }
+  .stat-label{ font-size:0.7rem; color:var(--text-tertiary); margin-top:5px; }
+
+  /* ---------- Reports ---------- */
+  .reports-summary{ display:flex; gap:12px; margin-bottom:20px; }
+  .reports-summary .stat-box{ padding:18px 12px; }
+  .reports-summary .stat-num{ font-size:2rem; }
+  .reports-tech-row{ display:flex; align-items:center; gap:9px; padding:9px 8px; border-radius:8px; }
+  .reports-tech-row .crm-avatar{ width:28px; height:28px; font-size:0.68rem; }
+  .reports-tech-name{ font-size:0.8rem; font-weight:600; flex:1; }
+  .reports-tech-margin{ font-family:var(--font-mono); font-size:0.75rem; color:var(--green); }
+
+  .report-table{ width:100%; border-collapse:collapse; }
+  .report-table th{
+    text-align:left; font-family:var(--font-mono); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--text-tertiary); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--border);
+  }
+  .report-table th.num, .report-table td.num{ text-align:right; }
+  .report-table td{ padding:10px; border-bottom:1px solid var(--border); font-size:0.82rem; cursor:pointer; }
+  .report-table tr:hover td{ background:var(--bg-panel-2); }
+  .report-table td.num{ font-family:var(--font-mono); }
+  .report-table td.margin-cell{ color:var(--green); font-weight:600; }
+  .report-estimate-tag{ font-family:var(--font-mono); font-size:0.62rem; color:var(--text-tertiary); margin-left:5px; }
+
+  /* ---------- Slack integration ---------- */
+  .slack-connect-wrap{ max-width:400px; margin:60px auto 0; text-align:center; padding:0 20px; }
+  .slack-connect-icon{ width:44px; height:44px; border-radius:12px; background:var(--blue-tint); color:var(--blue-bright); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+  .slack-connect-icon svg{ width:22px; height:22px; }
+  .slack-connect-title{ font-family:var(--font-display); font-weight:700; font-size:1.25rem; margin-bottom:8px; }
+  .slack-connect-desc{ font-size:0.85rem; color:var(--text-secondary); line-height:1.55; margin-bottom:20px; }
+  .slack-connect-btn{
+    display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:10px;
+    background:var(--text-primary); color:#fff; border:none; font-family:inherit; font-weight:700; font-size:0.88rem; cursor:pointer;
+  }
+  .slack-connect-btn svg{ width:16px; height:16px; }
+  .slack-connect-note{ font-size:0.74rem; color:var(--text-tertiary); margin-top:14px; line-height:1.5; }
+
+  .slack-channel-item{ display:flex; align-items:center; gap:9px; padding:9px 8px; border-radius:9px; cursor:pointer; }
+  .slack-channel-item:hover, .slack-channel-item.active{ background:var(--bg-panel-2); }
+  .slack-channel-item.active{ background:var(--blue-tint); }
+  .slack-channel-hash{ font-family:var(--font-mono); font-weight:700; color:var(--text-tertiary); font-size:0.95rem; width:16px; text-align:center; }
+  .slack-channel-name{ font-size:0.82rem; font-weight:600; }
+  .slack-channel-desc{ font-size:0.7rem; color:var(--text-tertiary); }
+  .slack-disconnect-link{ display:block; width:100%; text-align:left; margin-top:14px; padding:8px; background:none; border:none; color:var(--text-tertiary); font-family:inherit; font-size:0.74rem; cursor:pointer; }
+
+  .slack-preview-banner{
+    flex-shrink:0; background:var(--amber-tint); color:var(--amber); font-family:var(--font-mono);
+    font-size:0.68rem; text-align:center; padding:7px; letter-spacing:0.02em;
+  }
+
+  .thread-wrap{ display:flex; flex-direction:column; height:100%; }
+  .thread-header{ padding:14px 20px; border-bottom:1px solid var(--border); background:var(--bg-panel); flex-shrink:0; }
+  .thread-header-title{ font-family:var(--font-display); font-weight:700; font-size:1.05rem; }
+  .thread-header-meta{ font-size:0.76rem; color:var(--text-tertiary); margin-top:2px; }
+  .thread-scroll{ flex:1; overflow-y:auto; padding:18px 20px; display:flex; flex-direction:column; gap:12px; }
+  .bubble-row{ display:flex; flex-direction:column; max-width:72%; align-self:flex-start; align-items:flex-start; }
+  .bubble-sender{ font-size:0.72rem; font-weight:600; color:var(--text-secondary); margin-bottom:2px; padding:0 4px; }
+  .bubble{ padding:9px 13px; border-radius:14px; font-size:0.85rem; line-height:1.45; background:var(--bg-panel-2); color:var(--text-primary); border:1px solid var(--border); border-bottom-left-radius:4px; }
+  .bubble-row.bot .bubble{ background:var(--blue-tint); border-color:var(--blue-bright); }
+  .bubble-meta{ font-family:var(--font-mono); font-size:0.65rem; color:var(--text-tertiary); margin-top:4px; padding:0 4px; }
+  .thread-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-tertiary); gap:8px; }
+  .thread-empty svg{ width:26px; height:26px; }
+
+  .compose-row{ flex-shrink:0; display:flex; gap:9px; padding:12px 16px; border-top:1px solid var(--border); background:var(--bg-panel); }
+  .compose-input{ flex:1; border:1.5px solid var(--border-strong); border-radius:10px; padding:10px 13px; font-family:inherit; font-size:0.85rem; outline:none; }
+  .compose-input:focus{ border-color:var(--blue-bright); }
+  .compose-send{ width:42px; height:42px; border-radius:10px; background:var(--blue-bright); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .compose-send svg{ width:16px; height:16px; }
+
+  .routing-row{ display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid var(--border); font-size:0.78rem; }
+  .routing-event{ font-family:var(--font-mono); color:var(--text-secondary); flex:1; }
+  .routing-arrow{ color:var(--text-tertiary); }
+  .routing-channel{ font-family:var(--font-mono); color:var(--blue-bright); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="wordmark">FIELDLOOP</span>
+      <span class="topbar-divider"></span>
+      <span class="topbar-section">Dispatch</span>
+    </div>
+    <div class="topbar-search" onclick="openPalette()">
+      <span id="searchIcon"></span><span class="ph">Search jobs, technicians, addresses…</span><span class="kbd-hint">⌘K</span>
+    </div>
+    <div class="topbar-right">
+      <span class="date-label">Sat, 29 Aug</span>
+      <div class="chip" id="copyLinkChip" onclick="copyLink()"><span id="linkIcon"></span><span>Copy link</span></div>
+      <div class="chip" id="liveChip" onclick="toggleConnection()"><span class="live-dot"></span><span id="liveLabel">Live</span></div>
+      <div class="chip fail-chip" id="failChip" onclick="showSyncPane()"><span class="fail-dot"></span><span>1 failed</span></div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="rail">
+      <button class="rail-btn active" id="railDispatch" onclick="setMode('dispatch')" title="Dispatch"><span></span></button>
+      <button class="rail-btn" id="railMap" onclick="setMode('map')" title="Map"><span></span></button>
+      <button class="rail-btn" id="railDocs" onclick="setMode('documents')" title="Documents"><span></span></button>
+      <button class="rail-btn" id="railCrm" onclick="setMode('crm')" title="CRM"><span></span></button>
+      <button class="rail-btn" id="railReports" onclick="setMode('reports')" title="Reports"><span></span></button>
+      <button class="rail-btn" id="railSlack" onclick="setMode('slack')" title="Slack"><span></span></button>
+    </nav>
+
+    <aside class="panel tree-panel">
+      <div id="navCrew">
+        <div class="tree-search">
+          <span id="treeSearchIcon"></span>
+          <input type="text" id="treeSearchInput" placeholder="Filter crew…" oninput="filterTree(this.value)">
+        </div>
+        <div class="tree-head">
+          <span class="panel-heading">Crew</span>
+          <button class="show-all-link" id="showAllLink" onclick="clearHighlight()">Show all</button>
+        </div>
+        <div id="techTree"></div>
+      </div>
+      <div id="navCrm" style="display:none;">
+        <div class="tree-search">
+          <span id="crmSearchIcon"></span>
+          <input type="text" id="crmSearchInput" placeholder="Filter customers…" oninput="renderCrmList(this.value)">
+        </div>
+        <div class="tree-head"><span class="panel-heading">Customers</span></div>
+        <div id="crmList"></div>
+      </div>
+      <div id="navDocs" style="display:none;">
+        <div class="tree-search">
+          <span id="docsSearchIcon"></span>
+          <input type="text" id="docsSearchInput" placeholder="Filter documents…" oninput="renderDocsList(this.value)">
+        </div>
+        <div class="tree-head"><span class="panel-heading">Categories</span></div>
+        <div id="docsCategoryList"></div>
+      </div>
+      <div id="navReports" style="display:none;">
+        <div class="tree-head"><span class="panel-heading">By Technician — this week</span></div>
+        <div id="reportsTechList"></div>
+      </div>
+      <div id="navSlack" style="display:none;">
+        <div class="tree-head"><span class="panel-heading">Channels</span></div>
+        <div id="slackChannelList"></div>
+      </div>
+    </aside>
+
+    <main class="canvas-wrap">
+      <div id="scheduleView">
+        <div class="canvas-toolbar">
+          <div class="northstar" id="northstar"></div>
+          <div class="day-nav">
+            <div class="zoom-toggle">
+              <button class="zoom-btn active" id="zoomDayBtn" onclick="setZoom('day')">Day</button><button class="zoom-btn" id="zoomWeekBtn" onclick="setZoom('week')">Week</button><button class="zoom-btn" id="zoomMonthBtn" onclick="setZoom('month')">Month</button>
+            </div>
+            <button class="day-nav-btn"><span id="chevPrev"></span></button>
+            <span class="day-nav-label">Sat 29 Aug</span>
+            <button class="day-nav-btn"><span id="chevNext"></span></button>
+          </div>
+        </div>
+        <div class="unassigned-lane">
+          <span class="unassigned-label">Unassigned</span>
+          <div id="unassignedList" style="display:flex; gap:8px;"></div>
+        </div>
+        <div class="grid-scroll" id="dayGrid">
+          <div class="hour-ruler" id="hourRuler"></div>
+          <div class="tech-rows-container" id="techRows"></div>
+        </div>
+        <div class="week-grid-scroll" id="weekGrid" style="display:none;"></div>
+        <div class="month-grid-scroll" id="monthGrid" style="display:none;"></div>
+      </div>
+
+      <div id="mapWrap">
+        <div id="mapCanvas"></div>
+        <div class="map-fallback" id="mapFallback">
+          <div class="map-fallback-inner">
+            <span id="mapFallbackIcon"></span>
+            <div class="map-fallback-title" id="mapFallbackTitle">Map couldn't load</div>
+            <div class="map-fallback-desc" id="mapFallbackDesc">This preview may be blocking external map tiles or scripts. Open this HTML file directly in a browser tab to see it — that's the reliable way to view it.</div>
+          </div>
+        </div>
+        <div class="map-legend panel">
+          <div class="row"><span class="dot" style="background:var(--red)"></span>Urgent</div>
+          <div class="row"><span class="dot" style="background:var(--amber)"></span>Scheduled</div>
+          <div class="row"><span class="dot" style="background:var(--green)"></span>Complete</div>
+          <div class="row"><span class="dot" style="background:var(--blue-bright)"></span>Unassigned / technician</div>
+        </div>
+        <div class="route-summary panel" id="routeSummary"></div>
+      </div>
+
+      <div id="crmCanvas" style="display:none;"></div>
+      <div id="docsCanvas" style="display:none;"></div>
+      <div id="reportsCanvas" style="display:none;"></div>
+      <div id="slackCanvas" style="display:none;"></div>
+
+      <div class="toast" id="toast"></div>
+    </main>
+
+    <aside class="panel inspector-panel">
+      <div class="pane active" id="paneAttention">
+        <span class="panel-heading">Needs Attention</span>
+        <div class="flag-list" id="flagList"></div>
+      </div>
+      <div class="pane" id="paneJobDetail">
+        <button class="back-link" onclick="closeSubPane()"><span id="backIcon1"></span>Needs Attention</button>
+        <div id="jobDetailBody"></div>
+      </div>
+      <div class="pane" id="paneSync">
+        <button class="back-link" onclick="closeSubPane()"><span id="backIcon2"></span>Needs Attention</button>
+        <span class="panel-heading">Connection</span>
+        <div class="sync-row" style="margin-top:10px;"><span id="syncCloudIcon"></span><span id="syncLine">Live — realtime updates active</span></div>
+        <div id="failedArea"></div>
+      </div>
+      <div class="pane" id="paneCustomer">
+        <button class="back-link" onclick="showPane('paneCrmAttention')"><span id="backIcon4"></span>Agreements Due Soon</button>
+        <span class="panel-heading">Customer Snapshot</span>
+        <div id="customerSnapshotBody"></div>
+      </div>
+      <div class="pane" id="paneCrmAttention">
+        <span class="panel-heading">Agreements Due Soon</span>
+        <div class="flag-list" id="agreementFlagList"></div>
+      </div>
+      <div class="pane" id="paneDocument">
+        <button class="back-link" onclick="showPane('paneDocsOverview')"><span id="backIcon3"></span>Documents</button>
+        <div id="documentDetailBody"></div>
+      </div>
+      <div class="pane" id="paneDocsOverview">
+        <span class="panel-heading">Expiring &amp; Expired</span>
+        <div class="flag-list" id="docFlagList"></div>
+      </div>
+      <div class="pane" id="paneSlackRouting">
+        <span class="panel-heading">Automation Routing</span>
+        <div id="slackRoutingBody"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="palette-overlay" id="paletteOverlay" onclick="if(event.target===this) closePalette()">
+  <div class="palette">
+    <div class="palette-input-row">
+      <span id="paletteSearchIcon"></span>
+      <input type="text" id="paletteInput" placeholder="Jump to a job or technician…" oninput="renderPaletteResults(this.value)">
+      <span class="palette-esc">ESC</span>
+    </div>
+    <div class="palette-results" id="paletteResults"></div>
+  </div>
+</div>
+
+<script>
+  const S = (p,w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||1.75}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const ICON_ALERT  = S('<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.3 2.25h17.76a1.5 1.5 0 0 0 1.3-2.25L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z"/>');
+  const ICON_CLOCK  = S('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+  const ICON_CHECK  = S('<path d="M20 6 9 17l-5-5"/>');
+  const ICON_FLAG   = S('<path d="M4 3v18"/><path d="M4 4h11l-1.5 4L15 12H4"/>');
+  const ICON_PIN    = S('<path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>');
+  const ICON_PHONE  = S('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.32 1.85.55 2.81.68A2 2 0 0 1 22 16.92Z"/>');
+  const ICON_SEARCH = S('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>');
+  const ICON_CHEV_L = S('<path d="M15 18l-6-6 6-6"/>');
+  const ICON_CHEV_R = S('<path d="M9 18l6-6-6-6"/>');
+  const ICON_PLUS   = S('<path d="M12 5v14"/><path d="M5 12h14"/>');
+  const ICON_GRID   = S('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>');
+  const ICON_MAP    = S('<path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>');
+  const ICON_DOC    = S('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>');
+  const ICON_USERS  = S('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+  const ICON_CLOUD  = S('<path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2A4 4 0 0 0 5 20h12.5Z"/>');
+  const ICON_LINK   = S('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>');
+  const ICON_CHART  = S('<path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>');
+  const ICON_MSG    = S('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/>');
+  const ICON_SEND   = S('<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>');
+  const ICON_HASH   = S('<path d="M4 9h16"/><path d="M4 15h16"/><path d="M10 3 8 21"/><path d="M16 3l-2 18"/>');
+
+  const STATUS = {
+    urgent:     { label:'Urgent',     icon:ICON_ALERT, cls:'status-urgent',     hex:'#C81E2C' },
+    scheduled:  { label:'Scheduled',  icon:ICON_CLOCK, cls:'status-scheduled',  hex:'#A2660A' },
+    complete:   { label:'Complete',   icon:ICON_CHECK, cls:'status-complete',   hex:'#158C48' },
+    unassigned: { label:'Unassigned', icon:ICON_FLAG,  cls:'status-unassigned', hex:'#2F6FED' }
+  };
+
+  const DAY_START = 7*60, DAY_END = 17*60, DAY_SPAN = DAY_END - DAY_START;
+  const NOW_MIN = 9*60 + 45;
+  const pct = m => (m / DAY_SPAN) * 100;
+
+  const technicians = [
+    { id:'dave',   name:'Dave Mitchell', role:'Licensed Plumber',   presence:'on-job',    initials:'DM', van:'Van 1', last:[145.0217,-37.8554], lastTime:'7:02 AM' },
+    { id:'priya',  name:'Priya Anand',   role:'Licensed Plumber',   presence:'on-job',    initials:'PA', van:'Van 2', last:[145.0310,-37.8890], lastTime:'7:15 AM' },
+    { id:'marcus', name:'Marcus Webb',   role:'Apprentice Plumber', presence:'available', initials:'MW', van:'Van 3', last:[145.0300,-37.8570], lastTime:'7:30 AM' },
+    { id:'liam',   name:'Liam Foster',   role:'Licensed Plumber',   presence:'leave',     initials:'LF', van:'Van 4', last:null, lastTime:null }
+  ];
+
+  const jobs = [
+    { id:1, tech:'dave', status:'complete', day:'sat', start:7*60, dur:20, title:'Gas leak inspection', address:'42 Kooyong Rd, Armadale', customer:'S. Whitfield', phone:'0419 662 903', lng:145.0217, lat:-37.8554, revenue:125, cost:45 },
+    { id:2, tech:'dave', status:'urgent', day:'sat', start:8*60, dur:30, title:'Blocked drain', address:'24 Wattle St, Caulfield South', customer:'R. Nguyen', phone:'0412 555 118', lng:145.0334, lat:-37.8891, revenue:265, cost:95 },
+    { id:3, tech:'priya', status:'urgent', day:'sat', start:9*60+15, dur:45, title:'Burst pipe', address:'6 Kalimna St, Caulfield South', customer:'J. Delgado', phone:'0401 774 220', lng:145.0301, lat:-37.8905, revenue:340, cost:130 },
+    { id:4, tech:'priya', status:'scheduled', day:'sat', start:10*60, dur:60, title:'Hot water system service', address:'8 Grange Rd, Malvern East', customer:'P. Alessi', phone:'0433 209 447', lng:145.0584, lat:-37.8677, revenue:220, cost:80 },
+    { id:5, tech:'marcus', status:'scheduled', day:'sat', start:11*60+30, dur:90, title:'Bathroom reno rough-in', address:'21 Harold St, Malvern', customer:'K. Ibrahim', phone:'0422 118 305', lng:145.0294, lat:-37.8556, revenue:890, cost:410 },
+    { id:6, tech:'marcus', status:'scheduled', day:'sat', start:13*60+15, dur:30, title:'Leaking tap replacement', address:'15 Sycamore Ct, Bentleigh', customer:'H. Okafor', phone:'0405 881 220', lng:145.0456, lat:-37.9198, revenue:150, cost:55 },
+    { id:7, tech:null, status:'unassigned', day:'sat', title:'Drain camera inspection', address:'3 Beach Rd, Elwood', customer:'T. Marsh', phone:'0433 118 220', notes:'Requested for today — no time locked in yet.', lng:144.9857, lat:-37.8825, revenue:150, cost:60, estimate:true },
+    { id:8, tech:'dave', status:'complete', day:'mon', start:9*60, dur:45, title:'Hot water repair', address:'12 Kooyong Rd, Toorak', customer:'A. Levine', phone:'0410 227 815', revenue:195, cost:70 },
+    { id:9, tech:'priya', status:'complete', day:'tue', start:10*60+30, dur:40, title:'Blocked toilet', address:'45 Chapel St, Prahran', customer:'M. Costa', phone:'0421 990 441', revenue:175, cost:60 },
+    { id:10, tech:'marcus', status:'complete', day:'wed', start:8*60+30, dur:60, title:'Tap installation', address:'8 Well St, Brighton', customer:'F. Doan', phone:'0433 771 026', revenue:160, cost:55 },
+    { id:11, tech:'dave', status:'complete', day:'thu', start:13*60, dur:90, title:'Pipe relining', address:'19 Glen Huntly Rd, Elsternwick', customer:'C. Rossi', phone:'0409 552 187', revenue:650, cost:310 },
+    { id:12, tech:'priya', status:'complete', day:'fri', start:9*60+30, dur:30, title:'Gas fitting inspection', address:'5 North Rd, Ormond', customer:'D. Yilmaz', phone:'0417 663 902', revenue:135, cost:45 },
+    { id:13, tech:'marcus', status:'scheduled', day:'sun', start:10*60, dur:60, title:'Annual service', address:'31 High St, Glen Iris', customer:'L. Pham', phone:'0402 884 519', revenue:220, cost:75, estimate:true }
+  ];
+
+  const WEEK_DAYS = [
+    { key:'mon', label:'Mon', date:'24' },
+    { key:'tue', label:'Tue', date:'25' },
+    { key:'wed', label:'Wed', date:'26' },
+    { key:'thu', label:'Thu', date:'27' },
+    { key:'fri', label:'Fri', date:'28' },
+    { key:'sat', label:'Sat', date:'29', today:true },
+    { key:'sun', label:'Sun', date:'30' }
+  ];
+
+  const flags = [
+    { id:'f1', sev:'red',   icon:ICON_ALERT, title:'Running over', desc:'Blocked drain (Dave Mitchell) was due to finish 8:30 AM — still open.', jobId:2 },
+    { id:'f2', sev:'amber', icon:ICON_CLOCK, title:'Tight handoff', desc:'Priya Anand has no travel buffer between the 9:15 Caulfield South job and the 10:00 Malvern East job.', jobId:4 },
+    { id:'f3', sev:'blue',  icon:ICON_FLAG,  title:'Unassigned',   desc:'Drain camera inspection at 3 Beach Rd, Elwood has no technician yet.', jobId:7 }
+  ];
+
+  const TODAY_DATE = new Date(2026, 7, 29); // Sat 29 Aug 2026
+  const MONTH_NUM = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+  function daysUntil(dateStr){
+    const [d, mon, y] = dateStr.split(' ');
+    const dt = new Date(parseInt(y), MONTH_NUM[mon], parseInt(d));
+    return Math.round((dt - TODAY_DATE) / 86400000);
+  }
+  function docStatus(doc){
+    if(!doc.expires) return 'record';
+    const days = daysUntil(doc.expires);
+    if(days < 0) return 'expired';
+    if(days <= 30) return 'expiring';
+    return 'valid';
+  }
+
+  const documents = [
+    { id:'d1', category:'Compliance & Licenses', name:'Public Liability Insurance', entity:'Caulfield South Plumbing', type:'Insurance', issued:'15 Sep 2025', expires:'15 Sep 2026' },
+    { id:'d2', category:'Compliance & Licenses', name:'Plumbing License', entity:'Dave Mitchell', type:'License', issued:'12 Jan 2022', expires:'12 Jan 2027' },
+    { id:'d3', category:'Compliance & Licenses', name:'Plumbing License', entity:'Priya Anand', type:'License', issued:'3 Sep 2021', expires:'3 Sep 2026' },
+    { id:'d4', category:'Compliance & Licenses', name:'Apprenticeship Registration', entity:'Marcus Webb', type:'Registration', issued:'1 Feb 2024', expires:'30 Jun 2027' },
+    { id:'d5', category:'Compliance & Licenses', name:'Working with Children Check', entity:'Liam Foster', type:'Certificate', issued:'1 Aug 2021', expires:'1 Aug 2026' },
+    { id:'d6', category:'Compliance & Licenses', name:'Public Indemnity Insurance', entity:'Caulfield South Plumbing', type:'Insurance', issued:'1 Feb 2025', expires:'1 Feb 2027' },
+    { id:'d7', category:'Vehicles', name:'Vehicle Registration', entity:'Van 1', type:'Registration', issued:'14 Sep 2025', expires:'14 Sep 2026' },
+    { id:'d8', category:'Vehicles', name:'Vehicle Registration', entity:'Van 3', type:'Registration', issued:'22 Nov 2025', expires:'22 Nov 2026' },
+    { id:'d9', category:'Job Records', name:'Signed quote', entity:'R. Nguyen', type:'Quote', issued:'27 Aug 2026', expires:null, jobId:2 },
+    { id:'d10', category:'Job Records', name:'Completion certificate', entity:'S. Whitfield', type:'Certificate', issued:'29 Aug 2026', expires:null, jobId:1 }
+  ];
+
+  const agreements = [
+    { id:'a1', customer:'S. Whitfield', type:'Annual Gas Safety Check', frequency:'12 months', last:'15 Sep 2025', next:'15 Sep 2026' },
+    { id:'a2', customer:'P. Alessi', type:'Hot Water System Service', frequency:'12 months', last:'29 Aug 2026', next:'29 Aug 2027' },
+    { id:'a3', customer:'A. Levine', type:'Hot Water System Service', frequency:'12 months', last:'24 Aug 2025', next:'24 Aug 2026' },
+    { id:'a4', customer:'C. Rossi', type:'Backflow Device Testing', frequency:'12 months', last:'10 Sep 2025', next:'10 Sep 2026' }
+  ];
+
+  const slackChannels = [
+    { id:'dispatch-alerts', name:'dispatch-alerts', desc:'Automated job events' },
+    { id:'urgent-jobs', name:'urgent-jobs', desc:'Manual escalations' },
+    { id:'general', name:'general', desc:'Team chat' }
+  ];
+
+  const slackRouting = [
+    { event:'job.completed', channel:'dispatch-alerts' },
+    { event:'job.created (unassigned)', channel:'dispatch-alerts' },
+    { event:'job.status → urgent', channel:'urgent-jobs' }
+  ];
+
+  // Preview-only content, built from real job data where possible — shown only in the
+  // clearly-labeled preview state, never presented as live Slack data.
+  const slackMessages = {
+    'dispatch-alerts': [
+      { from:'bot', sender:'FieldLoop Bot', text:'✅ Job completed — Gas leak inspection, 42 Kooyong Rd, Armadale (Dave Mitchell)', time:'7:22 AM' },
+      { from:'bot', sender:'FieldLoop Bot', text:'✅ Job completed — Hot water repair, 12 Kooyong Rd, Toorak (Dave Mitchell)', time:'Mon 9:48 AM' },
+      { from:'human', sender:'Sam (Office)', text:'Nice work team, busy week', time:'Mon 9:50 AM' },
+      { from:'bot', sender:'FieldLoop Bot', text:'⚠️ Unassigned job — Drain camera inspection, 3 Beach Rd, Elwood', time:'7:46 AM' }
+    ],
+    'urgent-jobs': [
+      { from:'bot', sender:'FieldLoop Bot', text:'🚨 Urgent job created — Blocked drain, 24 Wattle St, Caulfield South', time:'8:01 AM' }
+    ],
+    'general': []
+  };
+
+  let slackConnected = false;
+  let activeSlackChannel = 'dispatch-alerts';
+
+  function agreementStatus(a){
+    const days = daysUntil(a.next);
+    if(days < 0) return 'expired';
+    if(days <= 30) return 'expiring';
+    return 'valid';
+  }
+
+  function getCustomers(){
+    const map = {};
+    jobs.forEach(j => {
+      if(!j.customer) return;
+      if(!map[j.customer]) map[j.customer] = { name:j.customer, phone:j.phone, address:j.address, jobs:[] };
+      map[j.customer].jobs.push(j);
+    });
+    return Object.values(map).sort((a,b) => a.name.localeCompare(b.name));
+  }
+
+  let highlighted = null;
+  let isLive = true;
+  let hasFailedOp = false;
+  let map = null, mapInitialized = false;
+  let currentMode = 'dispatch';
+  let openJobId = null;
+
+  function techById(id){ return technicians.find(t => t.id === id); }
+  function jobById(id){ return jobs.find(j => j.id === id); }
+  function fmtTime(mins){ const h=Math.floor(mins/60), m=mins%60; return `${h>12?h-12:h}:${m.toString().padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
+
+  /* ---------- Tree ---------- */
+  function renderTree(filterText){
+    const q = (filterText||'').toLowerCase();
+    const list = technicians.filter(t => !q || t.name.toLowerCase().includes(q) || t.role.toLowerCase().includes(q));
+    document.getElementById('techTree').innerHTML = list.map(t => {
+      const techJobs = jobs.filter(j => j.tech === t.id && j.day === 'sat');
+      return `
+        <div class="tech-row" tabindex="0" data-tech="${t.id}" onclick="toggleHighlight('${t.id}')">
+          <div class="tech-avatar">${t.initials}<span class="presence-dot ${t.presence}"></span></div>
+          <div><div class="tech-name">${t.name}</div><div class="tech-meta">${t.role} · <span class="tech-van">${t.van}</span> · ${t.presence === 'leave' ? 'On leave today' : techJobs.length + ' job' + (techJobs.length !== 1 ? 's' : '')}</div></div>
+        </div>
+        ${t.presence === 'leave' ? '' : `<div class="tech-jobs">
+          ${techJobs.map(j => `<div class="tech-job-mini" onclick="event.stopPropagation(); jumpToJob(${j.id})"><span class="dot" style="background:${STATUS[j.status].hex}"></span>${fmtTime(j.start).replace(' AM','a').replace(' PM','p')} · ${j.title}</div>`).join('')}
+        </div>`}
+      `;
+    }).join('') || `<div style="font-size:0.78rem; color:var(--text-tertiary); padding:10px 4px;">No crew match "${filterText}"</div>`;
+  }
+  function filterTree(v){ renderTree(v); applyHighlight(); }
+
+  function renderNorthstar(){
+    const todays = jobs.filter(j => j.day === 'sat');
+    const total = todays.length;
+    const complete = todays.filter(j => j.status === 'complete').length;
+    const needsAttention = flags.length;
+    const worst = flags.some(f => f.sev === 'red') ? 'red' : flags.some(f => f.sev === 'amber') ? 'amber' : 'green';
+    const el = document.getElementById('northstar');
+    if(needsAttention === 0){
+      el.innerHTML = `<span class="ns-num ns-green">${ICON_CHECK}</span><span class="ns-label">All clear</span><span class="ns-sub">· ${total} jobs today</span>`;
+    } else {
+      el.innerHTML = `<span class="ns-num ns-${worst}">${needsAttention}</span><span class="ns-label">need${needsAttention===1?'s':''} attention</span><span class="ns-sub">· ${total} jobs today · ${complete} complete</span>`;
+    }
+  }
+
+  function renderRuler(){
+    let html = '';
+    for(let h = 7; h <= 17; h++){
+      const label = h === 12 ? '12p' : h > 12 ? (h-12)+'p' : h+'a';
+      const p = pct((h*60) - DAY_START);
+      let style = h === 7 ? 'left:0;' : h === 17 ? 'right:0;' : `left:${p}%; transform:translateX(-50%);`;
+      html += `<span class="hour-tick" style="${style}">${label}</span>`;
+    }
+    document.getElementById('hourRuler').innerHTML = html;
+  }
+
+  function jobBlockHTML(j){
+    const s = STATUS[j.status];
+    const left = pct(j.start - DAY_START), width = pct(j.dur);
+    const endMin = j.start + j.dur;
+    const shortFmt = m => fmtTime(m).replace(' AM','').replace(' PM','');
+    return `
+      <div class="job-block ${s.cls}" id="jb-${j.id}" style="left:${left}%; width:${width}%;"
+           draggable="true" ondragstart="onDragStart(event, ${j.id})" onclick="openJobDetail(${j.id})">
+        <div class="jb-time">${shortFmt(j.start)}–${shortFmt(endMin)}</div>
+        <div class="jb-title">${j.title}</div>
+        <div class="jb-addr">${j.address}</div>
+      </div>
+    `;
+  }
+
+  function renderRows(){
+    const nowLeft = pct(NOW_MIN - DAY_START);
+    let html = `<div class="now-line" style="left:${nowLeft}%;"><span class="now-flag">9:45a</span></div>`;
+    technicians.forEach(t => {
+      const techJobs = jobs.filter(j => j.tech === t.id && j.day === 'sat');
+      html += `<div class="schedule-row" data-tech="${t.id}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${t.id}')">${techJobs.map(jobBlockHTML).join('')}</div>`;
+    });
+    document.getElementById('techRows').innerHTML = html;
+  }
+
+  function renderUnassigned(){
+    const items = jobs.filter(j => j.status === 'unassigned' && j.day === 'sat');
+    document.getElementById('unassignedList').innerHTML = items.map(j => `
+      <div class="unassigned-chip" onclick="openJobDetail(${j.id})">${ICON_FLAG}<span>${j.title}</span><span class="addr">· ${j.address}</span></div>
+    `).join('');
+  }
+
+  function renderWeekGrid(){
+    let html = `<div class="week-header-row"><div class="week-tech-col"></div>` +
+      WEEK_DAYS.map(d => `<div class="week-day-head ${d.today?'today':''}">${d.label}<span>Aug ${d.date}</span></div>`).join('') +
+      `</div>`;
+    technicians.forEach(t => {
+      html += `<div class="week-row" data-tech="${t.id}"><div class="week-tech-col"><div class="tech-avatar" style="width:26px;height:26px;font-size:0.65rem;">${t.initials}</div>${t.name}</div>`;
+      WEEK_DAYS.forEach(d => {
+        const dayJobs = jobs.filter(j => j.tech === t.id && j.day === d.key);
+        html += `<div class="week-cell ${d.today?'today':''}">${dayJobs.map(j => `<div class="week-chip ${STATUS[j.status].cls}" onclick="openJobDetail(${j.id})" title="${j.title} — ${j.address}">${j.title}</div>`).join('')}</div>`;
+      });
+      html += `</div>`;
+    });
+    document.getElementById('weekGrid').innerHTML = html;
+  }
+
+  const MONTH_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const AUG_DATE_TO_DAYKEY = { 24:'mon', 25:'tue', 26:'wed', 27:'thu', 28:'fri', 29:'sat', 30:'sun' };
+
+  function buildMonthCells(){
+    const cells = [];
+    for(let d = 27; d <= 31; d++) cells.push({ day:d, month:'Jul', inMonth:false });
+    for(let d = 1; d <= 31; d++) cells.push({ day:d, month:'Aug', inMonth:true });
+    for(let d = 1; d <= 6; d++) cells.push({ day:d, month:'Sep', inMonth:false });
+    return cells;
+  }
+
+  function renderMonthGrid(){
+    const head = MONTH_LABELS.map(l => `<div class="month-head-cell">${l}</div>`).join('');
+    const body = buildMonthCells().map(c => {
+      const dayKey = c.inMonth ? AUG_DATE_TO_DAYKEY[c.day] : null;
+      const dayJobs = dayKey ? jobs.filter(j => j.day === dayKey) : [];
+      const isToday = c.inMonth && c.day === 29;
+      const dots = dayJobs.map(j => `<span class="month-dot" style="background:${STATUS[j.status].hex}" title="${j.title}"></span>`).join('');
+      const click = dayKey ? `onclick="setZoom('week')"` : `onclick="showToast('No jobs scheduled — ${c.month} ${c.day}')"`;
+      return `<div class="month-cell ${c.inMonth ? '' : 'out-of-month'} ${isToday ? 'today' : ''}" ${click}>
+        <span class="month-day-num">${c.day}</span>
+        <div class="month-dots">${dots}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('monthGrid').innerHTML = `<div class="month-head-row">${head}</div><div class="month-body">${body}</div>`;
+  }
+
+  function setZoom(mode){
+    currentZoom = mode;
+    ['day','week','month'].forEach(m => document.getElementById('zoom' + m.charAt(0).toUpperCase() + m.slice(1) + 'Btn').classList.toggle('active', m === mode));
+    document.getElementById('dayGrid').style.display = mode === 'day' ? '' : 'none';
+    document.getElementById('weekGrid').style.display = mode === 'week' ? '' : 'none';
+    document.getElementById('monthGrid').style.display = mode === 'month' ? '' : 'none';
+    if(mode === 'week') renderWeekGrid();
+    if(mode === 'month') renderMonthGrid();
+    updateURL();
+  }
+
+  function renderFlags(){
+    document.getElementById('flagList').innerHTML = flags.map(f => `
+      <div class="flag-card sev-${f.sev}" onclick="openJobDetail(${f.jobId})">
+        <div class="flag-icon">${f.icon}</div>
+        <div><div class="flag-title">${f.title}</div><div class="flag-desc">${f.desc}</div></div>
+      </div>
+    `).join('');
+  }
+
+  /* ---------- Inspector ---------- */
+  function showPane(id){
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function closeSubPane(){ openJobId = null; showPane('paneAttention'); updateURL(); }
+  function showSyncPane(){
+    document.getElementById('syncLine').textContent = isLive ? 'Live — realtime updates active' : 'Offline — using cached data';
+    document.getElementById('failedArea').innerHTML = hasFailedOp ? `
+      <div class="failed-card">
+        <div class="ft">Reassignment failed</div>
+        <div class="fd">Blocked drain couldn't be moved to Liam Foster — he's on leave today.</div>
+        <div class="failed-actions"><button class="btn-retry" onclick="retryFailed()">Retry</button><button class="btn-discard" onclick="discardFailed()">Discard</button></div>
+      </div>` : `<div style="font-size:0.8rem; color:var(--text-tertiary); margin-top:8px;">Nothing waiting to send.</div>`;
+    showPane('paneSync');
+  }
+
+  function openJobDetail(id){
+    openJobId = id;
+    const j = jobById(id), s = STATUS[j.status];
+    let body = `<div><span class="status-chip ${s.cls}">${s.icon}${s.label}</span></div><div class="jd-title">${j.title}</div>`;
+    body += `<div class="jd-row">${ICON_PIN}<span>${j.address}</span></div>`;
+    if(j.start !== undefined) body += `<div class="jd-row">${ICON_CLOCK}<span>${fmtTime(j.start)} – ${fmtTime(j.start+j.dur)}</span></div>`;
+    body += `<div class="jd-row"><span>${j.customer}</span><a class="call" href="#" onclick="return false;">${ICON_PHONE}Call</a></div>`;
+    if(j.tech){
+      const t = techById(j.tech);
+      body += `<div class="jd-tech-row"><div class="jd-tech-avatar">${t.initials}</div><div><div style="font-size:0.8rem; font-weight:600;">${t.name}</div><div style="font-size:0.7rem; color:var(--text-tertiary);">${t.role} · ${t.van}</div></div></div>`;
+    } else {
+      body += `<button class="assign-btn">${ICON_PLUS}Assign technician</button>`;
+    }
+    if(j.notes) body += `<div class="jd-notes">${j.notes}</div>`;
+    document.getElementById('jobDetailBody').innerHTML = body;
+    showPane('paneJobDetail');
+    updateURL();
+  }
+
+  function jumpToJob(id){
+    if(document.getElementById('mapWrap').classList.contains('active')){ flyToJob(id); }
+    else { openJobDetail(id); }
+  }
+
+  /* ---------- Highlight ---------- */
+  function toggleHighlight(techId){ highlighted = (highlighted === techId) ? null : techId; applyHighlight(); updateURL(); if(document.getElementById('mapWrap').classList.contains('active')){ flyToTech(techId); updateRouteDisplay(); } }
+  function clearHighlight(){ highlighted = null; applyHighlight(); updateURL(); updateRouteDisplay(); }
+  function applyHighlight(){
+    document.querySelectorAll('.tech-row').forEach(el => {
+      const isMatch = el.dataset.tech === highlighted;
+      el.classList.toggle('active', isMatch);
+      el.classList.toggle('dimmed', highlighted && !isMatch);
+    });
+    document.querySelectorAll('.schedule-row, .week-row').forEach(el => {
+      el.style.opacity = (highlighted && el.dataset.tech !== highlighted) ? '0.35' : '1';
+    });
+    document.getElementById('showAllLink').classList.toggle('visible', !!highlighted);
+  }
+
+  /* ---------- Drag and drop with optimistic + rollback ---------- */
+  let dragJobId = null;
+  function onDragStart(e, id){ dragJobId = id; e.dataTransfer.effectAllowed = 'move'; }
+  function onDragOver(e){ e.preventDefault(); e.currentTarget.classList.add('drop-target'); }
+  function onDragLeave(e){ e.currentTarget.classList.remove('drop-target'); }
+  function onDrop(e, newTechId){
+    e.preventDefault();
+    e.currentTarget.classList.remove('drop-target');
+    if(dragJobId == null) return;
+    const j = jobById(dragJobId);
+    if(!j || j.tech === newTechId) return;
+    const prevTech = j.tech;
+    j.tech = newTechId;
+    renderRows();
+    const block = document.getElementById('jb-' + j.id);
+    if(block) block.classList.add('pending');
+
+    setTimeout(() => {
+      const t = techById(newTechId);
+      if(t.presence === 'offline' || t.presence === 'leave'){
+        j.tech = prevTech;
+        renderRows();
+        hasFailedOp = true;
+        document.getElementById('failChip').classList.add('visible');
+        showToast(`Can't assign to ${t.name} — ${t.presence === 'leave' ? 'on leave today' : 'off duty'}`);
+      } else {
+        const b2 = document.getElementById('jb-' + j.id);
+        if(b2){ b2.classList.remove('pending'); b2.classList.add('flash-ok'); setTimeout(()=>b2.classList.remove('flash-ok'), 700); }
+        showToast(`Reassigned to ${t.name}`);
+      }
+      renderTree();
+      applyHighlight();
+    }, 850);
+  }
+  function retryFailed(){ showToast("Still can't assign — Liam Foster is on leave today"); }
+  function discardFailed(){ hasFailedOp = false; document.getElementById('failChip').classList.remove('visible'); showSyncPane(); }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => t.classList.remove('visible'), 2400);
+  }
+
+  /* ---------- Connection ---------- */
+  function toggleConnection(){
+    const chip = document.getElementById('liveChip'), label = document.getElementById('liveLabel');
+    if(isLive){
+      isLive = false; chip.className = 'chip conn-offline'; label.textContent = 'Offline';
+    } else {
+      chip.className = 'chip conn-reconnecting'; label.textContent = 'Reconnecting…';
+      setTimeout(() => { isLive = true; chip.className = 'chip conn-live'; label.textContent = 'Live'; }, 1200);
+    }
+  }
+
+  /* ---------- Mode switching (Dispatch / Map) ---------- */
+  function setMode(mode){
+    currentMode = mode;
+    document.getElementById('railDispatch').classList.toggle('active', mode==='dispatch');
+    document.getElementById('railMap').classList.toggle('active', mode==='map');
+    document.getElementById('railDocs').classList.toggle('active', mode==='documents');
+    document.getElementById('railCrm').classList.toggle('active', mode==='crm');
+    document.getElementById('railReports').classList.toggle('active', mode==='reports');
+    document.getElementById('railSlack').classList.toggle('active', mode==='slack');
+
+    document.getElementById('scheduleView').style.display = mode==='dispatch' ? '' : 'none';
+    document.getElementById('mapWrap').classList.toggle('active', mode==='map');
+    document.getElementById('crmCanvas').style.display = mode==='crm' ? '' : 'none';
+    document.getElementById('docsCanvas').style.display = mode==='documents' ? '' : 'none';
+    document.getElementById('reportsCanvas').style.display = mode==='reports' ? '' : 'none';
+    document.getElementById('slackCanvas').style.display = mode==='slack' ? '' : 'none';
+
+    document.getElementById('navCrew').style.display = (mode==='dispatch' || mode==='map') ? '' : 'none';
+    document.getElementById('navCrm').style.display = mode==='crm' ? '' : 'none';
+    document.getElementById('navDocs').style.display = mode==='documents' ? '' : 'none';
+    document.getElementById('navReports').style.display = mode==='reports' ? '' : 'none';
+    document.getElementById('navSlack').style.display = mode==='slack' ? '' : 'none';
+
+    if(mode === 'map') requestAnimationFrame(initMapIfNeeded);
+    if(mode === 'crm'){ renderCrmList(); renderCrmEmpty(); renderAgreementFlags(); showPane('paneCrmAttention'); }
+    if(mode === 'documents'){ renderDocsCategoryList(); renderDocsList(); renderDocOverview(); showPane('paneDocsOverview'); }
+    if(mode === 'reports'){ renderReportsTechList(); renderReportsCanvas(); }
+    if(mode === 'slack'){ renderSlackTab(); }
+    updateURL();
+  }
+
+  /* ---------- CRM ---------- */
+  function renderCrmList(filterText){
+    const q = (filterText||'').toLowerCase();
+    const customers = getCustomers().filter(c => !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q));
+    document.getElementById('crmList').innerHTML = customers.map(c => {
+      const initials = c.name.split(' ').map(p => p.replace('.','')).join('').slice(0,2).toUpperCase();
+      const hasAgreement = agreements.some(a => a.customer === c.name);
+      return `<div class="crm-item" onclick="openCustomer('${c.name.replace(/'/g,"\\'")}')"><div class="crm-avatar">${initials}</div><div><div class="crm-item-name">${c.name}${hasAgreement ? ' <span class="agreement-dot" title="Has a service agreement"></span>' : ''}</div><div class="crm-item-meta">${c.jobs.length} job${c.jobs.length!==1?'s':''}</div></div></div>`;
+    }).join('') || `<div style="font-size:0.78rem; color:var(--text-tertiary); padding:10px 4px;">No customers match "${filterText}"</div>`;
+  }
+
+  function renderCrmEmpty(){
+    document.getElementById('crmCanvas').innerHTML = `<div class="canvas-empty">${ICON_USERS}<span>Select a customer from the list to see their contact details and job history.</span></div>`;
+  }
+
+  function renderAgreementFlags(){
+    const flagged = agreements.filter(a => { const s = agreementStatus(a); return s === 'expired' || s === 'expiring'; });
+    document.getElementById('agreementFlagList').innerHTML = flagged.length === 0
+      ? `<div style="font-size:0.8rem; color:var(--text-tertiary); margin-top:10px;">Nothing due in the next 30 days.</div>`
+      : flagged.map(a => {
+          const status = agreementStatus(a);
+          return `<div class="flag-card sev-${status === 'expired' ? 'red' : 'amber'}" onclick="openCustomer('${a.customer.replace(/'/g,"\\'")}')">
+            <div class="flag-icon">${ICON_CLOCK}</div>
+            <div><div class="flag-title">${a.type}</div><div class="flag-desc">${a.customer} — ${status === 'expired' ? 'overdue since' : 'due'} ${a.next}</div></div>
+          </div>`;
+        }).join('');
+  }
+
+  function openCustomer(name){
+    const customer = getCustomers().find(c => c.name === name);
+    if(!customer) return;
+    document.querySelectorAll('.crm-item').forEach(el => el.classList.toggle('active', el.querySelector('.crm-item-name').textContent === name));
+    const initials = customer.name.split(' ').map(p => p.replace('.','')).join('').slice(0,2).toUpperCase();
+    const sortedJobs = [...customer.jobs].sort((a,b) => (a.day||'').localeCompare(b.day||''));
+    let html = `<div class="canvas-inner">
+      <div class="customer-card">
+        <div class="crm-avatar">${initials}</div>
+        <div>
+          <div class="customer-card-name">${customer.name}</div>
+          <div class="customer-card-row">${ICON_PIN}${customer.address}</div>
+        </div>
+        <a class="call" href="#" onclick="return false;">${ICON_PHONE}${customer.phone}</a>
+      </div>`;
+
+    const agreement = agreements.find(a => a.customer === customer.name);
+    if(agreement){
+      const status = agreementStatus(agreement);
+      const statusLabel = status === 'expired' ? 'Overdue' : status === 'expiring' ? 'Due soon' : 'Scheduled';
+      html += `<div class="agreement-card">
+        <div class="agreement-card-top">
+          <span class="doc-status-chip ${status}">${statusLabel}</span>
+          <span class="agreement-freq">Every ${agreement.frequency}</span>
+        </div>
+        <div class="agreement-type">${agreement.type}</div>
+        <div class="agreement-dates"><span>Last: ${agreement.last}</span><span>Next due: ${agreement.next}</span></div>
+      </div>`;
+    }
+
+    html += `<div class="panel-heading" style="margin-bottom:10px;">Job history in this data set</div>`;
+    html += sortedJobs.map(j => {
+      const dayLabel = WEEK_DAYS.find(d => d.key === j.day);
+      const tech = j.tech ? techById(j.tech) : null;
+      return `<div class="job-history-row" onclick="setMode('dispatch'); setZoom('week');">
+        <span class="status-chip ${STATUS[j.status].cls}">${STATUS[j.status].icon}${STATUS[j.status].label}</span>
+        <span class="job-history-date">${dayLabel ? dayLabel.label + ' ' + dayLabel.date : ''}</span>
+        <span class="job-history-title">${j.title}</span>
+        <span class="job-history-tech">${tech ? tech.name : 'Unassigned'}</span>
+      </div>`;
+    }).join('');
+    html += `</div>`;
+    document.getElementById('crmCanvas').innerHTML = html;
+
+    document.getElementById('customerSnapshotBody').innerHTML = `
+      <div class="stat-row" style="margin-top:10px;">
+        <div class="stat-box"><div class="stat-num" style="color:var(--blue-bright)">${customer.jobs.length}</div><div class="stat-label">Jobs on record</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--green)">${customer.jobs.filter(j=>j.status==='complete').length}</div><div class="stat-label">Completed</div></div>
+      </div>
+      <div class="jd-row" style="margin-top:16px;">${ICON_PIN}<span>${customer.address}</span></div>
+      <div class="jd-row">${ICON_PHONE}<span>${customer.phone}</span></div>`;
+    showPane('paneCustomer');
+  }
+
+  /* ---------- Reports ---------- */
+  function renderReportsTechList(){
+    document.getElementById('reportsTechList').innerHTML = technicians.map(t => {
+      const techJobs = jobs.filter(j => j.tech === t.id);
+      const margin = techJobs.reduce((sum, j) => sum + (j.revenue - j.cost), 0);
+      return `<div class="reports-tech-row"><div class="crm-avatar">${t.initials}</div><span class="reports-tech-name">${t.name}</span><span class="reports-tech-margin">$${margin.toLocaleString()}</span></div>`;
+    }).join('');
+  }
+
+  function renderReportsCanvas(){
+    const weekJobs = jobs.filter(j => j.revenue != null).sort((a,b) => WEEK_DAYS.findIndex(d=>d.key===a.day) - WEEK_DAYS.findIndex(d=>d.key===b.day));
+    const revenue = weekJobs.reduce((s,j) => s + j.revenue, 0);
+    const cost = weekJobs.reduce((s,j) => s + j.cost, 0);
+    const margin = revenue - cost;
+    const marginPct = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
+
+    const rows = weekJobs.map(j => {
+      const d = WEEK_DAYS.find(x => x.key === j.day);
+      const jMargin = j.revenue - j.cost;
+      return `<tr onclick="openJobDetail(${j.id})">
+        <td>${d ? d.label + ' ' + d.date : ''}</td>
+        <td>${j.title}${j.estimate ? '<span class="report-estimate-tag">est.</span>' : ''}</td>
+        <td>${j.customer}</td>
+        <td class="num">$${j.revenue.toLocaleString()}</td>
+        <td class="num">$${j.cost.toLocaleString()}</td>
+        <td class="num margin-cell">$${jMargin.toLocaleString()}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('reportsCanvas').innerHTML = `
+      <div class="canvas-inner" style="max-width:900px;">
+        <div class="panel-heading" style="margin-bottom:10px;">This week — Mon 24 to Sun 30 Aug</div>
+        <div class="reports-summary">
+          <div class="stat-box"><div class="stat-num" style="color:var(--text-primary)">$${revenue.toLocaleString()}</div><div class="stat-label">Revenue</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--text-secondary)">$${cost.toLocaleString()}</div><div class="stat-label">Cost</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--green)">$${margin.toLocaleString()}</div><div class="stat-label">Margin</div></div>
+          <div class="stat-box"><div class="stat-num" style="color:var(--blue-bright)">${marginPct}%</div><div class="stat-label">Margin %</div></div>
+        </div>
+        <table class="report-table">
+          <thead><tr><th>Day</th><th>Job</th><th>Customer</th><th class="num">Revenue</th><th class="num">Cost</th><th class="num">Margin</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ---------- Slack integration ---------- */
+  function renderSlackTab(){
+    if(!slackConnected){
+      renderSlackDisconnected();
+      document.getElementById('slackChannelList').innerHTML = `<div style="font-size:0.78rem; color:var(--text-tertiary); padding:9px 8px;">Not connected yet.</div>`;
+    } else {
+      renderSlackChannelList();
+      renderSlackThread();
+    }
+    renderSlackRouting();
+    showPane('paneSlackRouting');
+  }
+
+  function renderSlackDisconnected(){
+    document.getElementById('slackCanvas').innerHTML = `
+      <div class="slack-connect-wrap">
+        <div class="slack-connect-icon">${ICON_HASH}</div>
+        <div class="slack-connect-title">Connect FieldLoop to Slack</div>
+        <div class="slack-connect-desc">See job alerts and team messages without leaving Slack, or bring your team's Slack conversations into FieldLoop. FieldLoop already posts job events automatically once connected — this adds two-way visibility inside the app.</div>
+        <button class="slack-connect-btn" onclick="connectSlack()">${ICON_HASH}Connect to Slack</button>
+        <div class="slack-connect-note">Not connected yet — this button starts Slack's real OAuth flow once wired to a backend. Nothing is connected right now.</div>
+      </div>`;
+  }
+
+  function connectSlack(){
+    slackConnected = true;
+    renderSlackTab();
+  }
+  function disconnectSlack(){
+    slackConnected = false;
+    renderSlackTab();
+  }
+
+  function renderSlackChannelList(){
+    document.getElementById('slackChannelList').innerHTML = slackChannels.map(c => `
+      <div class="slack-channel-item ${c.id === activeSlackChannel ? 'active' : ''}" onclick="selectSlackChannel('${c.id}')">
+        <span class="slack-channel-hash">#</span>
+        <div><div class="slack-channel-name">${c.name}</div><div class="slack-channel-desc">${c.desc}</div></div>
+      </div>
+    `).join('') + `<button class="slack-disconnect-link" onclick="disconnectSlack()">Disconnect workspace</button>`;
+  }
+
+  function selectSlackChannel(channelId){
+    activeSlackChannel = channelId;
+    renderSlackChannelList();
+    renderSlackThread();
+  }
+
+  function renderSlackThread(){
+    const channel = slackChannels.find(c => c.id === activeSlackChannel);
+    const list = slackMessages[activeSlackChannel] || [];
+    document.getElementById('slackCanvas').innerHTML = `
+      <div class="thread-wrap">
+        <div class="slack-preview-banner">PREVIEW — example data. Connect a real workspace to replace this with your actual Slack channels and messages.</div>
+        <div class="thread-header">
+          <div class="thread-header-title">#${channel.name}</div>
+          <div class="thread-header-meta">${channel.desc}</div>
+        </div>
+        <div class="thread-scroll" id="slackThreadScroll">
+          ${list.length ? list.map(m => `
+            <div class="bubble-row ${m.from === 'bot' ? 'bot' : 'human'}">
+              <div class="bubble-sender">${m.sender}</div>
+              <div class="bubble">${m.text}</div>
+              <div class="bubble-meta">${m.time}</div>
+            </div>
+          `).join('') : `<div class="thread-empty">${ICON_HASH}<span>No messages in this channel yet.</span></div>`}
+        </div>
+        <div class="compose-row">
+          <input type="text" class="compose-input" id="slackComposeInput" placeholder="Message #${channel.name}…" onkeydown="if(event.key==='Enter') sendSlackMessage();">
+          <button class="compose-send" onclick="sendSlackMessage()">${ICON_SEND}</button>
+        </div>
+      </div>`;
+    const scroll = document.getElementById('slackThreadScroll');
+    if(scroll) scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  function sendSlackMessage(){
+    const input = document.getElementById('slackComposeInput');
+    const text = input.value.trim();
+    if(!text) return;
+    slackMessages[activeSlackChannel].push({ from:'human', sender:'You', text, time:'9:46 AM' });
+    input.value = '';
+    renderSlackThread();
+  }
+
+  function renderSlackRouting(){
+    document.getElementById('slackRoutingBody').innerHTML = `
+      <div style="font-size:0.78rem; color:var(--text-tertiary); margin:10px 0 14px; line-height:1.5;">Which backend events post to which channel — this mapping is already real on the backend today.</div>
+      ${slackRouting.map(r => `
+        <div class="routing-row">
+          <span class="routing-event">${r.event}</span>
+          <span class="routing-arrow">→</span>
+          <span class="routing-channel">#${r.channel}</span>
+        </div>
+      `).join('')}
+      <div style="font-size:0.74rem; color:var(--text-tertiary); margin-top:14px;">${slackConnected ? 'Workspace connected (preview).' : 'Connect a workspace to see this reflected live.'}</div>
+    `;
+  }
+
+  /* ---------- Documents ---------- */
+  function renderDocsCategoryList(){
+    const cats = [...new Set(documents.map(d => d.category))];
+    document.getElementById('docsCategoryList').innerHTML = cats.map(cat => {
+      const count = documents.filter(d => d.category === cat).length;
+      return `<div class="doc-cat-item"><span>${cat}</span><span class="doc-cat-count">${count}</span></div>`;
+    }).join('');
+  }
+
+  function renderDocsList(filterText){
+    const q = (filterText||'').toLowerCase();
+    const cats = [...new Set(documents.map(d => d.category))];
+    let html = '';
+    cats.forEach(cat => {
+      const items = documents.filter(d => d.category === cat && (!q || d.name.toLowerCase().includes(q) || d.entity.toLowerCase().includes(q)));
+      if(items.length === 0) return;
+      html += `<div class="doc-group-heading">${cat}</div>`;
+      html += items.map(d => {
+        const status = docStatus(d);
+        const statusLabel = status === 'expired' ? 'Expired' : status === 'expiring' ? 'Expiring soon' : status === 'valid' ? 'Valid' : 'On record';
+        return `<div class="doc-row" onclick="openDocument('${d.id}')">
+          <div class="doc-icon">${ICON_DOC}</div>
+          <div><div class="doc-row-name">${d.name}</div><div class="doc-row-entity">${d.entity}</div></div>
+          <div class="doc-row-right">
+            <span class="doc-status-chip ${status}">${statusLabel}</span>
+            ${d.expires ? `<div class="doc-expiry-date">Expires ${d.expires}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    });
+    document.getElementById('docsCanvas').innerHTML = `<div class="canvas-inner" style="max-width:680px;">${html || '<div class="canvas-empty">'+ICON_DOC+'<span>No documents match that filter.</span></div>'}</div>`;
+  }
+
+  function renderDocOverview(){
+    const flagged = documents.filter(d => { const s = docStatus(d); return s === 'expired' || s === 'expiring'; });
+    document.getElementById('docFlagList').innerHTML = flagged.length === 0
+      ? `<div style="font-size:0.8rem; color:var(--text-tertiary); margin-top:10px;">Nothing expiring in the next 30 days.</div>`
+      : flagged.map(d => {
+          const status = docStatus(d);
+          return `<div class="flag-card sev-${status === 'expired' ? 'red' : 'amber'}" onclick="openDocument('${d.id}')">
+            <div class="flag-icon">${ICON_ALERT}</div>
+            <div><div class="flag-title">${d.name}</div><div class="flag-desc">${d.entity} — ${status === 'expired' ? 'expired' : 'expires'} ${d.expires}</div></div>
+          </div>`;
+        }).join('');
+  }
+
+  function openDocument(id){
+    const d = documents.find(x => x.id === id);
+    if(!d) return;
+    const status = docStatus(d);
+    const statusLabel = status === 'expired' ? 'Expired' : status === 'expiring' ? 'Expiring soon' : status === 'valid' ? 'Valid' : 'On record';
+    let body = `<span class="doc-status-chip ${status}">${statusLabel}</span>`;
+    body += `<div class="dd-title">${d.name}</div>`;
+    body += `<div class="dd-row">${ICON_USERS}<span>${d.entity}</span></div>`;
+    body += `<div class="dd-row">${ICON_CLOCK}<span>Issued ${d.issued}${d.expires ? ' · Expires ' + d.expires : ''}</span></div>`;
+    if(d.jobId){
+      const j = jobById(d.jobId);
+      if(j) body += `<div class="dd-row">${ICON_PIN}<span>Linked to: ${j.title}, ${j.address}</span></div>`;
+    }
+    body += `<button class="view-doc-btn">${ICON_DOC}View document</button>`;
+    document.getElementById('documentDetailBody').innerHTML = body;
+    showPane('paneDocument');
+  }
+
+  let currentZoom = 'day';
+
+  function updateURL(){
+    const params = new URLSearchParams();
+    params.set('mode', currentMode);
+    params.set('zoom', currentZoom);
+    if(highlighted) params.set('tech', highlighted);
+    if(openJobId) params.set('job', openJobId);
+    history.replaceState(null, '', location.pathname + '?' + params.toString());
+  }
+
+  function restoreFromURL(){
+    const params = new URLSearchParams(location.search);
+    const mode = params.get('mode') || 'dispatch';
+    const zoom = params.get('zoom') || 'day';
+    const tech = params.get('tech');
+    const job = params.get('job');
+    if(tech && techById(tech)){ highlighted = tech; applyHighlight(); }
+    setZoom(zoom);
+    setMode(mode);
+    if(job && jobById(parseInt(job))){ openJobDetail(parseInt(job)); }
+  }
+
+  function copyLink(){
+    updateURL();
+    const url = location.href;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(
+        () => showToast('Link copied — includes your current view'),
+        () => showToast(url)
+      );
+    } else {
+      showToast(url);
+    }
+  }
+
+  function showMapFallback(title, desc){
+    document.getElementById('mapFallbackTitle').textContent = title;
+    document.getElementById('mapFallbackDesc').textContent = desc;
+    document.getElementById('mapFallback').classList.add('visible');
+  }
+
+  function initMapIfNeeded(){
+    if(mapInitialized) { if(map) { map.resize(); updateRouteDisplay(); } return; }
+    mapInitialized = true;
+
+    if(typeof maplibregl === 'undefined'){
+      showMapFallback(
+        "Map script didn't load",
+        "This preview is blocking the external MapLibre script (unpkg.com). Open this HTML file directly in a browser tab — sandboxed previews commonly block CDN scripts that a normal browser allows."
+      );
+      return;
+    }
+
+    let loaded = false;
+    const stallTimer = setTimeout(() => {
+      if(!loaded){
+        showMapFallback(
+          "Map is taking too long",
+          "The map script loaded but tiles haven't come back from openfreemap.org — likely blocked network access in this preview. Try opening the file directly in a browser tab."
+        );
+      }
+    }, 6000);
+
+    try{
+      map = new maplibregl.Map({
+        container: 'mapCanvas',
+        style: 'https://tiles.openfreemap.org/styles/liberty',
+        center: [145.030, -37.876],
+        zoom: 12
+      });
+    } catch(err){
+      showMapFallback("Map failed to start", "MapLibre threw an error initializing: " + err.message);
+      return;
+    }
+
+    map.on('error', (e) => {
+      if(!loaded){
+        showMapFallback(
+          "Map tiles couldn't load",
+          "The map initialized but tile requests to openfreemap.org are being blocked in this preview. Open this HTML file directly in a browser tab — that's outside the sandbox and should load normally."
+        );
+      }
+    });
+
+    map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+    map.on('load', () => {
+      loaded = true;
+      clearTimeout(stallTimer);
+      jobs.filter(j => j.day === 'sat' && j.lng != null).forEach(j => {
+        const hex = STATUS[j.status].hex;
+        const popupHtml = `<b>${j.title}</b><br>${j.address}<br><span style="color:${hex};">${STATUS[j.status].label}</span>`;
+        new maplibregl.Marker({ color: hex })
+          .setLngLat([j.lng, j.lat])
+          .setPopup(new maplibregl.Popup({offset:22}).setHTML(popupHtml))
+          .addTo(map);
+        j._marker = null;
+      });
+      technicians.forEach(t => {
+        if(!t.last) return;
+        const popupHtml = `<b>${t.name}</b><br>${t.role}<br>Last known — captured at clock-in, ${t.lastTime}`;
+        new maplibregl.Marker({ color: '#2F6FED' })
+          .setLngLat(t.last)
+          .setPopup(new maplibregl.Popup({offset:22}).setHTML(popupHtml))
+          .addTo(map);
+      });
+
+      map.addSource('route', { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:[] } } });
+      map.addLayer({
+        id:'route-line', type:'line', source:'route',
+        layout:{ 'line-join':'round', 'line-cap':'round' },
+        paint:{ 'line-color':'#2F6FED', 'line-width':3, 'line-dasharray':[1,2] }
+      });
+      updateRouteDisplay();
+    });
+  }
+  function flyToJob(id){
+    const j = jobById(id);
+    if(!map || !j) return;
+    map.flyTo({center:[j.lng, j.lat], zoom:14});
+  }
+  function flyToTech(id){
+    const t = techById(id);
+    if(!map || !t || !t.last) return;
+    map.flyTo({center:t.last, zoom:14});
+  }
+
+  function routeDist(a, b){ const dx = a.lng - b.lng, dy = a.lat - b.lat; return Math.sqrt(dx*dx + dy*dy); }
+
+  function computeRouteOrder(techId){
+    const t = techById(techId);
+    const techJobs = jobs.filter(j => j.tech === techId && j.day === 'sat' && j.lng != null);
+    if(techJobs.length === 0) return [];
+    let current = t.last ? { lng:t.last[0], lat:t.last[1] } : { lng:techJobs[0].lng, lat:techJobs[0].lat };
+    let remaining = [...techJobs];
+    const order = [];
+    while(remaining.length){
+      remaining.sort((a,b) => routeDist(current, a) - routeDist(current, b));
+      const next = remaining.shift();
+      order.push(next);
+      current = { lng:next.lng, lat:next.lat };
+    }
+    return order;
+  }
+
+  function updateRouteDisplay(){
+    if(!map || !map.getSource('route')) return;
+    const summary = document.getElementById('routeSummary');
+    if(!highlighted){
+      map.getSource('route').setData({ type:'Feature', geometry:{ type:'LineString', coordinates:[] } });
+      summary.classList.remove('visible');
+      return;
+    }
+    const order = computeRouteOrder(highlighted);
+    if(order.length < 2){
+      map.getSource('route').setData({ type:'Feature', geometry:{ type:'LineString', coordinates:[] } });
+      summary.classList.remove('visible');
+      return;
+    }
+    const t = techById(highlighted);
+    const coords = [];
+    if(t.last) coords.push(t.last);
+    order.forEach(j => coords.push([j.lng, j.lat]));
+    map.getSource('route').setData({ type:'Feature', geometry:{ type:'LineString', coordinates:coords } });
+
+    summary.classList.add('visible');
+    summary.innerHTML = `
+      <div class="route-summary-title">${t.name} — suggested order</div>
+      <div class="route-summary-tag">Straight-line distance, not road routing</div>
+      <div class="route-summary-list">${order.map((j,i) => `<div class="route-stop"><span class="route-stop-num">${i+1}</span>${j.title}</div>`).join('')}</div>
+    `;
+  }
+
+  /* ---------- Command palette ---------- */
+  let paletteIndex = 0, paletteMatches = [];
+  function openPalette(){
+    document.getElementById('paletteOverlay').classList.add('active');
+    const input = document.getElementById('paletteInput');
+    input.value = ''; renderPaletteResults('');
+    setTimeout(() => input.focus(), 10);
+  }
+  function closePalette(){ document.getElementById('paletteOverlay').classList.remove('active'); }
+  function renderPaletteResults(q){
+    const query = q.toLowerCase();
+    const jobMatches = jobs.filter(j => !query || j.title.toLowerCase().includes(query) || j.address.toLowerCase().includes(query))
+      .map(j => ({ type:'job', id:j.id, icon:STATUS[j.status].icon, label:j.title, sub:j.address }));
+    const techMatches = technicians.filter(t => !query || t.name.toLowerCase().includes(query) || t.role.toLowerCase().includes(query))
+      .map(t => ({ type:'tech', id:t.id, icon:ICON_USERS, label:t.name, sub:t.role }));
+    paletteMatches = [...jobMatches, ...techMatches];
+    paletteIndex = 0;
+    renderPaletteList();
+  }
+  function renderPaletteList(){
+    const el = document.getElementById('paletteResults');
+    if(paletteMatches.length === 0){ el.innerHTML = `<div class="palette-empty">No matches</div>`; return; }
+    el.innerHTML = paletteMatches.map((m,i) => `
+      <div class="palette-item ${i===paletteIndex?'active':''}" onmouseenter="paletteIndex=${i}; renderPaletteList();" onclick="selectPalette(${i})">
+        ${m.icon}<span class="pt">${m.label}</span><span class="ps">${m.sub}</span>
+      </div>
+    `).join('');
+  }
+  function selectPalette(i){
+    const m = paletteMatches[i];
+    if(!m) return;
+    closePalette();
+    if(m.type === 'job') openJobDetail(m.id);
+    else toggleHighlight(m.id);
+  }
+  document.addEventListener('keydown', (e) => {
+    const overlay = document.getElementById('paletteOverlay');
+    if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); overlay.classList.contains('active') ? closePalette() : openPalette(); return; }
+    if(!overlay.classList.contains('active')) return;
+    if(e.key === 'Escape'){ closePalette(); }
+    else if(e.key === 'ArrowDown'){ e.preventDefault(); paletteIndex = Math.min(paletteIndex+1, paletteMatches.length-1); renderPaletteList(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); paletteIndex = Math.max(paletteIndex-1, 0); renderPaletteList(); }
+    else if(e.key === 'Enter'){ e.preventDefault(); selectPalette(paletteIndex); }
+  });
+
+  /* ---------- Init ---------- */
+  document.getElementById('railDispatch').querySelector('span').innerHTML = ICON_GRID;
+  document.getElementById('railMap').querySelector('span').innerHTML = ICON_MAP;
+  document.getElementById('railDocs').querySelector('span').innerHTML = ICON_DOC;
+  document.getElementById('railCrm').querySelector('span').innerHTML = ICON_USERS;
+  document.getElementById('railReports').querySelector('span').innerHTML = ICON_CHART;
+  document.getElementById('railSlack').querySelector('span').innerHTML = ICON_HASH;
+  document.getElementById('searchIcon').innerHTML = ICON_SEARCH;
+  document.getElementById('treeSearchIcon').innerHTML = ICON_SEARCH;
+  document.getElementById('crmSearchIcon').innerHTML = ICON_SEARCH;
+  document.getElementById('docsSearchIcon').innerHTML = ICON_SEARCH;
+  document.getElementById('paletteSearchIcon').innerHTML = ICON_SEARCH;
+  document.getElementById('chevPrev').innerHTML = ICON_CHEV_L;
+  document.getElementById('chevNext').innerHTML = ICON_CHEV_R;
+  document.getElementById('backIcon1').innerHTML = ICON_CHEV_L;
+  document.getElementById('backIcon2').innerHTML = ICON_CHEV_L;
+  document.getElementById('backIcon3').innerHTML = ICON_CHEV_L;
+  document.getElementById('backIcon4').innerHTML = ICON_CHEV_L;
+  document.getElementById('syncCloudIcon').innerHTML = ICON_CLOUD;
+  document.getElementById('linkIcon').innerHTML = ICON_LINK;
+  document.getElementById('mapFallbackIcon').innerHTML = ICON_ALERT;
+
+  renderTree();
+  renderRuler();
+  renderRows();
+  renderUnassigned();
+  renderFlags();
+  renderNorthstar();
+  restoreFromURL();
+</script>
+</body>
+</html>
