@@ -133,7 +133,12 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const job = await prisma.job.findFirst({
       where: { id, orgId },
-      include: { timeEntries: true, photos: true, checklistItems: { orderBy: { sortOrder: "asc" } } },
+      include: {
+        timeEntries: true,
+        photos: true,
+        checklistItems: { orderBy: { sortOrder: "asc" } },
+        quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
+      },
     });
     if (!job) return reply.code(404).send({ message: "Job not found" });
     return job;
@@ -284,7 +289,11 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       }
       const updated = await tx.job.findUnique({
         where: { id },
-        include: { timeEntries: true, photos: true },
+        include: {
+          timeEntries: true,
+          photos: true,
+          quote: { include: { lines: { orderBy: { sortOrder: 'asc' } } } },
+        },
       });
       if (shouldEmitCompleted && updated) {
         const timeEntries = updated.timeEntries ?? [];
