@@ -75,7 +75,7 @@ interface BoardState {
   /** §4.6 Needs-Attention flags — computed server-side, mirrored verbatim
    *  from the board payload. Never recomputed client-side. */
   needsAttention: ApiAttentionFlag[]
-  /** Deprecated compatibility fields; never populated by live tracking. */
+  /** Live fleet positions from topic/fleet/telemetry (WebSocket). */
   liveLocations: Record<string, LiveLocation>
   liveLocationHistory: Record<string, LiveLocation[]>
   /** Test bridges: force the server-persist failure / offline paths. */
@@ -99,7 +99,7 @@ interface BoardState {
   setSimulateFailure: (value: boolean) => void
   setOffline: (value: boolean) => void
 
-  /** Deprecated no-op retained for compatibility; live tracking is disabled. */
+  /** Merge a batch of telemetry pings into the live map state. */
   mergeLiveLocations: (pings: LiveLocation[]) => void
   /** Apply a remote status transition from topic/jobs/status. */
   applyRemoteStatus: (jobId: string, status: JobStatus) => void
