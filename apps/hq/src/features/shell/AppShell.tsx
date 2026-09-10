@@ -82,7 +82,7 @@ function PlaceholderModule({ id, milestone }: { id: AppModule; milestone: string
         <p className="mt-1.5 text-xs leading-relaxed text-ink-mid">
           Scheduled for milestone{" "}
           <span className="label-mono text-chrome-400">{milestone}</span> — see{" "}
-          <span className="font-mono text-2xs">APPLICATION_MAP.md</span> for the build order.
+          <span className="font-mono text-2xs">docs/archive/APPLICATION_MAP-v1.md</span> for the build order.
         </p>
       </div>
     </div>

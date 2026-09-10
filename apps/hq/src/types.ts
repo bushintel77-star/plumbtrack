@@ -136,7 +136,7 @@ export interface Job {
 
 /** Point-in-time position captured at clock-in/clock-out ONLY.
  *  Continuous tracking is a deliberate non-capability — see
- *  FIELDLOOP_DESIGN_REFERENCES.md and the design spec §8. */
+ *  docs/design/fieldloop-design-references.md and the spec §8. */
 export interface LastKnownLocation extends GeoPoint {
   /** ISO timestamp of the clock-in/clock-out that captured it. */
   capturedAt: string

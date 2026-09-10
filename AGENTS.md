@@ -83,7 +83,7 @@ pnpm exec expo export --platform web
 - `my-mobile-app/` (Expo field agent) now has its own private remote: `bushintel77-star/plumbtrack-mobile` (branch `master`). The local folder's `origin` points there — do NOT push it at the monorepo. It is still intentionally outside the pnpm workspace.
 - CI has two jobs: the required full gate (typecheck/lint/test/build) and a Playwright web-e2e job (27 specs; `dashboard-graphs` and `job-view-billable` are grep-excluded — seed-era drift, see PRODUCTION_READINESS.md P0-2). The HQ Playwright suite is fully stale (pre-FieldLoop shell) and is not wired anywhere.
 - `apps/dispatch` is the superseded Electron reference prototype (echo test, built by CI, deployed nowhere).
-- `FIELDLOOP_DESIGN_REFERENCES.md`, `Prototype/`, and `skills/` are untracked in the parent repo.
+- Design baseline is **versioned in-repo at `docs/design/`** (implementation spec + chosen mockups + design references). Historical documents (2026-08/09 era audits, the v1 application map, the old roadmap) are archived in `docs/archive/` — superseded, do not treat as current.
 
 ## Deployment notes
 
