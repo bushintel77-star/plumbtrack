@@ -24,7 +24,6 @@ import { type FieldLoopMode } from "@/features/fieldloop/context"
 import { HqSignIn } from "@/features/auth/HqSignIn"
 import { useTelemetrySocket } from "@/lib/telemetry"
 
-import { Board } from "@/features/board/Board"
 import { CommandPalette } from "@/features/board/CommandPalette"
 import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
@@ -41,7 +40,6 @@ const NAV: Array<{
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
     { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
     { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
-    { id: "kanban", label: "Kanban", icon: Network, enabled: true, milestone: "" },
     { id: "crews", label: "Crews", icon: Users, enabled: true, milestone: "" },
     { id: "jobs", label: "Jobs", icon: Briefcase, enabled: true, milestone: "" },
     { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
@@ -210,8 +208,6 @@ export function AppShell() {
           <main className="min-h-0 flex-1">
             {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
             {activeModule === "operations" && <OperationsHub />}
-            {activeModule === "kanban" && <Board />}
-            {activeModule === "calendar" && <Board />}
             {!ENABLED.has(activeModule) && (
               <PlaceholderModule
                 id={activeModule}

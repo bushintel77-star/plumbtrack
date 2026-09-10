@@ -238,8 +238,6 @@ export type AppModule =
   | "dashboard"
   | "dispatch"
   | "operations"
-  | "kanban"
-  | "calendar"
   | "map"
   | "crews"
   | "jobs"

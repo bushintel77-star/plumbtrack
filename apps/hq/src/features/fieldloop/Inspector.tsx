@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
-import { AlertTriangle, ChevronLeft, Clock3, MapPin, PanelRightClose, Phone, RotateCw, X } from "lucide-react"
+import { AlertTriangle, ChevronLeft, Clock3, MapPin, MessageSquare, PanelRightClose, Phone, RotateCw, X } from "lucide-react"
 
 import { performAssignment } from "@/features/board/actions"
+import { JobMessageThread } from "@/features/right/JobMessageThread"
 import { TOTAL_BLOCKS, blockLabel } from "@/lib/format"
+import { authApi } from "@/lib/api"
+import { travelMinutes } from "@/lib/travel"
 import { dispatchStatus } from "@/lib/fieldloop"
 import type { AttentionFlag } from "@/types"
 import { cn } from "@/lib/utils"
@@ -114,7 +117,56 @@ export function Inspector({
       {/* Keyed by the job and its current placement so a different selection
           never inherits the previous draft crew or start time. */}
       <AssignControl key={`${job.id}:${job.techId ?? ""}:${job.startBlock}`} job={job} onAssign={onAssign} />
+      <JobMessageThread jobId={job.id} />
+      <NotifyEtaControl job={job} />
+      {(job.photos?.length ?? 0) > 0 && (
+        <div aria-label="Field evidence">
+          <div className="fl-kicker">FIELD EVIDENCE · {(job.photos ?? []).length}</div>
+          {(job.photos ?? []).map(photo => (
+            <div className="fl-history" key={photo.id}>
+              <strong>{photo.label}</strong>
+              <a className="fl-download" href={photo.url} target="_blank" rel="noreferrer">
+                View
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
     </aside>
+  )
+}
+
+/** Customer ETA SMS — ported from the legacy job dialog, upgraded to read
+ *  the provider response: dispatch now sees sent/test-mode/failed instead of
+ *  a fire-and-forget button (2026-09-10 audit finding). */
+function NotifyEtaControl({ job }: { job: Job }) {
+  const technicians = useBoardStore(s => s.technicians)
+  const [result, setResult] = useState<string | null>(null)
+
+  const notify = async (): Promise<void> => {
+    const tech = technicians.find(item => item.id === job.techId)
+    const eta = tech?.lastKnownLocation && job.location ? travelMinutes(tech.lastKnownLocation, job.location) : 15
+    try {
+      const response = await authApi.sendEta(job.id, eta)
+      setResult(
+        response.sent
+          ? `SMS sent to the customer — ETA ${eta} min (${response.mode})`
+          : "No SMS sent — SMS provider not configured on this deployment"
+      )
+    } catch {
+      setResult("SMS failed — call the customer instead")
+    }
+  }
+
+  return (
+    <div className="fl-notify" aria-label="Customer notification">
+      <div className="fl-kicker">CUSTOMER NOTIFICATION</div>
+      <button type="button" className="fl-download" onClick={() => void notify()} data-testid="fl-notify-eta">
+        <MessageSquare size={13} />
+        NOTIFY CUSTOMER — ON MY WAY
+      </button>
+      {result && <p className="fl-muted">{result}</p>}
+    </div>
   )
 }
 
