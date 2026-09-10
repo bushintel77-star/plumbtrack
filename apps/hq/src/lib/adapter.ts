@@ -25,6 +25,7 @@ export interface ApiJob {
   address: string
   scope: string
   status: "scheduled" | "in_progress" | "completed"
+  paymentStatus?: string
   timeEntries: ApiTimeEntry[]
   photos?: ApiJobPhoto[]
   createdAt: string
@@ -220,6 +221,7 @@ export function adaptApiBoard(
       clockOnCount: apiJob.timeEntries.length,
       quote,
       documents: [],
+      paymentStatus: apiJob.paymentStatus ?? "unpaid",
       location: apiJob.location ?? undefined,
       photos: (apiJob.photos ?? []).map(photo => ({
         id: photo.id,

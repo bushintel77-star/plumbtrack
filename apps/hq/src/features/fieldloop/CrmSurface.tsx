@@ -1,30 +1,78 @@
 "use client"
 
-import { useState } from "react"
-import { Mail, MapPin, Search } from "lucide-react"
+import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Mail, MapPin, Phone, Search } from "lucide-react"
 
-import { formatMoney } from "@/lib/format"
-import { deriveCustomers, dispatchStatus, jobRevenue } from "@/lib/fieldloop"
+import { apiGet } from "@/lib/api"
+import { formatDate, formatMoney } from "@/lib/format"
+import { dispatchStatus, jobRevenue } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
 import { useJobsList } from "@/stores/boardStore"
 
-import { Avatar, HonestAction, StatusChip } from "./common"
+import { Avatar, StatusChip } from "./common"
+
+/** Real CRM records from /api/customers (customers + their properties). */
+interface CrmCustomer {
+  id: string
+  name: string
+  email?: string | null
+  phone?: string | null
+  properties?: Array<{ id: string; address: string; accessCode?: string | null }>
+}
+interface CrmAgreement {
+  id: string
+  serviceType: string
+  frequency: string
+  lastServiceDate: string | null
+  nextDueDate: string
+  active: boolean
+}
+
+function agreementVerdict(agreement: CrmAgreement): { state: "expired" | "expiring" | "valid"; label: string; days: number } {
+  const days = Math.round((new Date(agreement.nextDueDate).getTime() - Date.now()) / 86400000)
+  if (days < 0) return { state: "expired", label: `Overdue by ${Math.abs(days)}d`, days }
+  if (days <= 30) return { state: "expiring", label: `Due in ${days}d`, days }
+  return { state: "valid", label: `Due in ${days}d`, days }
+}
 
 export function CrmSurface() {
   const jobs = useJobsList()
-  const customers = deriveCustomers(jobs)
   const [query, setQuery] = useState("")
   const [selectedId, setSelectedId] = useState("")
+
+  // Live customer directory — /api/customers (customers + properties).
+  const customersQuery = useQuery({
+    queryKey: ["crm-customers"],
+    queryFn: () => apiGet<CrmCustomer[]>("/api/customers"),
+    refetchInterval: 30000
+  })
+
+  // Job history is matched from the live board by customer name (jobs carry
+  // the free-text client field, not a customerId, in the current schema).
+  const customers = useMemo(() => {
+    const list = customersQuery.data ?? []
+    return list.map(customer => ({
+      ...customer,
+      jobs: jobs.filter(job => job.client === customer.name)
+    }))
+  }, [customersQuery.data, jobs])
 
   const visible = customers.filter(customer =>
     customer.name.toLowerCase().includes(query.trim().toLowerCase())
   )
   const selected = customers.find(customer => customer.id === selectedId)
-  // Service agreements are not backed by the API yet. The hardcoded seed
-  // used to render fictional contracts and "overdue" alerts into the live
-  // CRM view — until a real agreements source exists these stay honest
-  // empty states.
 
+  // Agreements for the selected customer — fetched on selection.
+  const agreementsQuery = useQuery({
+    queryKey: ["crm-agreements", selectedId],
+    queryFn: () => apiGet<CrmAgreement[]>(`/api/customers/${selectedId}/agreements`),
+    enabled: Boolean(selectedId)
+  })
+  const agreements = agreementsQuery.data ?? []
+  const dueSoon = agreements
+    .filter(agreement => agreement.active && agreementVerdict(agreement).state !== "valid")
+    .sort((a, b) => agreementVerdict(a).days - agreementVerdict(b).days)
 
   return (
     <>
@@ -39,6 +87,8 @@ export function CrmSurface() {
           />
         </label>
         <div className="fl-kicker">Customers</div>
+        {customersQuery.isLoading && <div className="fl-muted">Loading live customers…</div>}
+        {customersQuery.error && <div className="fl-muted">API unavailable — no live customer directory.</div>}
         {visible.map(customer => (
           <button
             type="button"
@@ -52,30 +102,49 @@ export function CrmSurface() {
             <b>{customer.jobs.length}</b>
           </button>
         ))}
-        {visible.length === 0 && <div className="fl-muted">No customers match “{query}”.</div>}
+        {!customersQuery.isLoading && visible.length === 0 && <div className="fl-muted">No customers match “{query}”.</div>}
       </aside>
 
       <main className="fl-canvas">
         {!selected ? (
-          <div className="fl-muted">Pick a customer to see their agreement and job history.</div>
+          <div className="fl-muted">Pick a customer to see their agreements and job history.</div>
         ) : (
           <>
             <div className="fl-customer">
               <Avatar name={selected.name} size="large" />
               <div>
                 <h2>{selected.name}</h2>
-                <p>
-                  <MapPin size={13} />
-                  {selected.address}
-                </p>
+                {selected.email && <p className="fl-muted"><Mail size={13} /> {selected.email}</p>}
+                {selected.phone && <p className="fl-muted"><Phone size={13} /> {selected.phone}</p>}
+                {(selected.properties ?? []).map(property => (
+                  <p key={property.id} className="fl-muted">
+                    <MapPin size={13} /> {property.address}
+                    {property.accessCode ? ` · access ${property.accessCode}` : ""}
+                  </p>
+                ))}
               </div>
             </div>
 
-            {/* Service agreements are not backed by the API yet — honest
-                empty state until a real agreements source exists. */}
-            <div className="fl-muted">No service agreement on file for this customer.</div>
+            <div className="fl-kicker">Service agreements</div>
+            {agreementsQuery.isLoading && <div className="fl-muted">Loading agreements…</div>}
+            {!agreementsQuery.isLoading && agreements.length === 0 && (
+              <div className="fl-muted">No service agreement on file for this customer.</div>
+            )}
+            {agreements.map(agreement => {
+              const verdict = agreementVerdict(agreement)
+              return (
+                <div className="fl-history" key={agreement.id}>
+                  <strong>{agreement.serviceType}</strong>
+                  {!agreement.active && <span className="fl-muted">(inactive)</span>}
+                  <span className="fl-muted">
+                    {agreement.frequency} · next due {formatDate(agreement.nextDueDate)} ({verdict.label})
+                  </span>
+                </div>
+              )
+            })}
 
             <div className="fl-kicker">Job history</div>
+            {selected.jobs.length === 0 && <div className="fl-muted">No jobs on the current board for this customer.</div>}
             {selected.jobs.map(job => (
               <div className="fl-history" key={job.id}>
                 <strong>{job.title}</strong>
@@ -89,10 +158,19 @@ export function CrmSurface() {
 
       <aside className="fl-panel fl-inspector" aria-label="Agreements due soon">
         <div className="fl-kicker">Agreements due soon</div>
-        <div className="fl-muted">No agreements are due in the next 30 days.</div>
-        <HonestAction requirement="Twilio or an equivalent SMS provider" icon={<Mail size={13} />}>
-          Send renewal reminders
-        </HonestAction>
+        {!selectedId && <div className="fl-muted">Select a customer to check their agreement due dates.</div>}
+        {selectedId && dueSoon.length === 0 && <div className="fl-muted">No agreements are due in the next 30 days.</div>}
+        {dueSoon.map(agreement => {
+          const verdict = agreementVerdict(agreement)
+          return (
+            <div className="fl-flag" key={agreement.id}>
+              <strong>{agreement.serviceType}</strong>
+              <span className="fl-muted">
+                {verdict.label} · {formatDate(agreement.nextDueDate)}
+              </span>
+            </div>
+          )
+        })}
       </aside>
     </>
   )

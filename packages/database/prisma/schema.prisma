@@ -347,9 +347,14 @@ model Job {
   lng             Float?
   status          JobStatus    @default(scheduled)
   signature       String?
+  /// Quote this job was created from (null = created without a quote). The
+  /// field agent renders the quote's agreed scope/lines read-only from this
+  /// link — technicians never re-enter what sales already captured.
+  quoteId         String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
+  quote           Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   timeEntries    TimeEntry[]
   photos         JobPhoto[]
   mediaAssets    MediaAsset[]
@@ -369,6 +374,7 @@ model Job {
   @@index([orgId, updatedAt])
   @@index([customerId])
   @@index([propertyId])
+  @@index([quoteId])
   @@map("jobs")
 }
 
@@ -527,6 +533,7 @@ model Quote {
   updatedAt   DateTime     @updatedAt
 
   lines QuoteLine[]
+  jobs  Job[]
 
   @@index([orgId, status])
   @@map("quotes")

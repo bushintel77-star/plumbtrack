@@ -6,6 +6,9 @@ export const createJobSchema = z.object({
   client: z.string().trim().min(1),
   address: z.string().trim().min(1),
   scope: z.string().trim().min(1),
+  // Quote this job fulfils — the field agent renders the quote's agreed
+  // scope/lines from this link, so technicians never re-enter quoted work.
+  quoteId: z.string().trim().min(1).optional(),
   requiredSkill: z.string().trim().min(1).optional(),
   phone: z.string().trim().min(1).optional(),
   accessCode: z.string().trim().min(1).optional(),
@@ -27,6 +30,7 @@ export const updateJobSchema = z.object({
   propertyId: z.string().trim().min(1).nullable().optional(),
   status: jobStatusSchema.optional(),
   signature: z.string().nullable().optional(),
+  quoteId: z.string().trim().min(1).nullable().optional(),
 });
 
 export const createTimeEntrySchema = z.object({

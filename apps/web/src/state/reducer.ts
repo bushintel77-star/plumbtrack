@@ -552,6 +552,9 @@ export function reducer(state: AppState, action: Action): AppState {
           client: action.job.client,
           address: action.job.address,
           scope: action.job.scope,
+          // Persist the quote link server-side — the field agent renders the
+          // agreed scope/lines from this link (quote→job automation).
+          ...(action.job.quoteId ? { quoteId: action.job.quoteId } : {}),
           ...(action.job.phone ? { phone: action.job.phone } : {}),
           ...(action.job.accessCode ? { accessCode: action.job.accessCode } : {}),
         },

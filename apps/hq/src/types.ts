@@ -115,6 +115,8 @@ export interface Job {
   /** Multi-day linked schedules: fragments share a group id + color token. */
   linkedGroupId?: string
   status: JobStatus
+  /** Stripe payment lifecycle for this job ("unpaid" | "processing" | "paid" | "failed"). */
+  paymentStatus?: string
   elapsedSeconds: number
   timerRunning: boolean
   clockOnCount: number

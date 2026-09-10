@@ -34,6 +34,12 @@ interface SyncJobRow {
   field_note: string | null;
   checklist_items: Array<{ id: string; label: string; sort_order: number; completed_at: string | null; completed_by: string | null }>;
   time_entries: unknown[];
+  quote: {
+    id: string;
+    status: string;
+    description: string;
+    lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+  } | null;
   created_at: number;
   updated_at: number;
 }
@@ -51,6 +57,12 @@ function toRow(job: {
   appointments?: Array<{ assignedStaffId: string | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
+  quote?: {
+    id: string;
+    status: string;
+    description: string;
+    lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }): SyncJobRow {
@@ -75,6 +87,16 @@ function toRow(job: {
       completed_at: item.completedAt ? item.completedAt.toISOString() : null,
       completed_by: item.completedBy,
     })),
+    // Agreed-work payload: the quote rides with the job so the field agent
+    // renders what was quoted without any technician re-entry.
+    quote: job.quote
+      ? {
+          id: job.quote.id,
+          status: job.quote.status,
+          description: job.quote.description,
+          lines: job.quote.lines.map(line => ({ desc: line.desc, qty: line.qty, unit: line.unit, rate: line.rate })),
+        }
+      : null,
     time_entries: (job.timeEntries ?? []).map(entry => ({
       id: entry.id,
       staffId: entry.staffId,
@@ -103,7 +125,12 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         orgId,
         ...(isFirstPull ? {} : { updatedAt: { gt: new Date(cursorMs) } })
       },
-      include: { timeEntries: true, checklistItems: { orderBy: { sortOrder: "asc" } }, appointments: { orderBy: { scheduledStart: "asc" }, take: 1 } },
+      include: {
+        timeEntries: true,
+        checklistItems: { orderBy: { sortOrder: "asc" } },
+        appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
+        quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
+      },
       orderBy: { updatedAt: "asc" },
       take: SYNC_JOB_CAP
     });

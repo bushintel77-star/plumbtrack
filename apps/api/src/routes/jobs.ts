@@ -34,7 +34,13 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       : JOB_LIST_DEFAULT;
     return prisma.job.findMany({
       where: { orgId },
-      include: { timeEntries: true, photos: true },
+      include: {
+        timeEntries: true,
+        photos: true,
+        // Agreed-work payload for the field agent: quote + lines ride with
+        // the job so technicians see what was quoted without re-entry.
+        quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
+      },
       orderBy: { createdAt: "desc" },
       take,
     });
@@ -58,11 +64,20 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ message: "Property does not belong to the selected customer" });
       }
     }
+    // The quote link is the field agent's source of agreed scope — validate
+    // it belongs to this org so a cross-tenant id can't be attached.
+    let quoteLinkId: string | undefined;
+    if (parsed.data.quoteId) {
+      const quote = await prisma.quote.findFirst({ where: { id: parsed.data.quoteId, orgId }, select: { id: true } });
+      if (!quote) return reply.code(404).send({ message: "Quote not found" });
+      quoteLinkId = quote.id;
+    }
     // Best-effort geocode: the map needs coordinates and the field only sends
     // an address. A provider failure stores nulls — the job is never blocked.
     const geo = await geocodeAddress(parsed.data.address)
+    const { quoteId: _ignored, ...createData } = parsed.data;
     const job = await prisma.job.create({
-      data: { ...parsed.data, ...(geo ? { lat: geo.lat, lng: geo.lng } : {}), orgId },
+      data: { ...createData, ...(quoteLinkId ? { quoteId: quoteLinkId } : {}), ...(geo ? { lat: geo.lat, lng: geo.lng } : {}), orgId },
       include: { timeEntries: true, photos: true },
     });
     // Dynamic checklist: template by jobType + any quoted-line scope items
@@ -236,6 +251,18 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         if (!property) return reply.code(404).send({ message: "Property not found" });
       }
     }
+    // Quote re-linking is office-controlled (link/unlink a quote to a job);
+    // validate ownership so a cross-tenant quote id can't be attached.
+    let quoteLink: string | null | undefined;
+    if (parsed.data.quoteId !== undefined) {
+      if (parsed.data.quoteId === null) {
+        quoteLink = null;
+      } else {
+        const quote = await prisma.quote.findFirst({ where: { id: parsed.data.quoteId, orgId }, select: { id: true } });
+        if (!quote) return reply.code(404).send({ message: "Quote not found" });
+        quoteLink = quote.id;
+      }
+    }
     const updatedJob = await prisma.$transaction(async (tx) => {
       let shouldEmitCompleted = false;
       if (parsed.data.status === "completed") {
@@ -243,9 +270,10 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
         if (!currentJob) return null;
         shouldEmitCompleted = currentJob.status !== "completed";
       }
+      const { quoteId: _unvalidatedQuote, ...updateData } = parsed.data;
       const result = await tx.job.updateMany({
         where: { id, orgId },
-        data: parsed.data,
+        data: { ...updateData, ...(quoteLink !== undefined ? { quoteId: quoteLink } : {}) },
       });
       if (result.count === 0) return null;
       // Address moved → coordinates re-geocode (best-effort; nulls keep the

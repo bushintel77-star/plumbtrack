@@ -1,37 +1,68 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { FileText, Download } from "lucide-react"
 
+import { apiGet } from "@/lib/api"
 import { formatDate } from "@/lib/format"
 import { documentVerdict } from "@/lib/fieldloop"
 import { cn } from "@/lib/utils"
-import { useJobsList } from "@/stores/boardStore"
 import { DOC_CATEGORIES, type ComplianceDoc, type DocCategory } from "@/types"
 
 import { ExpiryChip, HonestAction } from "./common"
 
-function useDocuments(): ComplianceDoc[] {
-  const jobs = useJobsList()
-  // Real job-attached documents only. The hardcoded orgDocuments seed used to
-  // be merged in unconditionally — fabricated compliance records (including a
-  // fake expired accreditation) rendered next to live data in production.
-  return useMemo(
-    () =>
-      jobs.flatMap(job =>
-        job.documents.map(doc => ({
-          ...doc,
-          category: doc.category ?? ("Job Records" as DocCategory),
-          owner: doc.owner ?? job.client,
-          linkedJobId: doc.linkedJobId ?? job.id
-        }))
-      ),
-    [jobs]
+/** Live document register from /api/documents — the API's JobDocument model
+ *  (name, category, expiresOn, version history). Files themselves live in the
+ *  media vault; a version with a recorded url downloads for real. */
+interface ApiDocument {
+  id: string
+  jobId?: string | null
+  name: string
+  category: string
+  expiresOn?: string | null
+  notes?: string | null
+  currentVersion?: { fileName?: string; url?: string | null; uploadedAt?: string; uploadedBy?: string } | null
+  versions?: Array<{ fileName?: string; url?: string | null; uploadedAt?: string; uploadedBy?: string }>
+}
+
+const CATEGORY_FALLBACK: DocCategory = "Job Records"
+
+function toComplianceDoc(apiDoc: ApiDocument): ComplianceDoc {
+  const latest = apiDoc.currentVersion ?? apiDoc.versions?.[0] ?? null
+  const category = (DOC_CATEGORIES as readonly string[]).includes(apiDoc.category)
+    ? (apiDoc.category as DocCategory)
+    : CATEGORY_FALLBACK
+  return {
+    id: apiDoc.id,
+    name: apiDoc.name,
+    ref: apiDoc.id.slice(-6).toUpperCase(),
+    category,
+    docType: apiDoc.category,
+    entityType: apiDoc.jobId ? undefined : "company",
+    owner: latest?.uploadedBy ?? "Company",
+    issuedAt: latest?.uploadedAt ?? undefined,
+    expiresAt: apiDoc.expiresOn ?? null,
+    fileUrl: latest?.url ?? undefined,
+    linkedJobId: apiDoc.jobId ?? undefined
+  }
+}
+
+function useDocuments(): { documents: ComplianceDoc[]; loading: boolean; error: unknown } {
+  const documentsQuery = useQuery({
+    queryKey: ["documents-surface"],
+    queryFn: () => apiGet<ApiDocument[]>("/api/documents"),
+    refetchInterval: 30000
+  })
+  const documents = useMemo(
+    () => (documentsQuery.data ?? []).map(toComplianceDoc),
+    [documentsQuery.data]
   )
+  return { documents, loading: documentsQuery.isLoading, error: documentsQuery.error }
 }
 
 export function DocumentsSurface() {
-  const documents = useDocuments()
+  const { documents, loading, error } = useDocuments()
   const [category, setCategory] = useState<DocCategory>("Compliance & Licenses")
   const [selectedId, setSelectedId] = useState("")
 
@@ -46,6 +77,8 @@ export function DocumentsSurface() {
     <>
       <aside className="fl-panel fl-tree" aria-label="Document categories">
         <div className="fl-kicker">Categories</div>
+        {loading && <div className="fl-muted">Loading live documents…</div>}
+        {error ? <div className="fl-muted">API unavailable — no live document register.</div> : null}
         {DOC_CATEGORIES.map(item => (
           <button
             type="button"
@@ -68,7 +101,7 @@ export function DocumentsSurface() {
             <b>expiring or expired</b>
           </div>
         </div>
-        {inCategory.length === 0 && <div className="fl-muted">No documents in this category.</div>}
+        {!loading && inCategory.length === 0 && <div className="fl-muted">No documents in this category.</div>}
         {inCategory.map(doc => {
           const verdict = documentVerdict(doc)
           return (
@@ -105,9 +138,15 @@ export function DocumentsSurface() {
                 ? `Expires ${formatDate(selected.expiresAt)}`
                 : "No expiry — kept on record"}
             </p>
-            <HonestAction requirement="S3-compatible file storage" icon={<Download size={13} />}>
-              Download original
-            </HonestAction>
+            {selected.fileUrl ? (
+              <a className="fl-download" href={selected.fileUrl} target="_blank" rel="noreferrer">
+                <Download size={13} /> Download original
+              </a>
+            ) : (
+              <HonestAction requirement="a file uploaded through the media vault" icon={<Download size={13} />}>
+                Download original
+              </HonestAction>
+            )}
           </>
         ) : (
           <>
