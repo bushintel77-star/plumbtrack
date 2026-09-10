@@ -76,28 +76,29 @@ export default defineRailway(() => {
 
   const web = service("web", {
     source: github("bushintel77-star/plumbtrack"),
-    // Pin the app Dockerfile explicitly. A Dockerfile also exists at the repo
-    // root (historical copy missing the NEXT_PUBLIC_* ARG block) — without
-    // this pin, a service recreated in the dashboard could silently build
-    // from the root file and ship a bundle with no build-time env inlined.
+    // 2026-09-10: this service now serves the **FieldLoop field agent** — the
+    // Expo app in the plumbtrack-mobile repo (local: my-mobile-app/). Deploys
+    // run `railway up -s web` FROM that repo's checkout, so dockerfilePath is
+    // relative to THAT root ("Dockerfile" at its top level). The superseded
+    // first-draft PWA (apps/web) remains in the monorepo but is no longer
+    // deployed to this URL.
     build: {
       builder: "DOCKERFILE",
-      dockerfilePath: "apps/web/Dockerfile",
+      dockerfilePath: "Dockerfile",
     },
     replicas: { "us-west2": 1 },
     env: {
       PORT: preserve(),
-      // NEXT_PUBLIC_* are inlined at BUILD time (declared as Dockerfile ARGs).
-      // Build-time vars must be LITERALS: a ref() resolves at runtime only, so
-      // the old `ref(api, "RAILWAY_PUBLIC_DOMAIN")` never reached the Docker
-      // build and the deployed bundle silently fell back to localhost:8080
-      // (live-verified 2026-09-09). If the api domain changes, update here.
-      // DEVICE_BOOTSTRAP_TOKEN must match the api service's DEVICE_BOOTSTRAP_TOKEN
-      // (set in the dashboard) or field enrollment will fail after the legacy
-      // tenant header is disabled.
-      NEXT_PUBLIC_API_URL: "https://api-production-363e.up.railway.app",
-      NEXT_PUBLIC_ORG_ID: "org_caulfield_south",
-      NEXT_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
+      // EXPO_PUBLIC_* are inlined at BUILD time (declared as Dockerfile ARGs
+      // in plumbtrack-mobile's Dockerfile). Build-time vars must be LITERALS:
+      // a ref() resolves at runtime only and never reaches the Docker build
+      // (live-verified 2026-09-09 failure mode). If the api domain changes,
+      // update here. DEVICE_BOOTSTRAP_TOKEN must match the api service's
+      // DEVICE_BOOTSTRAP_TOKEN — it is public-by-design (it ships in the
+      // browser bundle), production auth relies on api-side revocation work.
+      EXPO_PUBLIC_API_URL: "https://api-production-363e.up.railway.app",
+      EXPO_PUBLIC_ORG_ID: "org_caulfield_south",
+      EXPO_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
     },
   });
 

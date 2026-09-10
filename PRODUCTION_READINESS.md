@@ -1,6 +1,17 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-09-09 (post-merge deploy-drift incident + production verification)
+Updated: 2026-09-10 (field agent deployed to production web)
+
+## 2026-09-10 — web service now serves the FieldLoop field agent
+
+The technician URL (web-production-364b4f) serves the **Expo field agent** from the `plumbtrack-mobile` repo — the chosen "Steel Instrument" mockup design — replacing the superseded first-draft PWA (`apps/web` remains in the monorepo, undeployed). Deployed end-to-end verified: enrollment (201 technician, session persisted), WatermelonDB pull-sync (LIVE badge, real jobs listed), clock-on with GPS + pay engine.
+
+Deployment fixes required to make it production-viable (all in plumbtrack-mobile):
+- Static `EXPO_PUBLIC_*` reads (dynamic `process.env[key]` never inlines — same failure mode as apps/web's config).
+- `EXPO_PUBLIC_DEVICE_BOOTSTRAP_TOKEN` sent as the enrollment bearer (production auth rejects header-only enrollment).
+- localStorage fallback for session storage on web (expo-secure-store silently fails there — enrollment/sync never succeeded).
+- Dockerfile: pinned pnpm 10.33, workspace-yaml + patches copied before install, ARG/ENV block, `serve -s` on $PORT.
+- Ops: `railway up` for web must run from the field-agent checkout with its own `railway link` (see AGENTS.md deployment notes).
 
 ## 2026-09-09 deploy-drift incident (found while shipping PR #7)
 
