@@ -33,8 +33,10 @@ export interface LiveLocation {
   lng: number
   heading: number
   speed: number
-  /** Shift presence reported by the field device: on the job vs on a break. */
-  presence: "on_job" | "on_break"
+  /** Shift presence reported by the field device: on the job, on a break, or
+   *  logged off (an off_shift beacon clears the marker — offline techs get
+   *  no pin). */
+  presence: "on_job" | "on_break" | "off_shift"
   timestamp: number
 }
 
@@ -49,10 +51,10 @@ const DEMO_SEED = process.env.NODE_ENV !== "production"
 
 const seedVehicles: Vehicle[] = DEMO_SEED
   ? seedTechs.map(tech => ({
-      id: `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`,
-      label: tech.van,
-      techId: tech.id
-    }))
+    id: `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`,
+    label: tech.van,
+    techId: tech.id
+  }))
   : []
 
 const seedJobsById = keyBy(DEMO_SEED ? seedJobs : [])
@@ -101,6 +103,8 @@ interface BoardState {
 
   /** Merge a batch of telemetry pings into the live map state. */
   mergeLiveLocations: (pings: LiveLocation[]) => void
+  /** Drop a vehicle's live marker entirely (off-shift, stale session). */
+  clearLiveLocation: (vehicleId: string) => void
   /** Apply a remote status transition from topic/jobs/status. */
   applyRemoteStatus: (jobId: string, status: JobStatus) => void
 
@@ -243,6 +247,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       const history: Record<string, LiveLocation[]> = { ...s.liveLocationHistory }
       for (const ping of pings) {
         if (!Number.isFinite(ping.lat) || !Number.isFinite(ping.lng)) continue
+        if (ping.presence === "off_shift") {
+          // A log-off beacon is a clear signal, not a position fix — the van
+          // marker drops and the trail stops growing.
+          delete next[ping.vehicleId]
+          continue
+        }
         next[ping.vehicleId] = ping
         const trail = [...(history[ping.vehicleId] ?? []), ping].slice(-20)
         history[ping.vehicleId] = trail
@@ -250,6 +260,14 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
       return { liveLocations: next, liveLocationHistory: history }
     })
   },
+
+  clearLiveLocation: vehicleId =>
+    set(s => {
+      if (!s.liveLocations[vehicleId]) return s
+      const next = { ...s.liveLocations }
+      delete next[vehicleId]
+      return { liveLocations: next }
+    }),
 
   applyRemoteStatus: (jobId, status) =>
     set(s => ({

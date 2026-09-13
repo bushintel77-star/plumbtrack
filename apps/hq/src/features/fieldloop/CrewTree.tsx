@@ -50,7 +50,7 @@ export function CrewTree({
     tech.name.toLowerCase().includes(query.trim().toLowerCase())
   )
 
-  const liveFor = (tech: Technician): { presence: "on_job" | "on_break"; lat: number; lng: number } | undefined => {
+  const liveFor = (tech: Technician): { presence: "on_job" | "on_break" | "off_shift"; lat: number; lng: number } | undefined => {
     const vehicleId = `veh-${tech.van.toLowerCase().replace(/\s+/g, "-")}`
     const live = liveLocations[vehicleId]
     return live ? { presence: live.presence, lat: live.lat, lng: live.lng } : undefined

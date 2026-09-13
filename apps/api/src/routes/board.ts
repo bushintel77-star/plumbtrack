@@ -60,9 +60,9 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
     const staff =
       assignedStaffIds.length > 0
         ? await prisma.user.findMany({
-            where: { id: { in: assignedStaffIds } },
-            select: { id: true, name: true },
-          })
+          where: { id: { in: assignedStaffIds } },
+          select: { id: true, name: true },
+        })
         : [];
     const staffNameById = new Map(staff.map(user => [user.id, user.name]));
 
@@ -93,6 +93,9 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           scope: job.scope,
           status: job.status,
           createdAt: job.createdAt,
+          // The quote this job was created from — HQ's quote lifecycle
+          // actions (send/approve) PATCH /api/quotes/:id with this id.
+          quoteId: job.quoteId,
           /** Geocoded coordinates (null until the address geocodes). */
           location: job.lat != null && job.lng != null
             ? { lat: job.lat, lng: job.lng }
@@ -111,15 +114,15 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           })),
           appointment: appointment
             ? {
-                id: appointment.id,
-                assignedStaffId: appointment.assignedStaffId,
-                assignedStaffName: appointment.assignedStaffId
-                  ? staffNameById.get(appointment.assignedStaffId) ?? null
-                  : null,
-                scheduledStart: appointment.scheduledStart,
-                scheduledEnd: appointment.scheduledEnd,
-                status: appointment.status,
-              }
+              id: appointment.id,
+              assignedStaffId: appointment.assignedStaffId,
+              assignedStaffName: appointment.assignedStaffId
+                ? staffNameById.get(appointment.assignedStaffId) ?? null
+                : null,
+              scheduledStart: appointment.scheduledStart,
+              scheduledEnd: appointment.scheduledEnd,
+              status: appointment.status,
+            }
             : null,
         };
       }),
@@ -149,13 +152,13 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
             lng: job.lng,
             appointment: appointment
               ? {
-                  assignedStaffId: appointment.assignedStaffId,
-                  assignedStaffName: appointment.assignedStaffId
-                    ? staffNameById.get(appointment.assignedStaffId) ?? null
-                    : null,
-                  scheduledStart: appointment.scheduledStart.toISOString(),
-                  scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
-                }
+                assignedStaffId: appointment.assignedStaffId,
+                assignedStaffName: appointment.assignedStaffId
+                  ? staffNameById.get(appointment.assignedStaffId) ?? null
+                  : null,
+                scheduledStart: appointment.scheduledStart.toISOString(),
+                scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
+              }
               : null,
             timeEntries: job.timeEntries.map((entry) => ({
               start: entry.start.toISOString(),
@@ -204,13 +207,13 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           lng: job.lng,
           appointment: appointment
             ? {
-                assignedStaffId: appointment.assignedStaffId,
-                assignedStaffName: appointment.assignedStaffId
-                  ? staffNameById.get(appointment.assignedStaffId) ?? null
-                  : null,
-                scheduledStart: appointment.scheduledStart.toISOString(),
-                scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
-              }
+              assignedStaffId: appointment.assignedStaffId,
+              assignedStaffName: appointment.assignedStaffId
+                ? staffNameById.get(appointment.assignedStaffId) ?? null
+                : null,
+              scheduledStart: appointment.scheduledStart.toISOString(),
+              scheduledEnd: appointment.scheduledEnd ? appointment.scheduledEnd.toISOString() : null,
+            }
             : null,
           timeEntries: job.timeEntries.map((entry) => ({
             start: entry.start.toISOString(),

@@ -70,18 +70,40 @@ export default defineRailway(() => {
       // dashboard — without it the proxy answers 503 and the map keeps
       // straight-line dashed routes.
       ORS_API_KEY: preserve(),
+      // ── Dashboard-set secrets — preserve() so a `railway config apply`
+      // never silently drops them. Set these in the Railway dashboard; they
+      // are never committed. ──
+      // Stripe Checkout (payment links) + inbound webhook verification.
+      STRIPE_SECRET_KEY: preserve(),
+      STRIPE_WEBHOOK_SECRET: preserve(),
+      // Customer-facing redirect targets after Stripe Checkout. Unset →
+      // customers land on a placeholder domain.
+      PAYMENT_SUCCESS_URL: preserve(),
+      PAYMENT_CANCEL_URL: preserve(),
+      // Slack integration: OAuth connect flow, inbound HMAC (v0) event
+      // verification, and the outbound automation webhook.
+      SLACK_CLIENT_ID: preserve(),
+      SLACK_CLIENT_SECRET: preserve(),
+      SLACK_SIGNING_SECRET: preserve(),
+      SLACK_WEBHOOK_URL: preserve(),
+      // Media upload completion upstream (signed PUT target base) — set with
+      // the bucket credentials when object storage is provisioned.
+      MEDIA_UPLOAD_BASE_URL: preserve(),
     },
     replicas: { "us-west2": 1 },
   });
 
   const web = service("web", {
-    source: github("bushintel77-star/plumbtrack"),
-    // 2026-09-10: this service now serves the **FieldLoop field agent** — the
-    // Expo app in the plumbtrack-mobile repo (local: my-mobile-app/). Deploys
-    // run `railway up -s web` FROM that repo's checkout, so dockerfilePath is
-    // relative to THAT root ("Dockerfile" at its top level). The superseded
-    // first-draft PWA (apps/web) remains in the monorepo but is no longer
-    // deployed to this URL.
+    // This service serves the **FieldLoop field agent** — the Expo app in the
+    // plumbtrack-mobile repo (local: my-mobile-app/). The source MUST point at
+    // that repo: the monorepo root has no top-level Dockerfile, so leaving
+    // this on plumbtrack would make any reconnected GitHub auto-deploy fail
+    // builds immediately (the "couldn't locate the dockerfile" trap).
+    source: github("bushintel77-star/plumbtrack-mobile"),
+    // Deploys also run `railway up -s web` FROM that repo's checkout, so
+    // dockerfilePath is relative to THAT root ("Dockerfile" at its top
+    // level). The superseded first-draft PWA (apps/web) was deleted from the
+    // monorepo; git history keeps it.
     build: {
       builder: "DOCKERFILE",
       dockerfilePath: "Dockerfile",

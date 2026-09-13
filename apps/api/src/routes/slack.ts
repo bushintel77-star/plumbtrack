@@ -83,11 +83,16 @@ function redirectToConnectResult(reply: FastifyReply, outcome: "connected" | "de
   return reply.code(302).redirect(`${hqAppBase()}/?module=slack&slack_connect=${outcome}`);
 }
 
+/** Slack is an office surface — field sessions never proxy-read or configure it. */
+const OFFICE_ROLES = ["dispatcher", "manager", "admin", "owner"] as const;
+
 export async function slackRoutes(app: FastifyInstance): Promise<void> {
-  // ── Connection state (safe for any signed-in operator) ────────────────────
+  // ── Connection state (office roles — the workspace detail isn't field data) ──
   app.get("/workspace", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, OFFICE_ROLES);
+    if (roleFailure) return roleFailure;
     const workspace = await workspaceForOrg(orgId);
     if (!workspace) return { connected: false, oauthConfigured: isSlackOAuthConfigured() };
     return {
@@ -212,10 +217,12 @@ export async function slackRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(204).send();
   });
 
-  // ── Automation routing (manager+) ─────────────────────────────────────────
+  // ── Automation routing (reads office, writes manager+) ───────────────────
   app.get("/routes", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, OFFICE_ROLES);
+    if (roleFailure) return roleFailure;
     const workspace = await workspaceForOrg(orgId);
     return {
       eventTypes: EVENT_TYPES,
@@ -263,9 +270,13 @@ export async function slackRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ── Slack reads (the messages live in Slack — proxy, never store) ─────────
+  // Office roles only: a field session must not read the org's channel
+  // history through this proxy.
   app.get("/channels", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, OFFICE_ROLES);
+    if (roleFailure) return roleFailure;
     const workspace = await workspaceForOrg(orgId);
     if (!workspace) return reply.code(409).send({ message: "No connected Slack workspace" });
     const result = await slackListChannels(workspace.accessToken);
@@ -276,6 +287,8 @@ export async function slackRoutes(app: FastifyInstance): Promise<void> {
   app.get("/channels/:channelId/messages", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, OFFICE_ROLES);
+    if (roleFailure) return roleFailure;
     const workspace = await workspaceForOrg(orgId);
     if (!workspace) return reply.code(409).send({ message: "No connected Slack workspace" });
     const { channelId } = request.params as { channelId: string };

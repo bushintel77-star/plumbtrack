@@ -31,6 +31,11 @@ vi.mock("@plumbtrack/database", () => ({
 }));
 
 import { buildApp } from "../src/server";
+import { issueAuthToken, type OrganizationRole } from "../src/lib/auth";
+
+function bearer(role: OrganizationRole): string {
+  return `Bearer ${issueAuthToken({ userId: "user-tech", organizationId: "org-caulfield", role })}`;
+}
 
 const ORG = "org-caulfield";
 
@@ -100,5 +105,65 @@ describe("residential customer, property, and appointment routes", () => {
     });
     expect(response.statusCode).toBe(201);
     expect(createAppointment).toHaveBeenCalledWith({ data: expect.objectContaining({ orgId: ORG, jobId: "J-1", assignedStaffId: "tim" }) });
+  });
+
+  // Assignment/scheduling edits must ride the advisory-lock path in
+  // PATCH /api/jobs/:id/assignment — a technician session may only move the
+  // field-visible lifecycle status on their appointment.
+  it("lets a technician PATCH a field-progression status", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/appointments/appointment-1",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { status: "en_route" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(updateAppointment).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "appointment-1", orgId: ORG }, data: { status: "en_route" } }),
+    );
+  });
+
+  it("forbids a technician from reassigning an appointment", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/appointments/appointment-1",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { assignedStaffId: "someone-else" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(updateAppointment).not.toHaveBeenCalled();
+  });
+
+  it("forbids a technician from rescheduling an appointment", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/appointments/appointment-1",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { status: "arrived", scheduledStart: "2026-08-25T09:00:00.000Z" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(updateAppointment).not.toHaveBeenCalled();
+  });
+
+  it("forbids a technician from cancelling an appointment (dispatch decision)", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/appointments/appointment-1",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { status: "cancelled" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(updateAppointment).not.toHaveBeenCalled();
+  });
+
+  it("lets an office role reschedule an appointment", async () => {
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/appointments/appointment-1",
+      headers: { "x-organization-id": ORG, authorization: bearer("dispatcher") },
+      payload: { scheduledStart: "2026-08-25T09:00:00.000Z" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(updateAppointment).toHaveBeenCalled();
   });
 });

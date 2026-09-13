@@ -53,12 +53,13 @@ export function presenceFor(tech: Technician, jobs: Job[], day: string): Presenc
 
 /** Live-shift override: when the field device has streamed that this vehicle
  *  is on a break, that is more truthful than the derived job/absence state.
- *  With no live signal, it defers to `presenceFor` unchanged. */
+ *  An off_shift beacon is treated as no live signal (the marker is already
+ *  cleared upstream) and everything else defers to `presenceFor` unchanged. */
 export function livePresenceFor(
   tech: Technician,
   jobs: Job[],
   day: string,
-  live: { presence: "on_job" | "on_break" } | undefined
+  live: { presence: "on_job" | "on_break" | "off_shift" } | undefined
 ): Presence {
   if (live?.presence === "on_break") return "on_break"
   return presenceFor(tech, jobs, day)

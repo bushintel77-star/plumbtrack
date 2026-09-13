@@ -31,6 +31,9 @@ export interface ApiJob {
   createdAt: string
   /** Geocoded coordinates from the API (null until the address geocodes). */
   location?: { lat: number; lng: number } | null
+  /** The quote this job was created from — the id quote lifecycle actions
+   *  (send/approve) PATCH on /api/quotes/:id. Absent on older servers. */
+  quoteId?: string | null
   /** Server-authoritative assignment (G-1/G-2 round-trip). `null` when the
    *  job has no schedulable appointment yet. */
   appointment?: ApiAppointment | null
@@ -181,14 +184,20 @@ function techForJob(apiJob: ApiJob, technicians: Technician[]): Technician | und
 export function adaptApiBoard(
   payload: ApiBoardPayload,
   technicians: Technician[]
-): { jobs: Record<string, Job> } {  const jobs: Job[] = payload.jobs.map((apiJob, index) => {
+): { jobs: Record<string, Job> } {
+  const jobs: Job[] = payload.jobs.map((apiJob, index) => {
     const tech = techForJob(apiJob, technicians)
     const slot = slotFromAppointment(apiJob.appointment) ?? { ...slotForIndex(index), scheduledDate: isoDay(0) }
-    const apiQuote = payload.quotes.find(q => q.client === apiJob.client)
+    // The server-linked quote wins; the client-name match is a legacy
+    // fallback for servers that don't ship quoteId on the board payload.
+    const apiQuote =
+      (apiJob.quoteId ? payload.quotes.find(q => q.id === apiJob.quoteId) : undefined) ??
+      payload.quotes.find(q => q.client === apiJob.client)
     const running = hasOpenEntry(apiJob.timeEntries)
     const mappedStatus = STATUS_MAP[apiJob.status]
     const quote: Quote = apiQuote
       ? {
+        id: apiQuote.id,
         clientName: apiQuote.client,
         lineItems:
           apiQuote.lines && apiQuote.lines.length > 0

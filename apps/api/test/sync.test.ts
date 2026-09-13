@@ -106,6 +106,42 @@ describe("GET /api/sync (WatermelonDB pull contract)", () => {
     expect(created[0].assigned_staff_id).toBe("staff-7")
   })
 
+  it("ships geocoded coordinates, arrival/departure marks, and photos", async () => {
+    // The field app's map pins, navigate link, and evidence strip all read
+    // these columns — they used to be dropped at the API boundary.
+    const geocoded = {
+      ...JOB("j-4", 5),
+      lat: -37.885,
+      lng: 145.023,
+      arrivedAt: new Date("2026-08-29T00:30:00.000Z"),
+      departedAt: null,
+      photos: [
+        { id: "ph-1", label: "Before", url: "/api/media/ph-1/file", takenAt: new Date("2026-08-29T00:20:00.000Z") },
+      ],
+    }
+    prismaMock.job.findMany.mockResolvedValue([geocoded])
+
+    const res = await app.inject({ method: "GET", url: "/api/sync", headers: { "x-organization-id": ORG } })
+    const created = res.json().changes.jobs.created
+
+    expect(created[0]).toMatchObject({
+      lat: -37.885,
+      lng: 145.023,
+      arrived_at: "2026-08-29T00:30:00.000Z",
+      departed_at: null,
+      photos: [{ id: "ph-1", label: "Before", url: "/api/media/ph-1/file", taken_at: "2026-08-29T00:20:00.000Z" }],
+    })
+  })
+
+  it("ships nulls for jobs that have not geocoded or been arrived at", async () => {
+    prismaMock.job.findMany.mockResolvedValue([{ ...JOB("j-5", 1), lat: null, lng: null, arrivedAt: null, departedAt: null, photos: [] }])
+
+    const res = await app.inject({ method: "GET", url: "/api/sync", headers: { "x-organization-id": ORG } })
+    const created = res.json().changes.jobs.created
+
+    expect(created[0]).toMatchObject({ lat: null, lng: null, arrived_at: null, departed_at: null, photos: [] })
+  })
+
   it("requires an org context", async () => {
     const res = await app.inject({ method: "GET", url: "/api/sync" })
     expect(res.statusCode).toBeGreaterThanOrEqual(400)

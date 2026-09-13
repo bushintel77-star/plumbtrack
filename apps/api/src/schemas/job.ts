@@ -6,6 +6,11 @@ export const createJobSchema = z.object({
   client: z.string().trim().min(1),
   address: z.string().trim().min(1),
   scope: z.string().trim().min(1),
+  // Optional schedule for the job's first appointment. When present the
+  // create also persists a schedulable Appointment row so the assignment
+  // endpoint (which requires one) works on the new job immediately.
+  scheduledStart: z.string().datetime().optional(),
+  scheduledEnd: z.string().datetime().optional(),
   // Quote this job fulfils — the field agent renders the quote's agreed
   // scope/lines from this link, so technicians never re-enter quoted work.
   quoteId: z.string().trim().min(1).optional(),
@@ -47,6 +52,23 @@ export const updateTimeEntrySchema = z.object({
   staffId: z.string().trim().min(1).optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().nullable(),
+});
+
+/** Field write: customer signature capture at sign-off. signatureData is a
+ *  base64 stroke payload — bounded so a field session can't blob-bomb the
+ *  jobs row. Last-write-wins on Job.signature. */
+export const signoffJobSchema = z.object({
+  opId: z.string().trim().min(1).optional(),
+  signatureData: z.string().min(1).max(500_000),
+  signedAt: z.string().datetime().optional(),
+});
+
+/** Field write: site arrival/departure marks — the evidence pair the
+ *  auto-generated site note and travel-buffer flags are computed from. */
+export const jobEventSchema = z.object({
+  opId: z.string().trim().min(1).optional(),
+  event: z.enum(["arrived", "departed"]),
+  occurredAt: z.string().datetime(),
 });
 
 export const createPhotoSchema = z.object({

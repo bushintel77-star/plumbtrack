@@ -31,6 +31,7 @@ import { useBoardStore, useJobsList } from "@/stores/boardStore"
 import type { Job } from "@/types"
 
 import { CrewTree } from "./CrewTree"
+import { NewJobForm } from "./NewJobForm"
 import { useFailedOps } from "./failedOps"
 import { AttentionPane, Inspector, SyncPane } from "./Inspector"
 import { useMinuteClock } from "./useMinuteClock"
@@ -427,6 +428,7 @@ export function DispatchSurface({
         {zoom === "daily" && (
           <div className="fl-queue">
             <span>Unassigned</span>
+            <NewJobForm />
             {queued.length === 0 ? (
               <span>Everything on this day has a crew.</span>
             ) : (

@@ -2,7 +2,7 @@
 
 import { toast } from "@/hooks/use-toast"
 import { useBoardStore } from "@/stores/boardStore"
-import { authApi, persistJobStatus } from "@/lib/api"
+import { apiRequest, authApi, persistJobStatus } from "@/lib/api"
 import { enqueueSync } from "@/lib/offline"
 import type { OptimizeResult } from "@/lib/optimize"
 import type { JobStatus } from "@/types"
@@ -156,11 +156,10 @@ export async function performRouteApply(result: OptimizeResult): Promise<boolean
   const travel = result.routes.reduce((sum, r) => sum + r.travelMinutes, 0)
   toast({
     title: `Route applied — ${stops.length} stop${stops.length > 1 ? "s" : ""}`,
-    description: `${result.routes.length} route${result.routes.length > 1 ? "s" : ""} · ~${travel} min total travel${
-      result.unplaced.length > 0
-        ? ` · ${result.unplaced.length} left in queue (${result.unplaced[0].reason})`
-        : ""
-    }`
+    description: `${result.routes.length} route${result.routes.length > 1 ? "s" : ""} · ~${travel} min total travel${result.unplaced.length > 0
+      ? ` · ${result.unplaced.length} left in queue (${result.unplaced[0].reason})`
+      : ""
+      }`
   })
   return true
 }
@@ -301,9 +300,30 @@ export async function performStatusOverride(jobId: string, status: JobStatus): P
   })
 }
 
-export function performMarkSent(jobId: string): void {
+/** Persist a quote lifecycle transition through /api/quotes/:id when the
+ *  board is live and the job carries a real quote record. Local transitions
+ *  without a linked quote are honest about being unsaved-on-server. */
+async function persistQuoteStatus(
+  jobId: string,
+  quoteId: string,
+  status: "sent" | "accepted"
+): Promise<boolean> {
+  try {
+    await apiRequest(`/api/quotes/${quoteId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    })
+    return true
+  } catch {
+    useBoardStore.getState().rollbackJobs()
+    return false
+  }
+}
+
+export async function performMarkSent(jobId: string): Promise<void> {
   const store = useBoardStore.getState()
   const job = store.jobs[jobId]
+  store.snapshotJobs()
   const result = store.markQuoteSent(jobId)
   if (!result.ok) {
     toast({
@@ -313,22 +333,53 @@ export function performMarkSent(jobId: string): void {
     })
     return
   }
+  const quoteId = job?.quote.id
+  if (store.dataMode === "live" && quoteId) {
+    const persisted = await persistQuoteStatus(jobId, quoteId, "sent")
+    if (!persisted) {
+      toast({
+        variant: "destructive",
+        title: "Quote send rolled back",
+        description: "Could not reach the API — the quote stayed in its previous state."
+      })
+      return
+    }
+  }
+  // Honest copy: marking SENT records the status — nothing is dispatched to
+  // the customer by this action (spec §8 honest affordance).
   toast({
-    title: "Quote sent",
-    description: `Financials dispatched to ${job?.quote.clientName}.`
+    title: "Quote marked sent",
+    description: quoteId
+      ? `${job?.quote.clientName ?? "Client"} — status saved to the quote record.`
+      : "Saved locally only — no quote record linked to this job."
   })
 }
 
-export function performMarkApproved(jobId: string): void {
+export async function performMarkApproved(jobId: string): Promise<void> {
   const store = useBoardStore.getState()
   const job = store.jobs[jobId]
+  store.snapshotJobs()
   const result = store.markQuoteApproved(jobId)
   if (!result.ok) {
     toast({ variant: "destructive", title: "Cannot approve", description: result.reason })
     return
   }
+  const quoteId = job?.quote.id
+  if (store.dataMode === "live" && quoteId) {
+    const persisted = await persistQuoteStatus(jobId, quoteId, "accepted")
+    if (!persisted) {
+      toast({
+        variant: "destructive",
+        title: "Approval rolled back",
+        description: "Could not reach the API — the quote stayed SENT."
+      })
+      return
+    }
+  }
   toast({
     title: "Quote approved",
-    description: `${job?.quote.clientName} signed off on the pricing.`
+    description: quoteId
+      ? `${job?.quote.clientName} signed off on the pricing.`
+      : "Saved locally only — no quote record linked to this job."
   })
 }

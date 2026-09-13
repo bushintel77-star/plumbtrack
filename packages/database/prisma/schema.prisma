@@ -339,6 +339,11 @@ model Job {
   /// Technician's free-text site note (single last-write-wins note, distinct
   /// from the threaded JobMessage conversation).
   fieldNote       String?
+  /// Field-captured site arrival/departure timestamps (POST /api/jobs/:id/events).
+  /// Monotonic last-write-wins: the server keeps the earliest arrival and the
+  /// latest departure.
+  arrivedAt       DateTime?
+  departedAt      DateTime?
   stripeSessionId String?      @unique
   paymentStatus   String       @default("unpaid")
   /// Geocoded job coordinates (forward-geocoded from `address` via the

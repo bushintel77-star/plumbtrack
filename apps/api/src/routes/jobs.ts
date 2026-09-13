@@ -5,6 +5,8 @@ import {
   createJobSchema,
   createPhotoSchema,
   createTimeEntrySchema,
+  jobEventSchema,
+  signoffJobSchema,
   updateJobSchema,
   updateTimeEntrySchema,
 } from "../schemas/job";
@@ -22,6 +24,14 @@ import { JOB_LIST_DEFAULT, JOB_LIST_MAX } from "../lib/limits";
 
 /** Roles allowed to record field work (time entries and site photos). */
 const FIELD_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
+
+/** Default slot for a job created without a schedule: today 08:00 UTC — the
+ *  board day's first block (the assignment endpoint keeps the appointment's
+ *  DATE and re-slots the clock time on drag, so only the date matters). */
+function nextBoardDayStart(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 8, 0));
+}
 
 export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (request, reply) => {
@@ -75,10 +85,20 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     // Best-effort geocode: the map needs coordinates and the field only sends
     // an address. A provider failure stores nulls — the job is never blocked.
     const geo = await geocodeAddress(parsed.data.address)
-    const { quoteId: _ignored, ...createData } = parsed.data;
-    const job = await prisma.job.create({
-      data: { ...createData, ...(quoteLinkId ? { quoteId: quoteLinkId } : {}), ...(geo ? { lat: geo.lat, lng: geo.lng } : {}), orgId },
-      include: { timeEntries: true, photos: true },
+    const { quoteId: _ignored, scheduledStart, scheduledEnd, ...createData } = parsed.data;
+    // Every job gets one schedulable appointment — PATCH /:id/assignment
+    // requires `appointments[0]`, so a job created without one could never be
+    // assigned. Unassigned by default; the dispatcher drags it onto the board.
+    const appointmentStart = scheduledStart ? new Date(scheduledStart) : nextBoardDayStart();
+    const appointmentEnd = scheduledEnd ? new Date(scheduledEnd) : new Date(appointmentStart.getTime() + 30 * 60 * 1000);
+    const job = await prisma.$transaction(async (tx) => {
+      const created = await tx.job.create({
+        data: { ...createData, ...(quoteLinkId ? { quoteId: quoteLinkId } : {}), ...(geo ? { lat: geo.lat, lng: geo.lng } : {}), orgId },
+      });
+      await tx.appointment.create({
+        data: { orgId, jobId: created.id, scheduledStart: appointmentStart, scheduledEnd: appointmentEnd },
+      });
+      return created;
     });
     // Dynamic checklist: template by jobType + any quoted-line scope items
     // riding the create payload (quote→job conversion path).
@@ -91,7 +111,12 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     });
     const jobWithChecklist = await prisma.job.findFirst({
       where: { id: job.id, orgId },
-      include: { timeEntries: true, photos: true, checklistItems: { orderBy: { sortOrder: "asc" } } },
+      include: {
+        timeEntries: true,
+        photos: true,
+        checklistItems: { orderBy: { sortOrder: "asc" } },
+        appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
+      },
     });
     recordAuditEvent(request, {
       action: "job.created",
@@ -455,24 +480,33 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   app.patch("/:id/time-entries/:entryId", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
-    const roleFailure = requireRole(request, reply, ["manager", "admin", "owner"]);
-    if (roleFailure) return roleFailure;
     const { id, entryId } = request.params as { id: string; entryId: string };
     const job = await prisma.job.findFirst({ where: { id, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
     const parsed = parseBody(updateTimeEntrySchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    // Field close-out is a field write (same trust class as clock-in): a
+    // technician session may set `end` and nothing else. staffId/start edits
+    // are timesheet corrections — dispatch authority, manager+.
+    const isFieldClose = Object.keys(parsed.data).every((key) => key === "end");
+    const roleFailure = requireRole(request, reply, isFieldClose ? FIELD_ROLES : ["manager", "admin", "owner"]);
+    if (roleFailure) return roleFailure;
     const data: { start?: Date; end?: Date | null; staffId?: string } = {};
     if (parsed.data.staffId) data.staffId = parsed.data.staffId;
     if (parsed.data.start) data.start = new Date(parsed.data.start);
     if (parsed.data.end !== undefined) {
       data.end = parsed.data.end ? new Date(parsed.data.end) : null;
     }
-    // Scope the mutation to the already-authorized job. Updating by entry id
-    // alone would allow a guessed entry id from another job or tenant to be
-    // modified.
+    // Scope the mutation to the already-authorized job. The field agent keys
+    // its queue by the clock-in opId rather than the server id (the create
+    // response is fire-and-forget through the outbox), so :entryId matches
+    // either the row id or its opId.
+    const entry = await prisma.timeEntry.findFirst({
+      where: { jobId: id, OR: [{ id: entryId }, { opId: entryId }] },
+    });
+    if (!entry) return reply.code(404).send({ message: "Time entry not found" });
     const result = await prisma.timeEntry.updateMany({
-      where: { id: entryId, jobId: id },
+      where: { id: entry.id, jobId: id },
       data,
     });
     if (result.count === 0) return reply.code(404).send({ message: "Time entry not found" });
@@ -483,9 +517,9 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       metadata: { jobId: id, ...parsed.data },
     });
     if (parsed.data.end !== undefined) {
-      publishToOrg({ topic: "topic/jobs/activity", orgId, jobId: id, activity: "clock-out", entryId });
+      publishToOrg({ topic: "topic/jobs/activity", orgId, jobId: id, activity: "clock-out", entryId: entry.id });
     }
-    return prisma.timeEntry.findFirst({ where: { id: entryId, jobId: id } });
+    return prisma.timeEntry.findFirst({ where: { id: entry.id, jobId: id } });
   });
 
   // Photos
@@ -535,6 +569,66 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     if (result.count === 0) return reply.code(404).send({ message: "Photo not found" });
     recordAuditEvent(request, { action: "photo.deleted", entityType: "photo", entityId: photoId, metadata: { jobId: id } });
     return reply.code(204).send();
+  });
+
+  // Customer sign-off — field write. The deployed field agent posts the
+  // signature payload here (the web PWA used PATCH {signature}); last-write-wins
+  // on Job.signature. The signature blob never rides live frames — subscribers
+  // just learn that sign-off happened and refetch.
+  app.post("/:id/signoff", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const parsed = parseBody(signoffJobSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const job = await prisma.job.findFirst({ where: { id, orgId }, select: { id: true } });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    await prisma.job.update({ where: { id }, data: { signature: parsed.data.signatureData } });
+    recordAuditEvent(request, {
+      action: "job.signed_off",
+      entityType: "job",
+      entityId: id,
+      metadata: { opId: parsed.data.opId ?? null, signedAt: parsed.data.signedAt ?? null },
+    });
+    publishToOrg({ topic: "topic/jobs/updated", orgId, jobId: id, patch: { signature: "captured" } });
+    return { signature: true };
+  });
+
+  // Site arrival/departure marks — field write, monotonic: the earliest
+  // arrival and latest departure win, so outbox retries and double-taps can
+  // never rewind the record. These are the timestamps the auto site note and
+  // the board's presence/travel flags are computed from.
+  app.post("/:id/events", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, FIELD_ROLES);
+    if (roleFailure) return roleFailure;
+    const { id } = request.params as { id: string };
+    const parsed = parseBody(jobEventSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const job = await prisma.job.findFirst({
+      where: { id, orgId },
+      select: { id: true, arrivedAt: true, departedAt: true },
+    });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    const occurredAt = new Date(parsed.data.occurredAt);
+    const field = parsed.data.event === "arrived" ? "arrivedAt" : "departedAt";
+    const existing = job[field];
+    const wins = !existing || (parsed.data.event === "arrived" ? occurredAt < existing : occurredAt > existing);
+    const effective = wins ? occurredAt : existing!;
+    if (wins) {
+      await prisma.job.update({ where: { id }, data: { [field]: occurredAt } });
+      recordAuditEvent(request, {
+        action: `job.${parsed.data.event}`,
+        entityType: "job",
+        entityId: id,
+        metadata: { occurredAt: parsed.data.occurredAt, opId: parsed.data.opId ?? null },
+      });
+      publishToOrg({ topic: "topic/jobs/updated", orgId, jobId: id, patch: { [field]: occurredAt.toISOString() } });
+    }
+    return { [field]: effective.toISOString() };
   });
 
   // Payment link — Stripe Checkout (test mode by default; live with a secret
