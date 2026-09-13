@@ -119,6 +119,38 @@ describe("GET /api/routes/today", () => {
     expect(routeAuditCreate).not.toHaveBeenCalled();
   });
 
+  it("treats jsonb key-order normalization as unchanged (live-verified 2026-09-14)", async () => {
+    // Postgres jsonb reorders object keys on read-back. The stored stops come
+    // back with a different key order than the freshly computed array — the
+    // comparison must be structural, not string equality.
+    routeVersionFindFirst.mockResolvedValueOnce(null);
+    let persistedStops: { jobId: string; sequence: number; distanceFromPreviousKm: number | null; scheduledStart: string | null }[] = [];
+    routeVersionCreate.mockImplementationOnce(async (args: { data: { stops: typeof persistedStops } }) => {
+      persistedStops = args.data.stops;
+      return { id: "rv-7", version: 7, generatedAt: new Date("2026-09-14T00:00:00.000Z") };
+    });
+    await app.inject({ method: "GET", url: "/api/routes/today", headers: { authorization: bearer("technician") } });
+
+    const jsonbNormalized = persistedStops.map((stop) => ({
+      scheduledStart: stop.scheduledStart,
+      sequence: stop.sequence,
+      distanceFromPreviousKm: stop.distanceFromPreviousKm,
+      jobId: stop.jobId,
+    }));
+
+    vi.clearAllMocks();
+    routeVersionFindFirst.mockResolvedValue({ id: "rv-7", version: 7, generatedAt: new Date("2026-09-14T00:00:00.000Z"), stops: jsonbNormalized });
+    jobFindMany.mockResolvedValue(JOBS);
+    auditCreate.mockResolvedValue({});
+    routeAuditCreate.mockResolvedValue({});
+
+    const response = await app.inject({ method: "GET", url: "/api/routes/today", headers: { authorization: bearer("technician") } });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().version).toBe(7);
+    expect(routeVersionCreate).not.toHaveBeenCalled();
+  });
+
   it("writes a new version when a stop appears", async () => {
     const staleStops = [
       { jobId: "j-a", sequence: 1, distanceFromPreviousKm: null, scheduledStart: "2026-09-14T08:00:00.000Z" },

@@ -9,6 +9,22 @@ const ROUTE_ROLES = ["technician", "dispatcher", "manager", "admin", "owner"] as
 
 const EARTH_RADIUS_KM = 6371;
 
+/** Postgres jsonb normalizes object key order on write — a naive
+ *  JSON.stringify comparison against the stored value can never match, so
+ *  every read would mint a new RouteVersion (live-verified 2026-09-14: two
+ *  identical calls produced v1 and v2). Compare canonical forms instead. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((key) => [key, canonicalize((value as Record<string, unknown>)[key])]),
+    );
+  }
+  return value;
+}
+
 /** Straight-line (haversine) distance — the honestly-labelled geometry the
  *  route contract carries. Road routing stays behind /api/routing/*. */
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -67,7 +83,9 @@ export async function routeRoutes(app: FastifyInstance): Promise<void> {
     });
     // A read endpoint must not grow a table per call: only persist a new
     // version when the stop set actually changed since the last snapshot.
-    const stopsChanged = !latest || JSON.stringify(latest.stops) !== JSON.stringify(stops);
+    const stopsChanged =
+      !latest ||
+      JSON.stringify(canonicalize(latest.stops)) !== JSON.stringify(canonicalize(stops));
     if (!stopsChanged && latest) {
       return reply.send({
         routeId: latest.id,
