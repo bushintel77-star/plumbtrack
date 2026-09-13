@@ -173,14 +173,32 @@ export async function appointmentRoutes(app: FastifyInstance): Promise<void> {
     return reply.code(201).send(appointment);
   });
 
+  // Statuses a field technician may set on their own appointment — the
+  // on-site progression. `assigned`/`cancelled` are dispatch decisions.
+  const FIELD_APPOINTMENT_STATUSES = [
+    "en_route",
+    "arrived",
+    "working",
+    "awaiting_customer",
+    "awaiting_parts",
+    "complete",
+  ];
+
   app.patch("/:id", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
-    const roleFailure = requireRole(request, reply, [...officeRoles, "technician"]);
-    if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
     const parsed = parseBody(updateAppointmentSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    // Field progression is a field write; assignment and schedule edits are
+    // dispatch authority — they must ride the advisory-lock path in
+    // PATCH /api/jobs/:id/assignment, not this endpoint.
+    const isFieldUpdate =
+      Object.keys(parsed.data).every((key) => key === "status") &&
+      parsed.data.status !== undefined &&
+      FIELD_APPOINTMENT_STATUSES.includes(parsed.data.status);
+    const roleFailure = requireRole(request, reply, isFieldUpdate ? [...officeRoles, "technician"] : officeRoles);
+    if (roleFailure) return roleFailure;
     const data = {
       ...(parsed.data.assignedStaffId !== undefined ? { assignedStaffId: parsed.data.assignedStaffId } : {}),
       ...(parsed.data.scheduledStart ? { scheduledStart: new Date(parsed.data.scheduledStart) } : {}),

@@ -28,7 +28,7 @@ const telemetrySchema = z.object({
   lng: z.number().finite().gte(-180).lte(180),
   heading: z.number().finite().gte(0).lt(360).nullable().optional(),
   speed: z.number().finite().gte(0).nullable().optional(),
-  presence: z.enum(["on_job", "on_break"]).default("on_job"),
+  presence: z.enum(["on_job", "on_break", "off_shift"]).default("on_job"),
 });
 
 export async function fleetRoutes(app: FastifyInstance): Promise<void> {

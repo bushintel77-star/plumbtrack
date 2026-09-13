@@ -32,6 +32,11 @@ interface SyncJobRow {
   status: string;
   assigned_staff_id: string | null;
   field_note: string | null;
+  lat: number | null;
+  lng: number | null;
+  arrived_at: string | null;
+  departed_at: string | null;
+  photos: Array<{ id: string; label: string; url: string; taken_at: string }>;
   checklist_items: Array<{ id: string; label: string; sort_order: number; completed_at: string | null; completed_by: string | null }>;
   time_entries: unknown[];
   quote: {
@@ -54,6 +59,11 @@ function toRow(job: {
   status: string;
   jobType?: string | null;
   fieldNote?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  arrivedAt?: Date | null;
+  departedAt?: Date | null;
+  photos?: Array<{ id: string; label: string; url: string; takenAt: Date }>;
   appointments?: Array<{ assignedStaffId: string | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
@@ -80,6 +90,19 @@ function toRow(job: {
     // needing a live frame first.
     assigned_staff_id: job.appointments?.[0]?.assignedStaffId ?? null,
     field_note: job.fieldNote ?? null,
+    // Job-level geocoded coordinates — the field map's pins and the
+    // navigate-link both read these (they were geocoded server-side but
+    // never shipped to the device before).
+    lat: job.lat ?? null,
+    lng: job.lng ?? null,
+    arrived_at: job.arrivedAt ? job.arrivedAt.toISOString() : null,
+    departed_at: job.departedAt ? job.departedAt.toISOString() : null,
+    photos: (job.photos ?? []).map(photo => ({
+      id: photo.id,
+      label: photo.label,
+      url: photo.url,
+      taken_at: photo.takenAt.toISOString(),
+    })),
     checklist_items: (job.checklistItems ?? []).map(item => ({
       id: item.id,
       label: item.label,
@@ -91,11 +114,11 @@ function toRow(job: {
     // renders what was quoted without any technician re-entry.
     quote: job.quote
       ? {
-          id: job.quote.id,
-          status: job.quote.status,
-          description: job.quote.description,
-          lines: job.quote.lines.map(line => ({ desc: line.desc, qty: line.qty, unit: line.unit, rate: line.rate })),
-        }
+        id: job.quote.id,
+        status: job.quote.status,
+        description: job.quote.description,
+        lines: job.quote.lines.map(line => ({ desc: line.desc, qty: line.qty, unit: line.unit, rate: line.rate })),
+      }
       : null,
     time_entries: (job.timeEntries ?? []).map(entry => ({
       id: entry.id,
@@ -130,6 +153,7 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         checklistItems: { orderBy: { sortOrder: "asc" } },
         appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
         quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
+        photos: { orderBy: { takenAt: "desc" } },
       },
       orderBy: { updatedAt: "asc" },
       take: SYNC_JOB_CAP

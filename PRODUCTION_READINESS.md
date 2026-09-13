@@ -1,6 +1,67 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-09-10 (field agent deployed to production web)
+Updated: 2026-09-13 (field write path + authz gate pass)
+
+## 2026-09-13 — field write path + authz gates + HQ intake (P0 fix block)
+
+A gap critique found the deployed field agent's write path was broken in
+production — it called endpoints that did not exist or were mis-gated, and
+several "shipped" claims didn't survive reading the code. This pass fixed
+the API to serve the deployed client, plus minimal client/HQ fixes.
+
+**Field write path (was broken, now implemented):**
+- Technician clock-out: `PATCH /api/jobs/:id/time-entries/:entryId` now
+  accepts a field `{end}`-only write and resolves the entry by server id OR
+  the outbox opId (the client's local `te-*` id *is* the stored opId).
+  staffId/start edits remain manager+.
+- `POST /api/jobs/:id/signoff` + `POST /api/jobs/:id/events` added — the
+  client already called both (404 before). Arrival/departure persist on the
+  job (`arrivedAt`/`departedAt`, migration `20260914090000`), monotonic:
+  earliest arrival / latest departure wins so outbox retries can't rewind.
+- `/api/sync` now ships `lat`/`lng`, `arrived_at`/`departed_at`, and photos —
+  the field map pins, navigate link, and evidence strip were starved of them.
+- `GET /api/routes/today` no longer writes a RouteVersion + audit row per
+  poll (write-on-change only) and returns real haversine geometry over the
+  geocoded stops instead of a placeholder.
+- `off_shift` presence accepted by `/api/fleet/telemetry`; HQ drops the van
+  marker on the log-off beacon instead of leaving a stale pin.
+- Mobile (plumbtrack-mobile): media-complete sends the bearer session (was a
+  bare fetch → 401 → infinite silent retry; a 401 now clears the session and
+  re-enrolls as a retryable error), the `/api/routes/today` fetch carries the
+  session, `rowToJob` maps the new sync columns.
+
+**Authz holes closed:**
+- Slack read endpoints (`workspace`, `routes`, `channels`,
+  `channels/:id/messages`) are gated to office roles — any technician session
+  (mintable via the public device bootstrap token) could previously read the
+  org's Slack history and workspace detail through the proxy.
+- `PATCH /api/appointments/:id` split: technicians may only set
+  field-progression statuses (`en_route`…`complete`); assignment/schedule
+  edits require office roles and ride the advisory-lock `/assignment` path —
+  a field session could previously reassign or reschedule any appointment
+  directly, bypassing the conflict check and skill gate.
+
+**HQ honesty + intake:**
+- `POST /api/jobs` now always creates an unassigned schedulable appointment
+  in the same transaction — API-created jobs were previously unassignable
+  forever (assignment 409'd: no appointment). HQ gained a "+ New job" intake
+  form in the Unassigned lane (live-mode only; honest "not connected" state).
+- Board payload carries `quoteId`; HQ quote send/approve PATCH
+  `/api/quotes/:id` for real, with snapshot rollback on failure. The
+  dishonest "Financials dispatched" toast is gone — marking sent records the
+  status only. Jobs without a linked quote say "Saved locally only".
+- `.railway/railway.ts`: the `web` service source now points at
+  `plumbtrack-mobile` (it pointed at the monorepo, whose root has no
+  top-level Dockerfile — reconnecting GitHub auto-deploy would have failed
+  every build). All dashboard-set secrets (Stripe, Slack, media, payment
+  URLs, Twilio, ORS) are `preserve()`d so a config apply can never drop them.
+
+**Still open (registered):** payment-link amount authority, per-operator
+auth (P0-1), media bucket credentials (owner action — blocks photos e2e),
+sync tombstones, HQ e2e rewrite. **e2e coverage note: the web PWA suite died
+with `apps/web` — CI currently has zero e2e jobs** (the unit/typecheck gate
+only); the HQ Playwright suite targets the pre-FieldLoop shell and is not
+wired.
 
 ## 2026-09-10 (later) — quote→job automation + HQ CRM/Documents/Payments wired (PR #12)
 
@@ -54,7 +115,7 @@ Everything below was found by a live stress test + zero-mock audit and fixed on 
 | API auth | Production sign-in live: HQ station token → 12h cookie session; legacy tenant header dev/test-only (immutable in production); webhooks signature-verified and exempt from the tenant hook. Still shared-secret (see P0-1). |
 | Tenant isolation | Cross-tenant holes closed (checklist item, photo delete, quote line all org-scoped); Slack inbound org-scoped fail-closed. |
 | CORS | Fails closed in production (`CORS_ORIGINS` required at boot). |
-| Field writes | Technicians can complete/sign jobs (`{status, signature}` only); metadata stays manager+. Web PWA persists sign-offs through the outbox; HQ offline queue drains assign ops correctly. |
+| Field writes | Technicians can complete/sign jobs (`{status, signature}` only) plus clock-out (`{end}` only, id-or-opId resolved), sign-off (`POST /signoff`), and site events (`POST /events` → `arrivedAt`/`departedAt`, monotonic). Metadata and timesheet edits stay manager+. The field agent's outbox persists all of them; HQ offline queue drains assign ops correctly. |
 | Roster | `GET /api/board` returns the org staff; HQ drag-to-assign validates real member ids. |
 | Media | Signed S3 uploads; `publicUrl` from `PUBLIC_API_BASE_URL` (host-header spoofing closed). Capability URLs are long-lived (see P2-3). |
 | Rate limits | Global 500/min/IP + SMS 10/min/IP + auth/session routes 10/min/IP. In-memory store — single-instance only (see P1 below). |
@@ -67,13 +128,13 @@ Everything below was found by a live stress test + zero-mock audit and fixed on 
 ### P0 — must close before multi-operator live operations
 
 1. **Per-operator auth** — sign-in is still shared bootstrap secrets (`HQ_BOOTSTRAP_TOKEN` owner session; public `DEVICE_BOOTSTRAP_TOKEN` enrollment). No per-user identity, no revocation, no lockout. Design project before onboarding a second org or operator.
-2. **HQ e2e rewrite (release validation)** — the HQ Playwright suite (35/36 specs) targets the pre-FieldLoop shell (`nav-*` sidebar, `demo-badge`, `palette-trigger` — none exist in source). It cannot gate releases. Needs a rewrite against `FieldLoopWorkspace` + a CI job. The web PWA suite is the current CI e2e baseline.
+2. **e2e rewrite (release validation)** — the HQ Playwright suite (35/36 specs) targets the pre-FieldLoop shell (`nav-*` sidebar, `demo-badge`, `palette-trigger` — none exist in source) and is not wired anywhere. The web PWA suite that used to be the CI baseline died with `apps/web` — **CI currently has zero e2e jobs**; the only gate is typecheck/lint/unit/build. Needs a rewrite against `FieldLoopWorkspace` + a CI job.
 3. **SMS/cost audit** — Twilio sends are role-gated and rate-limited, but there is no per-org spend cap or provider-side budget alert.
 
 ### P1 — required for a complete FSM loop
 
-1. HQ CRM/quote/document surfaces still render seed data (only OperationsHub hits real endpoints).
-2. HQ Slack comms + quote lifecycle are local simulations.
+1. ~~HQ CRM/quote/document surfaces still render seed data~~ CLOSED 2026-09-10: CRM/Documents render live API data; quote send/approve persist through `/api/quotes/:id` since 2026-09-13.
+2. HQ Slack comms remain partially local — channel reads and routes proxy the real Slack API (office-gated since 2026-09-13); outbound posting to Slack channels from the comms drawer is still a local feed, and Slack automation delivery depends on `SLACK_WEBHOOK_URL`.
 3. Media capability URLs never expire (`Cache-Control: immutable`); no revocation, no storage TTL.
 4. ~~Map road geometry~~ CLOSED 2026-09-05: routing moved behind the authenticated `/api/routing/shape|matrix` proxy (server-side `ORS_API_KEY`, LRU cache; ORS-only — set the free key to enable road shapes, without it the map keeps straight-line dashed routes). Traffic overlay still needs a paid feed — the one remaining map item blocked on a provider account. Crew identity ramp extended to 8 tokens; self-hosted PMTiles tiles are one env var (`NEXT_PUBLIC_MAP_STYLE_URL`) once a style is hosted.
 5. Metrics, alerting, and audit-event delivery guarantees (audit writes are fire-and-forget).
@@ -84,7 +145,7 @@ Everything below was found by a live stress test + zero-mock audit and fixed on 
 
 1. HQ mid-session expiry now redirects to sign-in (window event from the board poll), but the renew tick badge was removed with the legacy toolbar; session state is otherwise invisible.
 2. HQ `NEXT_PUBLIC_HQ_DEV_ORG_ID` is misnamed but load-bearing (must equal the API org or every request 403s).
-3. `apps/dispatch` is a superseded Electron prototype still built by CI (echo test, no deploy).
+3. ~~`apps/dispatch` is a superseded Electron prototype still built by CI~~ STALE — dispatch was removed from CI builds on 2026-09-08 and deleted 2026-09-10.
 4. Container image digests, web-service healthcheck, IaC apply for the web service build pin.
 
 ## Acceptance criteria for declaring production-ready

@@ -66,6 +66,20 @@ describe("POST /api/fleet/telemetry", () => {
     expect(publishToOrg).not.toHaveBeenCalled();
   });
 
+  it("accepts an off_shift log-off beacon (the field app sends it on logout)", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/fleet/telemetry",
+      headers: { authorization: bearer("technician") },
+      payload: { vehicleId: "van-2", techId: "t-mike", lat: -37.82, lng: 144.98, presence: "off_shift" },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(publishToOrg).toHaveBeenCalledWith(
+      expect.objectContaining({ presence: "off_shift" })
+    );
+  });
+
   it("rejects a non-technician role (dispatcher is never a field sender)", async () => {
     const response = await app.inject({
       method: "POST",

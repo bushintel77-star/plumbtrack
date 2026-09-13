@@ -1,6 +1,6 @@
 # PlumbTrack — Agent Handoff / WIP
 
-Last updated: 2026-09-11
+Last updated: 2026-09-13
 
 > **START HERE:** [`HANDOVER.md`](HANDOVER.md) — the dated engagement handoff
 > (live surfaces, shipped work, owner actions, backlog). This file keeps the
@@ -8,6 +8,14 @@ Last updated: 2026-09-11
 
 ## Current state
 
+- **2026-09-13 field-write-path pass** (see PRODUCTION_READINESS.md for the full register). The deployed field agent called endpoints that didn't exist or were mis-gated — this pass made the API serve the deployed client:
+  - Technician clock-out works: `PATCH time-entries/:entryId` accepts `{end}`-only from field roles and resolves by id **or** opId (the client's `te-*` id is the stored opId).
+  - `POST /api/jobs/:id/signoff` and `POST /api/jobs/:id/events` now exist; `arrivedAt`/`departedAt` persist (migration `20260914090000`, monotonic earliest-arrival/latest-departure).
+  - `/api/sync` ships `lat`/`lng`/`arrived_at`/`departed_at`/`photos`; `/api/routes/today` writes a RouteVersion only on change and returns real haversine geometry; `off_shift` is a valid fleet presence (HQ drops the marker).
+  - Slack read GETs are office-role gated; `PATCH /api/appointments` is technician `{status}`-only (scheduling/assignment ride the advisory-lock path).
+  - `POST /api/jobs` auto-creates an unassigned schedulable appointment (jobs were unassignable without one); HQ has a "+ New job" intake in the Unassigned lane; quote send/approve PATCH `/api/quotes/:id` for real via board `quoteId`.
+  - `.railway/railway.ts`: `web` source is `bushintel77-star/plumbtrack-mobile` (the monorepo has no root Dockerfile — auto-deploy would have failed instantly); all dashboard-set secrets are `preserve()`d.
+  - Mobile checkout (`my-mobile-app/`): media-complete + route fetch send the bearer; `rowToJob` (now `src/db/rowMap.ts`) maps the new sync columns.
 - `main` on `bushintel77-star/plumbtrack` is green and deployed.
 - **Branch protection is ON** (2026-09-04): `main` requires the CI check "Build, typecheck, lint and test", force-pushes and deletions blocked; `enforce_admins` is false so the owner can still push directly in an emergency. Land changes via PR.
 - **2026-09-08 zero-mock / stress-test hardening pass** (branch `prod-hardening-zero-mock`, see PRODUCTION_READINESS.md for the full register). Highlights:
@@ -39,7 +47,7 @@ Last updated: 2026-09-11
 | web | https://web-production-364b4f.up.railway.app | Technician mobile PWA |
 | hq | https://hq-production-7911.up.railway.app | Dispatch command center (Live data mode) |
 | api | https://api-production-363e.up.railway.app | Fastify + Prisma + Postgres |
-| Postgres | (internal) | 15 migrations applied, seeded with `org_caulfield_south` |
+| Postgres | (internal) | 24 migrations applied (incl. `20260914090000` arrival/departure), seeded with `org_caulfield_south` |
 
 - HQ board fetches real data from `GET /api/board` (G-1) and shows "Live" badge.
 - `PATCH /api/jobs/:id/assignment` (G-2) was already implemented.

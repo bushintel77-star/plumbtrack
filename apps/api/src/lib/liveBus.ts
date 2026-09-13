@@ -17,31 +17,31 @@ export type LiveFrame =
   | { topic: "topic/jobs/status"; orgId: string; jobId: string; status: string }
   | { topic: "topic/jobs/activity"; orgId: string; jobId: string; activity: "clock-in" | "clock-out"; entryId: string }
   | {
-      topic: "topic/jobs/checklist";
-      orgId: string;
-      jobId: string;
-      itemId: string;
-      label: string;
-      completedAt: string | null;
-    }
+    topic: "topic/jobs/checklist";
+    orgId: string;
+    jobId: string;
+    itemId: string;
+    label: string;
+    completedAt: string | null;
+  }
   | {
-      topic: "topic/fleet/telemetry";
-      orgId: string;
-      vehicleId: string;
-      techId: string | null;
-      lat: number;
-      lng: number;
-      heading: number | null;
-      speed: number | null;
-      presence: "on_job" | "on_break";
-      timestamp: string;
-    }
+    topic: "topic/fleet/telemetry";
+    orgId: string;
+    vehicleId: string;
+    techId: string | null;
+    lat: number;
+    lng: number;
+    heading: number | null;
+    speed: number | null;
+    presence: "on_job" | "on_break" | "off_shift";
+    timestamp: string;
+  }
   | {
-      topic: "topic/jobs/message";
-      orgId: string;
-      jobId: string;
-      message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string };
-    };
+    topic: "topic/jobs/message";
+    orgId: string;
+    jobId: string;
+    message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string };
+  };
 
 type Listener = (frame: LiveFrame) => void;
 

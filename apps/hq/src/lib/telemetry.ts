@@ -15,17 +15,17 @@ type LiveFrame =
   | { topic: "topic/jobs/updated"; orgId: string; jobId: string; patch: Record<string, unknown> }
   | { topic: "topic/jobs/activity"; orgId: string; jobId: string; activity: "clock-in" | "clock-out"; entryId: string }
   | {
-      topic: "topic/fleet/telemetry"
-      orgId: string
-      vehicleId: string
-      techId: string | null
-      lat: number
-      lng: number
-      heading: number | null
-      speed: number | null
-      presence: "on_job" | "on_break"
-      timestamp: string
-    }
+    topic: "topic/fleet/telemetry"
+    orgId: string
+    vehicleId: string
+    techId: string | null
+    lat: number
+    lng: number
+    heading: number | null
+    speed: number | null
+    presence: "on_job" | "on_break" | "off_shift"
+    timestamp: string
+  }
 
 /**
  * Live board socket for the dispatch console. Connects to `/api/stream` (the
@@ -84,6 +84,12 @@ function applyFrame(frame: LiveFrame): void {
       // Clock activity re-colors via the status/refetch path; nothing to do.
       return
     case "topic/fleet/telemetry":
+      // Off-shift is a clear signal: the field device's last beacon before
+      // logout. Offline techs get no pin — drop the marker, don't plot a fix.
+      if (frame.presence === "off_shift") {
+        store.clearLiveLocation(frame.vehicleId)
+        return
+      }
       store.mergeLiveLocations([
         {
           vehicleId: frame.vehicleId,

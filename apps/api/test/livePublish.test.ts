@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const publishSpy = vi.fn()
 vi.mock("../src/lib/liveBus", () => ({
   publishToOrg: (...args: unknown[]) => publishSpy(...args),
-  subscribeOrg: vi.fn(() => () => {}),
+  subscribeOrg: vi.fn(() => () => { }),
   clearLiveBus: vi.fn()
 }))
 
@@ -39,6 +39,13 @@ describe("job routes publish live frames", () => {
 
   beforeEach(async () => {
     publishSpy.mockClear()
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        job: prismaMock.job,
+        appointment: { create: vi.fn().mockResolvedValue({}) },
+        domainEventOutbox: prismaMock.domainEventOutbox,
+      })
+    )
     app = await buildApp({ logger: false })
     await app.ready()
   })

@@ -37,6 +37,10 @@ export interface LineItem {
 }
 
 export interface Quote {
+  /** Server quote id (board payload `job.quoteId` match) — needed to persist
+   *  lifecycle transitions through /api/quotes/:id. Absent for locally
+   *  synthesized quotes, which can only be saved locally. */
+  id?: string
   clientName: string | null
   lineItems: LineItem[] | null
   status: QuoteStatus

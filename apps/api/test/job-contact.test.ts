@@ -56,7 +56,8 @@ describe("residential job contact metadata", () => {
     updateMany.mockResolvedValue({ count: 1 });
     createDomainEvent.mockResolvedValue({});
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-      job: { findFirst: vi.fn(), findUnique, updateMany },
+      job: { create, findFirst: vi.fn(), findUnique, updateMany },
+      appointment: { create: vi.fn().mockResolvedValue({}) },
       domainEventOutbox: { create: createDomainEvent },
     }));
   });
@@ -82,7 +83,6 @@ describe("residential job contact metadata", () => {
         phone: JOB.phone,
         accessCode: JOB.accessCode,
       }),
-      include: { timeEntries: true, photos: true },
     }));
   });
 
