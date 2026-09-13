@@ -63,6 +63,28 @@ with `apps/web` — CI currently has zero e2e jobs** (the unit/typecheck gate
 only); the HQ Playwright suite targets the pre-FieldLoop shell and is not
 wired.
 
+**Deployed + live-verified 2026-09-14** (deployments `api 545bbd7c`/`3166d7dc`,
+`web 0225ea5a`, `hq f6cd0d59` — all SUCCESS via `railway deployment list`;
+migration `20260914090000` ran via preDeploy). Verified against production
+with a minted technician session:
+
+- Technician clock-out by server id AND by opId — both 200; the stale test
+  entry on J-1042 (open since 2026-09-10, the owner's flagged item) is now
+  closed server-side and confirmed via sync.
+- `signoff`/`events` routes exist and validate (400 on bad body, 404 on
+  unknown job — were 404-for-everything before).
+- Sync rows carry `lat`/`lng`/`arrived_at`/`departed_at`/`photos`.
+- Technician → Slack reads 403; technician → appointment scheduling fields
+  403 while status-only reaches the org lookup.
+- `routes/today` reuses the version on unchanged stops.
+  - **Found live, fixed same day**: Postgres `jsonb` normalizes object key
+    order, so the string comparison could never match — every poll minted a
+    RouteVersion. Fixed with a canonical (sorted-key) comparison +
+    regression test; redeployed, three polls now hold one version.
+- Not smoke-written to real records: signature/arrival writes on real
+  customer jobs (would fabricate data — covered by unit tests instead), and
+  job intake (needs an HQ office session, not the device token).
+
 ## 2026-09-10 (later) — quote→job automation + HQ CRM/Documents/Payments wired (PR #12)
 
 - **Quote→job automation is live**: Job.quoteId (migration `20260910030000`), org-validated on create/PATCH, quote + lines ride /api/jobs and /api/sync; web create-job ops persist quoteId; the field agent renders the **AGREED WORK panel** (requirements, priced lines, subtotal/GST/total) read-only — live-verified on /job/J-1043 with the sample quote created via the API (disclosed: 4 riser-leak lines, $841.50 inc GST, delete via the quotes API if unwanted). Jobs created before quotes were linked show the honest "No quote linked" state.
