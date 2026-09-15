@@ -5,6 +5,9 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import cookie from "@fastify/cookie";
 import { assertAuthConfiguration } from "./lib/auth";
+import { assertEncryptionConfiguration } from "./lib/secrets";
+import { setupRoutes } from "./routes/setup";
+import { connectionRoutes } from "./routes/connections";
 import { tenantPlugin } from "./lib/tenant";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
@@ -34,6 +37,9 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   assertAuthConfiguration();
+  // Integration credentials are encrypted at rest — refuse to start a
+  // production deployment that could accept a key it cannot protect.
+  assertEncryptionConfiguration();
   // The legacy tenant-header flag no longer has any effect in production
   // (lib/auth.ts hard-requires signed sessions there). Refuse to boot a
   // production deployment that still carries it so operators don't believe a
@@ -128,6 +134,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(appointmentRoutes, { prefix: "/api/appointments" });
   await app.register(integrationRoutes, { prefix: "/api/integrations" });
+  await app.register(connectionRoutes, { prefix: "/api/integrations" });
+  await app.register(setupRoutes, { prefix: "/api/setup" });
   await app.register(slackEventRoutes, { prefix: "/api/slack" });
   await app.register(slackRoutes, { prefix: "/api/slack" });
   await app.register(streamRoutes);

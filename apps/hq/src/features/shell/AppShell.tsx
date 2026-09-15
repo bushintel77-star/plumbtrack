@@ -13,6 +13,7 @@ import {
   Map as MapIcon,
   MessageSquare,
   Radio,
+  Settings,
   Table2,
   Users,
   Network
@@ -29,6 +30,7 @@ import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
 import { FieldLoopWorkspace, type Surface } from "@/features/fieldloop/FieldLoopWorkspace"
+import { SetupWizard } from "@/features/setup/SetupWizard"
 
 const NAV: Array<{
   id: AppModule
@@ -46,7 +48,8 @@ const NAV: Array<{
     { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
     { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
     { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" },
-    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" }
+    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" },
+    { id: "setup", label: "Setup", icon: Settings, enabled: true, milestone: "" }
   ]
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
@@ -206,9 +209,10 @@ export function AppShell() {
       ) : (
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-h-0 flex-1">
+            {activeModule === "setup" && <SetupWizard onExit={() => navigate("dispatch")} />}
             {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
             {activeModule === "operations" && <OperationsHub />}
-            {!ENABLED.has(activeModule) && (
+            {activeModule !== "setup" && !ENABLED.has(activeModule) && (
               <PlaceholderModule
                 id={activeModule}
                 milestone={NAV.find(n => n.id === activeModule)?.milestone ?? "later"}

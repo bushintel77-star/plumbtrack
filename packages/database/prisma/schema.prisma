@@ -65,6 +65,10 @@ model Organization {
   jobMessages        JobMessage[]
   slackWorkspaces    SlackWorkspace[]
   slackJobThreads    SlackJobThread[]
+  setup              OrgSetup?
+  integrations       IntegrationConnection[]
+  integrationInterests IntegrationInterest[]
+  oauthAuthorizations  OAuthAuthorization[]
 
   @@map("organizations")
 }
@@ -706,4 +710,98 @@ model SlackChannelRoute {
 
   @@unique([workspaceId, eventType])
   @@map("slack_channel_routes")
+}
+
+// ── Guided setup + integrations ─────────────────────────────────────────────
+
+/// One setup record per org. `answers` holds the validated step payloads
+/// (contract: packages/... zod schemas in apps/api/src/schemas/setup.ts) so a
+/// new step never needs a migration; the columns are what other features read.
+model OrgSetup {
+  id             String       @id @default(cuid())
+  orgId          String       @unique
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// "in_progress" | "complete"
+  status         String       @default("in_progress")
+  /// Step id the operator is on, so Resume returns to the right place.
+  currentStep    String       @default("business")
+  completedSteps String[]     @default([])
+  skippedSteps   String[]     @default([])
+  answers        Json         @default("{}")
+  startedAt      DateTime     @default(now())
+  launchedAt     DateTime?
+  launchedBy     String?
+  updatedAt      DateTime     @updatedAt
+
+  @@map("org_setup")
+}
+
+/// A live connection to an external app. Credentials are encrypted at rest
+/// (lib/secrets.ts, AES-256-GCM) and never leave the API process.
+model IntegrationConnection {
+  id             String       @id @default(cuid())
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// Catalog id, e.g. "xero", "stripe", "twilio".
+  provider       String
+  /// "oauth_pkce" | "api_key"
+  authType       String
+  /// "connected" | "needs_attention" | "disconnected"
+  status         String       @default("connected")
+  /// What the operator sees they connected ("Caulfield South Plumbing Pty Ltd").
+  accountLabel   String?
+  scopes         String[]     @default([])
+  accessTokenEnc String?
+  refreshTokenEnc String?
+  apiKeyEnc      String?
+  /// Non-secret provider config the operator chose (account codes, channel ids).
+  settings       Json         @default("{}")
+  expiresAt      DateTime?
+  connectedBy    String?
+  connectedAt    DateTime     @default(now())
+  lastCheckedAt  DateTime?
+  lastError      String?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([orgId, provider])
+  @@index([orgId, status])
+  @@map("integration_connections")
+}
+
+/// "Tell me when this one is ready" on a provider FieldLoop cannot connect to
+/// yet — the honest alternative to a fake Connect button.
+model IntegrationInterest {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider    String
+  requestedBy String?
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@unique([orgId, provider])
+  @@map("integration_interests")
+}
+
+/// In-flight OAuth 2.0 authorization (PKCE). The code verifier is stored
+/// encrypted server-side — never in the browser — and each row is single-use
+/// and short-lived.
+model OAuthAuthorization {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider    String
+  state       String       @unique
+  verifierEnc String
+  redirectUri String
+  /// Where to send the operator back to in HQ once the round trip finishes.
+  returnTo    String?
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+
+  @@index([orgId, provider])
+  @@index([expiresAt])
+  @@map("oauth_authorizations")
 }
