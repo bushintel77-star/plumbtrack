@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { SYNC_JOB_CAP } from "../lib/limits";
+import { agreementSnapshot, type AgreementSnapshot } from "../lib/agreements";
 
 /**
  * WatermelonDB sync endpoint — pull protocol.
@@ -47,6 +48,10 @@ interface SyncJobRow {
     description: string;
     lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
   } | null;
+  /** CRM link — the field agent opens the customer profile from it. */
+  customer_id: string | null;
+  /** The customer's next-due active service agreement (spec §3.3 card). */
+  agreement: AgreementSnapshot | null;
   created_at: number;
   updated_at: number;
 }
@@ -74,6 +79,10 @@ function toRow(job: {
     status: string;
     description: string;
     lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+  } | null;
+  customerId?: string | null;
+  customer?: {
+    serviceAgreements?: Array<{ id: string; serviceType: string; frequency: string; nextDueDate: Date }>;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -134,6 +143,8 @@ function toRow(job: {
       lat: entry.lat,
       lng: entry.lng
     })),
+    customer_id: job.customerId ?? null,
+    agreement: agreementSnapshot(job.customer?.serviceAgreements?.[0], job.scope),
     created_at: job.createdAt.getTime(),
     updated_at: job.updatedAt.getTime()
   }
@@ -160,6 +171,16 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
         quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
         photos: { orderBy: { takenAt: "desc" } },
+        customer: {
+          select: {
+            serviceAgreements: {
+              where: { active: true },
+              orderBy: { nextDueDate: "asc" },
+              take: 1,
+              select: { id: true, serviceType: true, frequency: true, nextDueDate: true },
+            },
+          },
+        },
       },
       orderBy: { updatedAt: "asc" },
       take: SYNC_JOB_CAP

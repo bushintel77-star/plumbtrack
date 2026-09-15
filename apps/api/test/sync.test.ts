@@ -142,6 +142,34 @@ describe("GET /api/sync (WatermelonDB pull contract)", () => {
     expect(created[0]).toMatchObject({ lat: null, lng: null, arrived_at: null, departed_at: null, photos: [] })
   })
 
+  it("ships the CRM link and the customer's next-due agreement", async () => {
+    const agreement = { id: "sa-1", serviceType: "Hot water system service", frequency: "12 months", nextDueDate: new Date("2027-08-29T00:00:00.000Z") }
+    prismaMock.job.findMany.mockResolvedValue([
+      { ...JOB("j-6", 1), scope: "Hot water system service — anode + PRV", customerId: "cus-1", customer: { serviceAgreements: [agreement] } },
+      { ...JOB("j-7", 1), scope: "Leaking tap", customerId: "cus-1", customer: { serviceAgreements: [agreement] } },
+      { ...JOB("j-8", 1), customerId: null, customer: null },
+    ])
+
+    const res = await app.inject({ method: "GET", url: "/api/sync", headers: { "x-organization-id": ORG } })
+    const [fulfils, separate, walkIn] = res.json().changes.jobs.created
+
+    expect(fulfils).toMatchObject({
+      customer_id: "cus-1",
+      agreement: { id: "sa-1", service_type: "Hot water system service", frequency: "12 months", next_due_date: "2027-08-29", fulfills_this_job: true },
+    })
+    // A different job for the same customer: the agreement is shown, but the
+    // data can't say whether this visit is it — no claim either way.
+    expect(separate.agreement).toMatchObject({ id: "sa-1", fulfills_this_job: null })
+    expect(walkIn).toMatchObject({ customer_id: null, agreement: null })
+    expect(prismaMock.job.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        customer: expect.objectContaining({
+          select: { serviceAgreements: expect.objectContaining({ where: { active: true }, take: 1 }) },
+        }),
+      }),
+    }))
+  })
+
   it("requires an org context", async () => {
     const res = await app.inject({ method: "GET", url: "/api/sync" })
     expect(res.statusCode).toBeGreaterThanOrEqual(400)

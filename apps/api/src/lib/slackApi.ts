@@ -73,7 +73,9 @@ export function slackAuthorizeUrl(redirectUri: string, state: string): string | 
   if (!clientId) return null;
   const params = new URLSearchParams({
     client_id: clientId,
-    scope: "chat:write,channels:history,channels:read,groups:history,groups:read,im:history,mpim:history",
+    // users:read names the Slack author of a job-thread reply; installs
+    // without it still bridge, attributed as "Slack".
+    scope: "chat:write,channels:history,channels:read,groups:history,groups:read,im:history,mpim:history,users:read",
     redirect_uri: redirectUri,
     state,
   });
@@ -107,12 +109,38 @@ export async function exchangeSlackCode(code: string, redirectUri: string): Prom
 
 // ── Posting + reads ──────────────────────────────────────────────────────────
 
-/** Post a message to a channel via chat.postMessage. */
+/** Post a message to a channel via chat.postMessage (`thread_ts` replies
+ *  into an existing thread). */
 export async function slackPostMessage(
   token: string,
-  input: { channel: string; text: string; blocks?: unknown[] }
+  input: { channel: string; text: string; blocks?: unknown[]; thread_ts?: string }
 ): Promise<SlackApiResult<{ ts?: string; channel?: string }>> {
   return slackApi("chat.postMessage", token, input);
+}
+
+const SLACK_USER_ID = /^[UW][A-Z0-9]+$/;
+
+/** Display name for a Slack user (users.info). Short timeout — this runs
+ *  inside Slack's 3-second event acknowledgement window. Null on any failure,
+ *  including installs that lack the users:read scope. */
+export async function slackUserName(token: string, userId: string, timeoutMs = 1_500): Promise<string | null> {
+  if (!SLACK_USER_ID.test(userId)) return null;
+  try {
+    const response = await fetch(`${SLACK_API_ORIGIN}/users.info?user=${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      ok: boolean;
+      user?: { name?: string; real_name?: string; profile?: { display_name?: string; real_name?: string } };
+    };
+    if (!data.ok || !data.user) return null;
+    const name = data.user.profile?.display_name || data.user.profile?.real_name || data.user.real_name || data.user.name;
+    return name?.trim() ? name.trim().slice(0, 80) : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface SlackChannel {

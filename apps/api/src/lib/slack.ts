@@ -57,6 +57,9 @@ export function slackChannelFor(appChannel: string): string | undefined {
 export interface SlackRelayResult {
   delivered: boolean;
   error?: string;
+  /** Set when the relay knows whether a retry can succeed; absent means the
+   *  delivery adapter classifies from the error text. */
+  retryable?: boolean;
 }
 
 /**
@@ -107,7 +110,13 @@ export async function relayToSlack(text: string, appChannel?: string, blocks?: u
  */
 export async function relayToSlackForOrg(
   orgId: string,
-  input: { text: string; channel?: string; blocks?: unknown[]; eventType?: string }
+  input: {
+    text: string;
+    channel?: string;
+    blocks?: unknown[];
+    eventType?: string;
+    jobThread?: import("./slackJobThreads").JobThreadPayload;
+  }
 ): Promise<SlackRelayResult & { providerMessageId?: string }> {
   let workspace: { id: string; accessToken: string } | null = null;
   try {
@@ -118,6 +127,17 @@ export async function relayToSlackForOrg(
     });
   } catch {
     workspace = null; // Table not migrated yet — legacy webhook path.
+  }
+
+  // Job-thread messages need a bot token to thread — an incoming webhook
+  // can't. No workspace means the bridge was switched off after the message
+  // was queued; retrying won't change that.
+  if (input.jobThread) {
+    if (!workspace) {
+      return { delivered: false, retryable: false, error: "Job threads need a connected Slack workspace" };
+    }
+    const { deliverToJobThread } = await import("./slackJobThreads");
+    return deliverToJobThread(orgId, workspace, { text: input.text, jobThread: input.jobThread });
   }
 
   if (workspace) {

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
+import { bridgeSlackThreadReply } from "../lib/slackJobThreads";
 
 /**
  * Slack Events Mode inbound surface (research §Slack FSM integration).
@@ -308,10 +309,15 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
       return ephemeral(`Unknown command ${body.command}. Try /dispatch-help.`);
     }
 
-    // Events API callbacks (job messages etc.) — ack immediately; outbound
-    // fan-out stays on the domain-event worker.
+    // Events API callbacks. A human reply in a job's Slack thread becomes a
+    // job message (org-scoped by the verified team; unmapped teams write
+    // nothing). Everything else is acked — outbound fan-out stays on the
+    // domain-event worker.
     if (typeof body?.type === "string") {
       if (!authorized) return reply.code(401).send({ error: "invalid token" });
+      if (body.type === "event_callback") {
+        await bridgeSlackThreadReply(orgScope, body.event);
+      }
       return reply.code(200).send({});
     }
 

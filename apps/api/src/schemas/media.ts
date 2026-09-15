@@ -11,5 +11,8 @@ export const createUploadIntentSchema = z.object({
 
 export const completeUploadSchema = z.object({
   assetId: z.string().trim().min(1),
+  /** "photo" (default) also records a JobPhoto evidence row; "document" only
+   *  finalises the file — the caller attaches it to a JobDocument. */
+  purpose: z.enum(["photo", "document"]).optional(),
 });
 

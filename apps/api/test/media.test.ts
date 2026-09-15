@@ -135,6 +135,41 @@ describe("secure media upload contract", () => {
     });
   });
 
+  it("completes a document upload without recording it as photo evidence", async () => {
+    findFirstAsset.mockResolvedValue({
+      id: "asset-2",
+      orgId: ORG,
+      jobId: "J-1",
+      objectKey: `${ORG}/jobs/J-1/asset-2`,
+      label: "Gas compliance cert",
+      status: "pending",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/media/asset-2/complete",
+      headers: { "x-organization-id": ORG },
+      payload: { purpose: "document" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ assetId: "asset-2", fileUrl: expect.stringMatching(/\/api\/media\/asset-2\/file$/) });
+    expect(updateAsset).toHaveBeenCalled();
+    expect(createPhoto).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown completion purpose", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/media/asset-2/complete",
+      headers: { "x-organization-id": ORG },
+      payload: { purpose: "avatar" },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(findFirstAsset).not.toHaveBeenCalled();
+  });
+
   it("cannot complete an asset from another organization", async () => {
     findFirstAsset.mockResolvedValue(null);
     const response = await app.inject({
