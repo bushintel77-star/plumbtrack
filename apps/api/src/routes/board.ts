@@ -92,6 +92,8 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           address: job.address,
           scope: job.scope,
           status: job.status,
+          phone: job.phone,
+          customerId: job.customerId,
           createdAt: job.createdAt,
           // The quote this job was created from — HQ's quote lifecycle
           // actions (send/approve) PATCH /api/quotes/:id with this id.

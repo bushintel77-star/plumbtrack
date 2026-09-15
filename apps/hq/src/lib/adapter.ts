@@ -25,6 +25,10 @@ export interface ApiJob {
   address: string
   scope: string
   status: "scheduled" | "in_progress" | "completed"
+  /** Customer phone for contact actions (null when the record has none). */
+  phone?: string | null
+  /** Linked CRM customer — absent on older servers / unlinked jobs. */
+  customerId?: string | null
   paymentStatus?: string
   timeEntries: ApiTimeEntry[]
   photos?: ApiJobPhoto[]
@@ -216,6 +220,8 @@ export function adaptApiBoard(
       title: apiJob.scope,
       client: apiJob.client,
       address: apiJob.address,
+      phone: apiJob.phone ?? undefined,
+      customerId: apiJob.customerId ?? undefined,
       priority: "normal" as JobPriority,
       techId: tech?.id ?? null,
       startBlock: slot.startBlock,

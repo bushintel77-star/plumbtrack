@@ -102,6 +102,11 @@ export interface Job {
   title: string
   client: string
   address: string
+  /** Customer phone — drives the inspector Call link; absent when the
+   *  job record has no number (the link hides rather than dial a name). */
+  phone?: string
+  /** Linked CRM customer id — CRM history matches on this, not the name. */
+  customerId?: string
   priority: JobPriority
   /** Skill tag the assigned technician must hold (BR-04 constraint). */
   requiredSkill?: string
@@ -250,6 +255,7 @@ export type AppModule =
   | "reports"
   | "accounting"
   | "slack"
+  | "setup"
 
 export const SKILLS = ["drainage", "gas", "hot-water", "leak-detection", "general"] as const
 export type Skill = (typeof SKILLS)[number]

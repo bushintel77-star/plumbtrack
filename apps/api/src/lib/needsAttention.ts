@@ -44,8 +44,6 @@ export interface AttentionFlag {
   computedAt: string;
 }
 
-/** Minutes considered the minimum sane turnaround on site between jobs. */
-const MIN_TRAVEL_BUFFER_MINUTES = 20;
 /** Average door-to-door drive speed (km/h) for the coordinate fallback. */
 const AVG_KMH = 40;
 /** Fixed on-site turnaround (parking, handover) added to the drive estimate. */

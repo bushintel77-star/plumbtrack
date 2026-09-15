@@ -18,6 +18,9 @@ const etaSchema = z.object({
   jobId: z.string().trim().min(1),
   etaMinutes: z.number().int().min(0).max(24 * 60),
   message: z.string().trim().min(1).max(320).optional(),
+  /** Client outbox key — a retried send returns the recorded outcome instead
+   *  of double-texting the customer. */
+  opId: z.string().trim().min(1).max(128).optional(),
 });
 
 export async function smsRoutes(app: FastifyInstance): Promise<void> {
@@ -38,11 +41,25 @@ export async function smsRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = parseBody(etaSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
-    const { jobId, etaMinutes, message } = parsed.data;
+    const { jobId, etaMinutes, message, opId } = parsed.data;
 
     const job = await prisma.job.findFirst({ where: { id: jobId, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
     if (!job.phone) return reply.code(409).send({ message: "Job has no customer phone" });
+
+    // Idempotent replay: a prior attempt with this opId already resolved —
+    // return its recorded outcome rather than texting the customer twice.
+    if (opId) {
+      const prior = await prisma.smsMessage.findFirst({ where: { orgId, opId } });
+      if (prior) {
+        return reply.code(200).send({
+          sent: prior.status === "sent",
+          mode: prior.status === "provider_unconfigured" ? "test" : "live",
+          providerMessageId: prior.providerMessageId,
+          duplicate: true,
+        });
+      }
+    }
 
     const body =
       message ??
@@ -50,10 +67,26 @@ export async function smsRoutes(app: FastifyInstance): Promise<void> {
 
     try {
       const result = await sendSms(job.phone, body);
+      // Record the resolved outcome — the audit trail of what was texted,
+      // and the row an opId retry dedupes on. A thrown provider error records
+      // nothing so a retry legitimately retries.
+      const record = await prisma.smsMessage.create({
+        data: {
+          orgId,
+          jobId: job.id,
+          phone: job.phone,
+          body,
+          opId: opId ?? null,
+          status: result.mode === "test" ? "provider_unconfigured" : result.delivered ? "sent" : "failed",
+          providerMessageId: result.providerMessageId ?? null,
+          sentBy: request.auth?.userId ?? "unknown",
+        },
+      }).catch(() => null); // a concurrent identical opId loses the insert race — read it back below
+      const stored = record ?? (opId ? await prisma.smsMessage.findFirst({ where: { orgId, opId } }) : null);
       if (result.mode === "test") {
         return reply.code(202).send({ sent: false, mode: "test", message: "SMS is not configured — no message was sent." });
       }
-      return reply.code(202).send({ sent: result.delivered, mode: "live", providerMessageId: result.providerMessageId });
+      return reply.code(202).send({ sent: stored?.status === "sent" || result.delivered, mode: "live", providerMessageId: result.providerMessageId });
     } catch {
       return reply.code(502).send({ message: "SMS provider failed" });
     }

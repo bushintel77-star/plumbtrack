@@ -96,10 +96,12 @@ export function Inspector({
       </p>
       <p>
         {job.client}
-        <a href={`tel:${job.client.replace(/\s+/g, "")}`}>
-          <Phone size={12} />
-          Call
-        </a>
+        {job.phone && (
+          <a href={`tel:${job.phone.replace(/\s+/g, "")}`}>
+            <Phone size={12} />
+            Call
+          </a>
+        )}
       </p>
       {tech ? (
         <div className="fl-assignee">

@@ -77,7 +77,14 @@ async function workspaceForOrg(orgId: string) {
  *  outcomes here, not silent no-ops (§9: the connect flow is not happy-path
  *  only). */
 function hqAppBase(): string {
-  return process.env.HQ_APP_URL?.trim() || "https://hq-production-7911.up.railway.app";
+  const configured = process.env.HQ_APP_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  if (process.env.NODE_ENV === "production") {
+    // Never guess the console's public URL in prod — a wrong redirect domain
+    // is worse than a loud failure (see the CORS_ORIGINS boot check).
+    throw new Error("HQ_APP_URL must be configured in production");
+  }
+  return "http://localhost:3001";
 }
 
 function redirectToConnectResult(reply: FastifyReply, outcome: "connected" | "denied" | "failed"): FastifyReply {

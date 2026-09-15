@@ -48,13 +48,17 @@ export function CrmSurface() {
     refetchInterval: 30000
   })
 
-  // Job history is matched from the live board by customer name (jobs carry
-  // the free-text client field, not a customerId, in the current schema).
+  // Job history matches on the real customer link (`customerId` on the board
+  // payload). The name match stays only as a fallback for board payloads from
+  // older servers that predate the field — two customers named "Smith" must
+  // never share each other's history.
   const customers = useMemo(() => {
     const list = customersQuery.data ?? []
     return list.map(customer => ({
       ...customer,
-      jobs: jobs.filter(job => job.client === customer.name)
+      jobs: jobs.filter(job =>
+        job.customerId ? job.customerId === customer.id : job.client === customer.name
+      )
     }))
   }, [customersQuery.data, jobs])
 

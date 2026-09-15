@@ -166,7 +166,6 @@ function cacheSet<T>(cache: Map<string, T>, key: string, value: T): void {
 const shapeCache = new Map<string, { coordinates: [number, number][]; source: "ors" }>()
 const matrixCache = new Map<string, { durations: number[][]; source: "ors" }>()
 const snapCache = new Map<string, { snapped: [number, number][] }>()
-const isochroneCache = new Map<string, { geojson: unknown }>()
 
 type ShapeResult = { coordinates: [number, number][]; source: "ors" } | null
 type MatrixResult = { durations: number[][]; source: "ors" } | null

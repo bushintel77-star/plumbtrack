@@ -65,6 +65,7 @@ model Organization {
   jobMessages        JobMessage[]
   slackWorkspaces    SlackWorkspace[]
   slackJobThreads    SlackJobThread[]
+  smsMessages        SmsMessage[]
   setup              OrgSetup?
   integrations       IntegrationConnection[]
   integrationInterests IntegrationInterest[]
@@ -376,6 +377,7 @@ model Job {
   checklistItems ChecklistItem[]
   messages       JobMessage[]
   slackThread    SlackJobThread?
+  smsMessages    SmsMessage[]
 
   @@index([orgId, status])
   // Board poll (orderBy createdAt) and offline sync cursor (updatedAt) are
@@ -710,6 +712,36 @@ model SlackChannelRoute {
 
   @@unique([workspaceId, eventType])
   @@map("slack_channel_routes")
+}
+
+/// A customer SMS sent (or attempted) for a job — ETA texts today. Serves
+/// three purposes: the outbox opId makes a retried send return the recorded
+/// outcome instead of double-texting the customer; the row is the audit trail
+/// of what was texted to whom (dispute evidence); and per-org counts feed the
+/// SMS spend cap.
+model SmsMessage {
+  id                String       @id @default(cuid())
+  orgId             String
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId             String
+  job               Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// E.164/national destination — retained deliberately: the audit value of
+  /// "we texted this number" is the point of the record.
+  phone             String
+  body              String
+  /// Client outbox key — dedupes retries.
+  opId              String?      @unique
+  /// "sent" | "provider_unconfigured" | "failed"
+  status            String
+  providerMessageId String?
+  /// Session userId that triggered the send (a device id until per-operator
+  /// auth lands — Phase 4).
+  sentBy            String
+  createdAt         DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([jobId])
+  @@map("sms_messages")
 }
 
 // ── Guided setup + integrations ─────────────────────────────────────────────
