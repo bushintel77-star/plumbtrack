@@ -1,14 +1,16 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { jobFindFirst, smsMessageFindFirst, smsMessageCreate } = vi.hoisted(() => ({
+const { jobFindFirst, orgFindUnique, smsMessageFindFirst, smsMessageCreate } = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
+  orgFindUnique: vi.fn(),
   smsMessageFindFirst: vi.fn(),
   smsMessageCreate: vi.fn(),
 }));
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
     job: { findFirst: jobFindFirst },
+    organization: { findUnique: orgFindUnique },
     smsMessage: { findFirst: smsMessageFindFirst, create: smsMessageCreate },
   },
 }));
@@ -36,6 +38,7 @@ describe("POST /api/sms/eta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     jobFindFirst.mockResolvedValue({ id: "job-1", orgId: ORG, phone: "+61412345678" });
+    orgFindUnique.mockResolvedValue({ name: "Test Plumbing Co" });
     smsMessageFindFirst.mockResolvedValue(null);
     smsMessageCreate.mockResolvedValue({ id: "sms-1" });
   });

@@ -4,7 +4,7 @@ import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
-import { sendSms, isSmsConfigured } from "../lib/sms";
+import { sendSms } from "../lib/sms";
 
 /**
  * Customer ETA notification — HQ sends "we're on our way, ETA ~X min" to the
@@ -61,9 +61,10 @@ export async function smsRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } });
     const body =
       message ??
-      `Caulfield South Plumbing: your technician is on the way and should arrive in about ${etaMinutes} minute${etaMinutes === 1 ? "" : "s"}.`;
+      `${org?.name ?? "Your plumbing team"}: your technician is on the way and should arrive in about ${etaMinutes} minute${etaMinutes === 1 ? "" : "s"}.`;
 
     try {
       const result = await sendSms(job.phone, body);
