@@ -103,7 +103,9 @@ async function saveStep(input: {
     // The API answers a failed step with the specific fields to fix; surface
     // them on the inputs rather than as one generic banner.
     const message = error instanceof Error ? error.message : ""
-    const match = /\{.*\}$/s.exec(message)
+    // No /s (dotAll) flag — the target lib predates ES2018; [\s\S] matches
+    // newlines the same way.
+    const match = /\{[\s\S]*\}$/.exec(message)
     if (match) {
       try {
         const body = JSON.parse(match[0]) as { issues?: StepIssue[] }
@@ -147,7 +149,7 @@ export const integrationsApi = {
  *  prefix the client adds — what the operator should actually read. */
 export function readableError(error: unknown, fallback: string): string {
   if (!(error instanceof Error)) return fallback
-  const match = /\{.*\}$/s.exec(error.message)
+  const match = /\{[\s\S]*\}$/.exec(error.message)
   if (match) {
     try {
       const body = JSON.parse(match[0]) as { message?: string }

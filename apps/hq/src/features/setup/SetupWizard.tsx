@@ -235,8 +235,8 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
   const missingRequired = data.requiredSteps.filter(step => !data.completedSteps.includes(step))
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-canvas">
-      <header className="flex shrink-0 items-center justify-between border-b border-line bg-panel px-6 py-3">
+    <div className="flex h-full min-w-0 flex-col bg-background">
+      <header className="flex shrink-0 items-center justify-between border-b border-line bg-card px-6 py-3">
         <div>
           <p className="label-mono text-2xs text-ink-low">FIELDLOOP SETUP</p>
           <p className="text-sm font-semibold text-ink">
@@ -253,7 +253,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="Setup steps" className="w-64 shrink-0 overflow-y-auto border-r border-line bg-panel p-3">
+        <nav aria-label="Setup steps" className="w-64 shrink-0 overflow-y-auto border-r border-line bg-card p-3">
           <div className="space-y-1">
             {STEP_DEFS.map((def, index) => (
               <StepRailItem
@@ -294,7 +294,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
                         key={def.id}
                         type="button"
                         onClick={() => goTo(def.id)}
-                        className="flex w-full items-center justify-between rounded-lg border border-line bg-panel px-4 py-3 text-left hover:border-chrome-400"
+                        className="flex w-full items-center justify-between rounded-lg border border-line bg-card px-4 py-3 text-left hover:border-chrome-400"
                       >
                         <span className="flex items-center gap-3">
                           <span className="label-mono flex h-6 w-6 items-center justify-center rounded-full bg-recess text-[11px] text-ink-low">
@@ -316,7 +316,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
                   </p>
                 )}
 
-                <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line bg-panel/95 py-4 backdrop-blur">
+                <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line bg-card py-4">
                   <button
                     type="button"
                     onClick={back}

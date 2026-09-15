@@ -25,7 +25,7 @@ export function InviteStep({
         label="Invite your team"
         hint="Anyone who opens this link can request to join — you approve them in Team admin before they can see anything."
       >
-        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-panel p-4">
+        <div className="panel flex flex-wrap items-center gap-4 rounded-xl p-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-line bg-recess text-ink-low">
             <QrCode className="h-10 w-10" aria-hidden="true" />
           </div>

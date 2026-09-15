@@ -184,7 +184,7 @@ export function ConnectionForm({
             {connecting ? `Opening ${provider.name}…` : `Connect to ${provider.name}`}
             {!connecting && <ChevronRight className="h-3.5 w-3.5" />}
           </button>
-          <p className="mt-2 text-xs text-ink-low">You'll sign in on {provider.name}'s own page — FieldLoop never sees your password.</p>
+          <p className="mt-2 text-xs text-ink-low">You&rsquo;ll sign in on {provider.name}&rsquo;s own page — FieldLoop never sees your password.</p>
         </div>
       )}
     </div>

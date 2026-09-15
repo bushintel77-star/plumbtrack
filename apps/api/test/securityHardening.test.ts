@@ -286,6 +286,14 @@ describe("CORS fails closed in production", () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousCors = process.env.CORS_ORIGINS;
   const previousSecret = process.env.AUTH_SECRET;
+  const previousEncryptionKey = process.env.APP_ENCRYPTION_KEY;
+
+  beforeEach(() => {
+    // A production boot also requires APP_ENCRYPTION_KEY (integration
+    // credentials must be encryptable) — orthogonal to what this suite
+    // exercises, so satisfy it here rather than let it mask the CORS checks.
+    process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString("base64");
+  });
 
   afterEach(() => {
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
@@ -294,6 +302,8 @@ describe("CORS fails closed in production", () => {
     else process.env.CORS_ORIGINS = previousCors;
     if (previousSecret === undefined) delete process.env.AUTH_SECRET;
     else process.env.AUTH_SECRET = previousSecret;
+    if (previousEncryptionKey === undefined) delete process.env.APP_ENCRYPTION_KEY;
+    else process.env.APP_ENCRYPTION_KEY = previousEncryptionKey;
   });
 
   it("refuses to boot without CORS_ORIGINS when NODE_ENV is production", async () => {
