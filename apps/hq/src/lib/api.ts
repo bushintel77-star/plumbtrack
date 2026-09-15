@@ -137,6 +137,23 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 }
 
+/** One job-scoped message. `source: "slack"` = typed in the job's Slack
+ *  thread and bridged back in. */
+export interface JobMessageRecord {
+  id: string
+  direction: "dispatch" | "field"
+  sender: string
+  body: string
+  source?: "fieldloop" | "slack"
+  createdAt: string
+}
+
+/** The org's Slack job-thread bridge: `linked` = job messages reach Slack. */
+export interface JobMessageBridge {
+  connected: boolean
+  linked: boolean
+}
+
 export const authApi = {
   session: () => apiGet<HqSession>("/api/auth/session"),
   streamToken: () => apiGet<{ token: string; organizationId: string; role: string }>("/api/auth/stream-token"),
@@ -158,9 +175,9 @@ export const authApi = {
       body: JSON.stringify({ jobId, etaMinutes, ...(message ? { message } : {}) })
     }),
   listMessages: (jobId: string) =>
-    apiGet<{ messages: Array<{ id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string }> }>(`/api/jobs/${jobId}/messages`),
+    apiGet<{ messages: JobMessageRecord[]; slack?: JobMessageBridge }>(`/api/jobs/${jobId}/messages`),
   postMessage: (jobId: string, body: string, sender: string) =>
-    apiRequest<{ message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string } }>(`/api/jobs/${jobId}/messages`, {
+    apiRequest<{ message: JobMessageRecord; slack?: JobMessageBridge }>(`/api/jobs/${jobId}/messages`, {
       method: "POST",
       body: JSON.stringify({ direction: "dispatch", sender, body })
     }),

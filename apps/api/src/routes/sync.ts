@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { SYNC_JOB_CAP } from "../lib/limits";
+import { agreementSnapshot, type AgreementSnapshot } from "../lib/agreements";
 
 /**
  * WatermelonDB sync endpoint — pull protocol.
@@ -31,6 +32,8 @@ interface SyncJobRow {
   job_type: string | null;
   status: string;
   assigned_staff_id: string | null;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
   field_note: string | null;
   lat: number | null;
   lng: number | null;
@@ -45,6 +48,10 @@ interface SyncJobRow {
     description: string;
     lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
   } | null;
+  /** CRM link — the field agent opens the customer profile from it. */
+  customer_id: string | null;
+  /** The customer's next-due active service agreement (spec §3.3 card). */
+  agreement: AgreementSnapshot | null;
   created_at: number;
   updated_at: number;
 }
@@ -64,7 +71,7 @@ function toRow(job: {
   arrivedAt?: Date | null;
   departedAt?: Date | null;
   photos?: Array<{ id: string; label: string; url: string; takenAt: Date }>;
-  appointments?: Array<{ assignedStaffId: string | null }>;
+  appointments?: Array<{ assignedStaffId: string | null; scheduledStart?: Date; scheduledEnd?: Date | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
   quote?: {
@@ -72,6 +79,10 @@ function toRow(job: {
     status: string;
     description: string;
     lines: Array<{ desc: string; qty: number; unit: string; rate: number }>;
+  } | null;
+  customerId?: string | null;
+  customer?: {
+    serviceAgreements?: Array<{ id: string; serviceType: string; frequency: string; nextDueDate: Date }>;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -89,6 +100,10 @@ function toRow(job: {
     // appointment, so a freshly-booted device knows its assigned jobs without
     // needing a live frame first.
     assigned_staff_id: job.appointments?.[0]?.assignedStaffId ?? null,
+    // Appointment window rides with the job so the field card can render the
+    // scheduled time range ("8:00 – 8:30 AM") without a second fetch.
+    scheduled_start: job.appointments?.[0]?.scheduledStart?.toISOString() ?? null,
+    scheduled_end: job.appointments?.[0]?.scheduledEnd?.toISOString() ?? null,
     field_note: job.fieldNote ?? null,
     // Job-level geocoded coordinates — the field map's pins and the
     // navigate-link both read these (they were geocoded server-side but
@@ -128,6 +143,8 @@ function toRow(job: {
       lat: entry.lat,
       lng: entry.lng
     })),
+    customer_id: job.customerId ?? null,
+    agreement: agreementSnapshot(job.customer?.serviceAgreements?.[0], job.scope),
     created_at: job.createdAt.getTime(),
     updated_at: job.updatedAt.getTime()
   }
@@ -154,6 +171,16 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
         appointments: { orderBy: { scheduledStart: "asc" }, take: 1 },
         quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } },
         photos: { orderBy: { takenAt: "desc" } },
+        customer: {
+          select: {
+            serviceAgreements: {
+              where: { active: true },
+              orderBy: { nextDueDate: "asc" },
+              take: 1,
+              select: { id: true, serviceType: true, frequency: true, nextDueDate: true },
+            },
+          },
+        },
       },
       orderBy: { updatedAt: "asc" },
       take: SYNC_JOB_CAP

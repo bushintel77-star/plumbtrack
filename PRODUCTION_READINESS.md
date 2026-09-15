@@ -1,6 +1,70 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-09-13 (field write path + authz gate pass)
+Updated: 2026-09-16 (field comms, CRM and documents on the field agent)
+
+## 2026-09-16 — field comms, CRM and documents (branch `feat/field-comms-crm-docs`, NOT deployed)
+
+Closes the HANDOVER P1 "Slack ↔ JobMessage bridge" and brings CRM and the
+document register onto the field agent. Monorepo + `plumbtrack-mobile` both
+on the same branch name; nothing committed or deployed.
+
+**API**
+- **Slack job threads** (`lib/slackJobThreads.ts`): one Slack thread per job
+  in the channel routed for the new `job.message_posted` event. A job message
+  (HQ or field) rides the transactional outbox → `SlackAdapter` → integration
+  worker; the first one posts the thread parent. Human replies typed in that
+  thread arrive via the signed Events API and land on the job as
+  `source: "slack"` JobMessages + a live frame. Loop-safe: inbound rows never
+  emit, bot/own-user/edit/top-level posts are ignored, Slack retries dedupe on
+  `(jobId, slackTs)`. Unmapped teams write nothing.
+- **Fixed, pre-existing:** the integration worker's `parsePayload` dropped
+  `orgId`/`eventType`, so every connected-workspace delivery ignored the org's
+  bot token and channel routes and fell back to `SLACK_WEBHOOK_URL`.
+- Job messages: `opId` idempotency; technician sessions may only post
+  `direction: "field"` (a device token could previously post as dispatch).
+- `GET /api/messages/threads`: the field Comms inbox + bridge state. Device
+  sessions still get no Slack channel history — the 09-13 office gate stands.
+- `/api/sync` ships `customer_id` and the customer's next-due active
+  agreement; "this visit fulfils it" is claimed only when the scope names the
+  service (`lib/agreements.ts`), otherwise null.
+- `POST /api/media/:id/complete {purpose: "document"}` finalises a file
+  without a JobPhoto row; `POST /api/documents` accepts `opId`.
+- Migration `20260916090000_job_message_slack_threads` (JobMessage
+  source/opId/slackTs, JobDocument opId, `slack_job_threads`). Additive.
+
+**Field agent (plumbtrack-mobile)**
+- Comms tab = job conversations (outbox-backed sends, queued/failed states,
+  unread markers + tab badge), full thread screen, bridge honesty strip.
+- Customer profile (`/customer/[id]`): call/text/email, properties + access
+  codes, agreements with due chips, service history.
+- Document register (`/documents`, "Expiring & expired" first) + job document
+  capture (camera/photos → outbox → signed upload → vault record).
+- **Fixed, pre-existing:** WatermelonDB sync stored the API's arrays/objects
+  as null (checklists, photos, time entries, quote) and dropped schedule,
+  geocode and arrival columns the schema didn't declare. Schema v5 +
+  `toLocalSyncRow`; a post-migration sync does a full pull.
+
+**HQ:** routing pane lists `job.message_posted`; the job message thread shows
+"via Slack", the bridge state, and refreshes every 15 s.
+
+**Verified:** API 253 tests / typecheck / lint (3 pre-existing warnings); HQ
+typecheck / lint / 115 tests; mobile typecheck / 83 tests / colour gate; mobile
+screens exercised in the web build in demo mode (Comms, thread send, job
+detail, customer, capture sheet, documents). **Not verified:** against a real
+Slack workspace or real media storage — the bridge is covered by unit and
+route tests only.
+
+**Owner actions to switch the bridge on:** (1) run the migration; (2) Slack
+app: add `users:read`, enable Event Subscriptions → `https://<api>/api/slack/events`
+with bot events `message.channels` (+ `message.groups` for private channels),
+reinstall, confirm `SLACK_SIGNING_SECRET`; (3) invite the bot to the dispatch
+channel and set HQ → Slack → Automation routing → "job messages → thread per
+job"; (4) media storage credentials for document uploads.
+
+**Still open:** mobile `job/[id].tsx` has pre-existing lint errors (hooks
+after an early return — a job that loads after the screen mounts can crash
+it); the photo-upload outbox handler PUTs the base64 text rather than bytes
+(the document path sends bytes) — suspected broken stored images, unverified.
 
 ## 2026-09-13 — field write path + authz gates + HQ intake (P0 fix block)
 

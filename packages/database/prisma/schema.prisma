@@ -64,6 +64,7 @@ model Organization {
   rfis               Rfi[]
   jobMessages        JobMessage[]
   slackWorkspaces    SlackWorkspace[]
+  slackJobThreads    SlackJobThread[]
 
   @@map("organizations")
 }
@@ -370,6 +371,7 @@ model Job {
   rfis           Rfi[]
   checklistItems ChecklistItem[]
   messages       JobMessage[]
+  slackThread    SlackJobThread?
 
   @@index([orgId, status])
   // Board poll (orderBy createdAt) and offline sync cursor (updatedAt) are
@@ -398,8 +400,16 @@ model JobMessage {
   direction String   @default("dispatch") // "dispatch" | "field"
   sender    String
   body      String
+  /// Where it was written: "fieldloop" (HQ or the field agent) or "slack" (a
+  /// reply typed in the job's Slack thread and bridged back in).
+  source    String   @default("fieldloop")
+  /// Client outbox key — a retried field post returns the stored message.
+  opId      String?  @unique
+  /// Slack message ts of a bridged reply — dedupes Slack's event retries.
+  slackTs   String?
   createdAt DateTime @default(now())
 
+  @@unique([jobId, slackTs])
   @@index([jobId, createdAt])
   @@index([orgId, createdAt])
   @@map("job_messages")
@@ -591,6 +601,8 @@ model JobDocument {
    */
   versions       Json         @default("[]")
   createdBy      String
+  /// Client outbox key — a retried field capture returns the stored document.
+  opId           String?      @unique
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -648,9 +660,33 @@ model SlackWorkspace {
   updatedAt   DateTime @updatedAt
 
   channelRoutes SlackChannelRoute[]
+  jobThreads    SlackJobThread[]
 
   @@index([orgId])
   @@map("slack_workspaces")
+}
+
+/// One Slack thread per job (the job-message bridge). The parent message is
+/// posted into the channel routed for `job.message_posted`; every job message
+/// after that is a threaded reply, and replies typed in the thread come back
+/// to the job as JobMessage rows. (channelId, threadTs) is how an inbound
+/// Slack event finds its job.
+model SlackJobThread {
+  id          String         @id @default(cuid())
+  orgId       String
+  org         Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId       String         @unique
+  job         Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   SlackWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channelId   String
+  threadTs    String
+  createdAt   DateTime       @default(now())
+
+  @@unique([channelId, threadTs])
+  @@index([orgId])
+  @@index([workspaceId])
+  @@map("slack_job_threads")
 }
 
 /// Automation routing (design §4.6): which backend event posts to which

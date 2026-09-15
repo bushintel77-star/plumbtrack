@@ -185,6 +185,31 @@ describe("document vault routes", () => {
     expect(docCreate).not.toHaveBeenCalled();
   });
 
+  it("returns the stored document for a retried field capture instead of creating it twice", async () => {
+    docFindFirst.mockResolvedValue({ ...STORED_DOC, jobId: "J-1", opId: "doc-J-1-abc" });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/documents",
+      headers: headers(),
+      payload: { name: "Gas compliance certificate", category: "compliance", jobId: "J-1", createdBy: "staff-1", currentVersion: VERSION, opId: "doc-J-1-abc" },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(docFindFirst).toHaveBeenCalledWith({ where: { opId: "doc-J-1-abc", orgId: ORG } });
+    expect(docCreate).not.toHaveBeenCalled();
+  });
+
+  it("stores the outbox key on a first field capture", async () => {
+    docFindFirst.mockResolvedValue(null);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/documents",
+      headers: headers(),
+      payload: { name: "Site plan", category: "spec", jobId: "J-1", createdBy: "staff-1", currentVersion: VERSION, opId: "doc-J-1-def" },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(docCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ jobId: "J-1", opId: "doc-J-1-def" }) });
+  });
+
   it("rejects an invalid payload without touching the database", async () => {
     const response = await app.inject({
       method: "POST",

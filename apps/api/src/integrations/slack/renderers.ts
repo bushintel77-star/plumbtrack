@@ -1,4 +1,4 @@
-import type { JobCompletedEvent, JobCreatedUnassignedEvent, NotificationCreatedEvent } from "../../domain/events";
+import type { JobCompletedEvent, JobCreatedUnassignedEvent, JobMessagePostedEvent, NotificationCreatedEvent } from "../../domain/events";
 
 export interface SlackTextObject {
   type: "mrkdwn";
@@ -70,6 +70,43 @@ export function renderNotificationMessage(event: NotificationCreatedEvent): Slac
       text: { type: "mrkdwn", text: `*${event.author}*\n${event.text}` },
     }],
   };
+}
+
+/** Slack treats &, < and > as control characters in message text. */
+function escapeSlackText(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Parent message of a job's Slack thread — posted once, on the job's first
+ *  bridged message. */
+export function renderJobThreadParent(event: JobMessagePostedEvent): SlackRenderedMessage {
+  return {
+    text: `Job ${event.jobId} · ${escapeSlackText(event.client)} — ${escapeSlackText(event.address)}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `Job thread · ${event.jobId}`, emoji: true },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Customer*\n${escapeSlackText(event.client)}` },
+          { type: "mrkdwn", text: `*Address*\n${escapeSlackText(event.address)}` },
+          { type: "mrkdwn", text: `*Scope*\n${escapeSlackText(event.scope) || "—"}` },
+        ],
+      },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: "Dispatch ↔ field messages for this job. Reply in this thread — replies go straight to the job in FieldLoop." }],
+      },
+    ],
+  };
+}
+
+/** One job message as a threaded reply: who, which side, what. */
+export function renderJobMessageReply(event: JobMessagePostedEvent): string {
+  const side = event.direction === "field" ? "field" : "dispatch";
+  return `*${escapeSlackText(event.sender)}* · ${side}\n${escapeSlackText(event.body)}`;
 }
 
 /** ⚠️ Unassigned job card — the dispatcher action queue, surfaced where the

@@ -40,7 +40,17 @@ export type LiveFrame =
     topic: "topic/jobs/message";
     orgId: string;
     jobId: string;
-    message: { id: string; direction: "dispatch" | "field"; sender: string; body: string; createdAt: string };
+    message: {
+      id: string;
+      direction: "dispatch" | "field";
+      sender: string;
+      body: string;
+      /** "fieldloop" | "slack" — where the message was written. */
+      source: string;
+      /** The posting client's outbox key, so it can reconcile its queued copy. */
+      opId: string | null;
+      createdAt: string;
+    };
   };
 
 type Listener = (frame: LiveFrame) => void;

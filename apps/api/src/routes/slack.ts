@@ -33,8 +33,10 @@ import {
  *    an install performed outside the app. Same storage, same guarantees.
  */
 
-/** Canonical automation event keys — mirrors SlackChannelRoute.eventType. */
-const EVENT_TYPES = ["job.completed", "job.created_unassigned", "job.status_urgent"] as const;
+/** Canonical automation event keys — mirrors SlackChannelRoute.eventType.
+ *  job.message_posted: the channel that holds one thread per job (the
+ *  dispatch ↔ field message bridge, lib/slackJobThreads.ts). */
+const EVENT_TYPES = ["job.completed", "job.created_unassigned", "job.status_urgent", "job.message_posted"] as const;
 type EventType = (typeof EVENT_TYPES)[number];
 
 const connectSchema = z.object({

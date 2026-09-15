@@ -15,6 +15,7 @@ export class SlackDeliveryAdapter implements ProviderDeliveryAdapter {
         channel: payload.channel,
         blocks: payload.blocks,
         eventType: payload.eventType,
+        jobThread: payload.jobThread,
       });
       if (result.delivered) return { delivered: true, retryable: false, providerMessageId: result.providerMessageId };
       const error = result.error ?? "Slack delivery failed";
@@ -22,7 +23,7 @@ export class SlackDeliveryAdapter implements ProviderDeliveryAdapter {
       const httpStatus = statusMatch ? Number(statusMatch[1]) : undefined;
       return {
         delivered: false,
-        retryable: httpStatus ? httpStatus === 429 || httpStatus >= 500 : error !== "no webhook configured",
+        retryable: result.retryable ?? (httpStatus ? httpStatus === 429 || httpStatus >= 500 : error !== "no webhook configured"),
         httpStatus,
         error,
       };

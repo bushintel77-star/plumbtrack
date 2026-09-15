@@ -51,6 +51,10 @@ export async function documentRoutes(app: FastifyInstance): Promise<void> {
       const job = await prisma.job.findFirst({ where: { id: data.jobId, orgId } });
       if (!job) return reply.code(404).send({ message: "Job not found" });
     }
+    if (data.opId) {
+      const existing = await prisma.jobDocument.findFirst({ where: { opId: data.opId, orgId } });
+      if (existing) return reply.code(200).send(existing);
+    }
 
     const document = await prisma.jobDocument.create({
       data: {
@@ -64,6 +68,7 @@ export async function documentRoutes(app: FastifyInstance): Promise<void> {
         currentVersion: data.currentVersion,
         versions: data.versions ?? [data.currentVersion],
         createdBy: data.createdBy,
+        ...(data.opId ? { opId: data.opId } : {}),
       },
     });
     recordAuditEvent(request, {

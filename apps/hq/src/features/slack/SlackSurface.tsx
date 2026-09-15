@@ -28,7 +28,8 @@ import { cn } from "@/lib/utils"
 const EVENT_LABELS: Record<string, { label: string; note?: string }> = {
   "job.completed": { label: "job.completed" },
   "job.created_unassigned": { label: "job.created (unassigned)" },
-  "job.status_urgent": { label: "job.status → urgent", note: "stored — urgency has no server-side signal yet" }
+  "job.status_urgent": { label: "job.status → urgent", note: "stored — urgency has no server-side signal yet" },
+  "job.message_posted": { label: "job messages → thread per job", note: "each job gets one thread; replies typed in it go back to the job and the technician" }
 }
 
 const SEVERITY_NOTE =

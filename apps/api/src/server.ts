@@ -26,7 +26,7 @@ import { boardRoutes } from "./routes/board";
 import { fleetRoutes } from "./routes/fleet";
 import { routingRoutes } from "./routes/routing";
 import { smsRoutes } from "./routes/sms";
-import { jobMessageRoutes } from "./routes/jobMessages";
+import { jobMessageRoutes, messageThreadRoutes } from "./routes/jobMessages";
 
 export interface BuildAppOptions {
   logger?: boolean;
@@ -138,6 +138,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(routingRoutes, { prefix: "/api/routing" });
   await app.register(smsRoutes, { prefix: "/api/sms" });
   await app.register(jobMessageRoutes, { prefix: "/api/jobs" });
+  await app.register(messageThreadRoutes, { prefix: "/api/messages" });
 
   return app;
 }

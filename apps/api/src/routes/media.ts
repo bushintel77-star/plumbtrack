@@ -107,11 +107,15 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     if (roleFailure) return roleFailure;
 
     const { assetId } = request.params as { assetId: string };
-    const parsed = parseBody(completeUploadSchema, { assetId });
+    const body = (request.body ?? {}) as { purpose?: unknown };
+    const parsed = parseBody(completeUploadSchema, { assetId, ...(body.purpose !== undefined ? { purpose: body.purpose } : {}) });
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const purpose = parsed.data.purpose ?? "photo";
     const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, orgId } });
     if (!asset) return reply.code(404).send({ message: "Media asset not found" });
-    if (asset.status === "uploaded" && asset.publicUrl) return { assetId: asset.id, photoUrl: asset.publicUrl };
+    if (asset.status === "uploaded" && asset.publicUrl) {
+      return { assetId: asset.id, photoUrl: asset.publicUrl, fileUrl: asset.publicUrl };
+    }
     if (asset.status !== "pending") return reply.code(409).send({ message: "Media asset cannot be completed" });
     if (asset.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });
 
@@ -123,6 +127,16 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
       data: { status: "uploaded", publicUrl },
     });
     if (updated.count === 0) return reply.code(409).send({ message: "Media asset was completed concurrently" });
+
+    if (purpose === "document") {
+      recordAuditEvent(request, {
+        action: "media.completed",
+        entityType: "media_asset",
+        entityId: asset.id,
+        metadata: { jobId: asset.jobId, purpose },
+      });
+      return { assetId: asset.id, fileUrl: publicUrl };
+    }
 
     const existingPhoto = await prisma.jobPhoto.findFirst({ where: { assetId: asset.id, jobId: asset.jobId } });
     const photo = existingPhoto ?? await prisma.jobPhoto.create({

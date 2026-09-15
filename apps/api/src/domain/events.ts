@@ -37,7 +37,25 @@ export interface JobCreatedUnassignedEvent {
   scope: string;
 }
 
-export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent | JobCreatedUnassignedEvent;
+/** Emitted when dispatch or the field posts a job message while the org's
+ *  Slack job-thread bridge is on — the message is mirrored into that job's
+ *  Slack thread. Never emitted for replies that came IN from Slack. */
+export interface JobMessagePostedEvent {
+  type: "job.message_posted";
+  eventId: string;
+  occurredAt: string;
+  organizationId: string;
+  jobId: string;
+  messageId: string;
+  direction: "dispatch" | "field";
+  sender: string;
+  body: string;
+  client: string;
+  address: string;
+  scope: string;
+}
+
+export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent | JobCreatedUnassignedEvent | JobMessagePostedEvent;
 
 export function isDomainEvent(value: unknown): value is DomainEvent {
   if (!value || typeof value !== "object") return false;
@@ -45,7 +63,8 @@ export function isDomainEvent(value: unknown): value is DomainEvent {
   return (
     (event.type === "job.completed" ||
       event.type === "notification.created" ||
-      event.type === "job.created_unassigned") &&
+      event.type === "job.created_unassigned" ||
+      event.type === "job.message_posted") &&
     typeof event.eventId === "string" &&
     typeof event.organizationId === "string" &&
     typeof event.occurredAt === "string"

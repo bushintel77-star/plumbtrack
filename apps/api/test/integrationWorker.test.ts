@@ -62,6 +62,35 @@ describe("durable integration worker", () => {
     expect(completion.data).toEqual(expect.objectContaining({ status: "delivered", leaseId: null }));
   });
 
+  it("hands the provider the org, event type and job thread stored on the payload", async () => {
+    // These fields select the org's connected workspace, its channel route,
+    // and the job's Slack thread — dropping them sends everything down the
+    // legacy webhook.
+    findUnique.mockResolvedValue({
+      ...delivery,
+      notificationId: null,
+      payloadJson: JSON.stringify({
+        text: "*Dave* · field\nOn site",
+        orgId: "org-1",
+        eventType: "job.message_posted",
+        jobThread: { jobId: "J-1043", headerText: "Job J-1043 · Cho", headerBlocks: [{ type: "header" }] },
+      }),
+    });
+    const route = vi.fn().mockResolvedValue({ delivered: true, retryable: false });
+
+    await processIntegrationDelivery(delivery.id, { route } as never);
+
+    expect(route).toHaveBeenCalledWith("slack", {
+      text: "*Dave* · field\nOn site",
+      channel: undefined,
+      notificationId: undefined,
+      blocks: undefined,
+      orgId: "org-1",
+      eventType: "job.message_posted",
+      jobThread: { jobId: "J-1043", headerText: "Job J-1043 · Cho", headerBlocks: [{ type: "header" }] },
+    });
+  });
+
   it("does not call a provider when another worker owns the lease", async () => {
     const route = vi.fn();
     updateMany.mockResolvedValueOnce({ count: 0 });

@@ -18,6 +18,8 @@ export interface DeliveryPayload {
   orgId?: string;
   /** Domain event key — selects the org's SlackChannelRoute for the event. */
   eventType?: string;
+  /** Job-message bridge: deliver as a reply in this job's Slack thread. */
+  jobThread?: { jobId: string; headerText: string; headerBlocks?: unknown[] };
 }
 
 export interface ProviderDeliveryResult {
@@ -48,15 +50,33 @@ function backoff(attemptCount: number): number {
   return Math.min(MAX_BACKOFF_MS, 2_000 * (2 ** Math.max(0, attemptCount - 1)));
 }
 
+function parseJobThread(value: unknown): DeliveryPayload["jobThread"] {
+  if (!value || typeof value !== "object") return undefined;
+  const thread = value as { jobId?: unknown; headerText?: unknown; headerBlocks?: unknown };
+  if (typeof thread.jobId !== "string" || typeof thread.headerText !== "string") return undefined;
+  return {
+    jobId: thread.jobId,
+    headerText: thread.headerText,
+    headerBlocks: Array.isArray(thread.headerBlocks) ? thread.headerBlocks : undefined,
+  };
+}
+
+/** Rebuild the payload from its stored JSON. Every field the delivery
+ *  adapters read must be carried here — orgId and eventType were once
+ *  dropped, which silently sent connected-workspace orgs down the legacy
+ *  webhook path and ignored their channel routes. */
 function parsePayload(value: string): DeliveryPayload | null {
   try {
-    const parsed = JSON.parse(value) as Partial<DeliveryPayload>;
+    const parsed = JSON.parse(value) as Partial<Record<keyof DeliveryPayload, unknown>>;
     if (typeof parsed.text !== "string" || !parsed.text.trim()) return null;
     return {
       text: parsed.text,
       channel: typeof parsed.channel === "string" ? parsed.channel : undefined,
       notificationId: typeof parsed.notificationId === "string" ? parsed.notificationId : undefined,
       blocks: Array.isArray(parsed.blocks) ? parsed.blocks : undefined,
+      orgId: typeof parsed.orgId === "string" ? parsed.orgId : undefined,
+      eventType: typeof parsed.eventType === "string" ? parsed.eventType : undefined,
+      jobThread: parseJobThread(parsed.jobThread),
     };
   } catch {
     return null;

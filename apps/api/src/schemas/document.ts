@@ -36,6 +36,8 @@ export const createDocumentSchema = z.object({
   /** The first revision of the document. */
   currentVersion: documentVersionSchema,
   versions: z.array(documentVersionSchema).optional(),
+  /** Field outbox key — a retried capture returns the stored document. */
+  opId: z.string().trim().min(1).max(120).optional(),
 });
 
 export const updateDocumentSchema = z.object({
