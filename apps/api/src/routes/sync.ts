@@ -31,6 +31,8 @@ interface SyncJobRow {
   job_type: string | null;
   status: string;
   assigned_staff_id: string | null;
+  scheduled_start: string | null;
+  scheduled_end: string | null;
   field_note: string | null;
   lat: number | null;
   lng: number | null;
@@ -64,7 +66,7 @@ function toRow(job: {
   arrivedAt?: Date | null;
   departedAt?: Date | null;
   photos?: Array<{ id: string; label: string; url: string; takenAt: Date }>;
-  appointments?: Array<{ assignedStaffId: string | null }>;
+  appointments?: Array<{ assignedStaffId: string | null; scheduledStart?: Date; scheduledEnd?: Date | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
   quote?: {
@@ -89,6 +91,10 @@ function toRow(job: {
     // appointment, so a freshly-booted device knows its assigned jobs without
     // needing a live frame first.
     assigned_staff_id: job.appointments?.[0]?.assignedStaffId ?? null,
+    // Appointment window rides with the job so the field card can render the
+    // scheduled time range ("8:00 – 8:30 AM") without a second fetch.
+    scheduled_start: job.appointments?.[0]?.scheduledStart?.toISOString() ?? null,
+    scheduled_end: job.appointments?.[0]?.scheduledEnd?.toISOString() ?? null,
     field_note: job.fieldNote ?? null,
     // Job-level geocoded coordinates — the field map's pins and the
     // navigate-link both read these (they were geocoded server-side but
