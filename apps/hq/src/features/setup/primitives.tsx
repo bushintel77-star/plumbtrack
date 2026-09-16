@@ -1,7 +1,7 @@
 "use client"
 
-import { useId, useRef, type ReactNode } from "react"
-import { Check, Info } from "lucide-react"
+import { useId, useRef, useState, type ReactNode } from "react"
+import { Check, Eye, EyeOff, Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -249,7 +249,8 @@ export function TextField({
   autoComplete,
   inputMode,
   maxLength,
-  right
+  right,
+  reveal
 }: {
   label: string
   value: string
@@ -264,33 +265,61 @@ export function TextField({
   maxLength?: number
   /** A button that sits with the input, e.g. Look up or Test connection. */
   right?: ReactNode
+  /** Password fields get a reveal toggle by default; pass false to suppress
+   *  it (a shared secret being pasted into a dev-only field, say). */
+  reveal?: boolean
 }) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
+  /* Reveal is opt-out-able but on by default for passwords: a mistyped
+     character is invisible otherwise, and "Incorrect email or password" is
+     the same message whether the password was wrong or simply fat-fingered.
+     Starts hidden, and never persists — a reveal survives no re-render of
+     the page. */
+  const [revealed, setRevealed] = useState(false)
+  const isPassword = type === "password" && reveal !== false
   return (
     <div>
       <label htmlFor={id} className="label-mono text-2xs text-ink-low">
         {label.toUpperCase()}
       </label>
       <div className="mt-1.5 flex gap-2">
-        <input
-          id={id}
-          type={type}
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          inputMode={inputMode}
-          maxLength={maxLength}
-          aria-describedby={cn(hint && hintId, error && errorId) || undefined}
-          aria-invalid={error ? true : undefined}
-          className={cn(
-            "min-h-11 w-full rounded-lg border bg-card px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-low focus:border-chrome-600 focus-visible:ring-2 focus-visible:ring-ring/60",
-            mono && "font-mono",
-            error ? "border-urgent" : "border-line"
+        <div className="relative w-full">
+          <input
+            id={id}
+            type={isPassword && revealed ? "text" : type}
+            value={value}
+            onChange={event => onChange(event.target.value)}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+            inputMode={inputMode}
+            maxLength={maxLength}
+            aria-describedby={cn(hint && hintId, error && errorId) || undefined}
+            aria-invalid={error ? true : undefined}
+            className={cn(
+              "min-h-11 w-full rounded-lg border bg-card px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-low focus:border-chrome-600 focus-visible:ring-2 focus-visible:ring-ring/60",
+              mono && "font-mono",
+              isPassword && "pr-11",
+              error ? "border-urgent" : "border-line"
+            )}
+          />
+          {isPassword && (
+            <button
+              /* type="button" matters: inside a form the default is submit,
+                 so revealing the password would post it. */
+              type="button"
+              onClick={() => setRevealed(current => !current)}
+              aria-label={revealed ? "Hide password" : "Show password"}
+              aria-pressed={revealed}
+              aria-controls={id}
+              title={revealed ? "Hide password" : "Show password"}
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-r-lg text-ink-low transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           )}
-        />
+        </div>
         {right}
       </div>
       {hint && (
