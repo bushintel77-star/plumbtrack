@@ -96,12 +96,15 @@ describe("account auth", () => {
     process.env.AUTH_SECRET = "test-auth-secret";
     delete process.env.NODE_ENV;
     delete process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+    // The suite fires more than the default 10/min at the shared instance —
+    // raise its limiter; the dedicated test below tunes its own instance.
+    process.env.AUTH_RATE_LIMIT_MAX = "100";
     app = await buildApp({ logger: false });
     await app.ready();
   });
 
   afterAll(async () => {
-    for (const key of ["AUTH_SECRET", "NODE_ENV", "PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER"]) {
+    for (const key of ["AUTH_SECRET", "NODE_ENV", "PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER", "AUTH_RATE_LIMIT_MAX"]) {
       if (prev[key] === undefined) delete process.env[key];
       else process.env[key] = prev[key];
     }
@@ -288,6 +291,102 @@ describe("account auth", () => {
         payload: { email: "d@mallee.example", password },
       });
       expect(locked.statusCode).toBe(429);
+    });
+
+    it("mints a ~30-day session for a technician — field devices can't re-auth mid-shift", async () => {
+      userFindUnique.mockResolvedValue({
+        id: "u-tech",
+        name: "Dave Roper",
+        passwordHash: hash,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        memberships: [{ organizationId: ORG, role: "technician" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "dave@mallee.example", password },
+      });
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000) + 29 * 24 * 60 * 60);
+      // Claims, expiresAt and cookie maxAge must agree — all three.
+      const setCookie = [response.headers["set-cookie"]].flat().join(";");
+      expect(setCookie).toContain("Max-Age=2592000");
+    });
+
+    it("keeps an owner session at ~12 hours — the asymmetry guard", async () => {
+      userFindUnique.mockResolvedValue({
+        id: "u-owner",
+        name: "Sam Mallee",
+        passwordHash: hash,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        memberships: [{ organizationId: ORG, role: "owner" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "sam@mallee.example", password },
+      });
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      // This fails if someone makes every session 30 days.
+      expect(body.expiresAt).toBeLessThan(Math.floor(Date.now() / 1000) + 13 * 60 * 60);
+      const setCookie = [response.headers["set-cookie"]].flat().join(";");
+      expect(setCookie).toContain("Max-Age=43200");
+    });
+
+    it("returns the signed-in user's real name", async () => {
+      userFindUnique.mockResolvedValue({
+        id: "u-tech",
+        name: "Dave Roper",
+        passwordHash: hash,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        memberships: [{ organizationId: ORG, role: "technician" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "dave@mallee.example", password },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().name).toBe("Dave Roper");
+    });
+  });
+
+  describe("GET /api/auth/session", () => {
+    it("returns the signed-in user's name resolved from the user row", async () => {
+      userFindUnique.mockResolvedValue({ name: "Dave Roper" });
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/auth/session",
+        headers: { authorization: bearer("technician") },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({
+        authenticated: true,
+        userId: "user-1",
+        role: "technician",
+        name: "Dave Roper",
+      });
+      // Resolved per request — never baked into the signed claims.
+      expect(userFindUnique).toHaveBeenCalledWith({
+        where: { id: "user-1" },
+        select: { name: true },
+      });
+    });
+
+    it("returns name: null for claims whose userId has no User row", async () => {
+      userFindUnique.mockResolvedValue(null);
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/auth/session",
+        headers: { authorization: bearer("owner") },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().name).toBeNull();
     });
   });
 

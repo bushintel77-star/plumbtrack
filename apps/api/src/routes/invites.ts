@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
-import { issueAuthToken, ORGANIZATION_ROLES, requireRole } from "../lib/auth";
+import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, issueAuthToken, ORGANIZATION_ROLES, requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem } from "../lib/passwords";
@@ -28,7 +28,6 @@ import { parseBody, sendValidationError } from "../lib/validation";
  * Tokens: random 32 bytes, SHA-256 at rest, single-use, 7-day TTL.
  */
 
-const HQ_SESSION_SECONDS = 12 * 60 * 60;
 const SESSION_COOKIE = "plumbtrack_hq_session";
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -239,14 +238,17 @@ export async function inviteRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(410).send({ message: "That invite link is expired, revoked or already used — ask for a new one." });
     }
 
-    const expiresAt = Math.floor(Date.now() / 1000) + HQ_SESSION_SECONDS;
+    // Same role-aware TTL as /api/auth/login: an invited technician signs in
+    // as a field device (30 days); office roles keep the 12h shift session.
+    const sessionSeconds = invite.role === "technician" ? DEVICE_SESSION_SECONDS : HQ_SESSION_SECONDS;
+    const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
     const sessionToken = issueAuthToken({
       userId: accepted.id,
       organizationId: invite.orgId,
       role: invite.role,
-      expiresInSeconds: HQ_SESSION_SECONDS,
+      expiresInSeconds: sessionSeconds,
     });
-    reply.setCookie(SESSION_COOKIE, sessionToken, { ...COOKIE_OPTIONS, maxAge: HQ_SESSION_SECONDS });
+    reply.setCookie(SESSION_COOKIE, sessionToken, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
     request.auth = { userId: accepted.id, organizationId: invite.orgId, role: invite.role, expiresAt };
     request.organizationId = invite.orgId;
     recordAuditEvent(request, {

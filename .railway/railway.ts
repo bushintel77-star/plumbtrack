@@ -37,16 +37,14 @@ export default defineRailway(() => {
       HQ_APP_URL: "https://hq-production-7911.up.railway.app",
       // Production auth is on: the legacy x-organization-id owner fallback is
       // rejected. Sessions require the secrets below, which are set in the
-      // Railway dashboard (never committed). Set AUTH_SECRET, HQ_BOOTSTRAP_TOKEN
-      // and DEVICE_BOOTSTRAP_TOKEN BEFORE applying this config — the API fails
-      // to boot without AUTH_SECRET when production auth is enabled.
+      // Railway dashboard (never committed). Set AUTH_SECRET and
+      // HQ_BOOTSTRAP_TOKEN BEFORE applying this config — the API fails to
+      // boot without AUTH_SECRET when production auth is enabled.
       PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER: "false",
       AUTH_SECRET: preserve(),
       HQ_BOOTSTRAP_TOKEN: preserve(),
-      DEVICE_BOOTSTRAP_TOKEN: preserve(),
       // Station sign-in scope and role (dispatcher|manager|accountant|admin|owner).
       HQ_ORG_ID: "org_caulfield_south",
-      DEVICE_ORG_ID: "org_caulfield_south",
       HQ_OPERATOR_ROLE: "owner",
       // Explicit allowlist — credentials:true must never pair with a reflected
       // origin. Update if the web/hq services are recreated with new domains.
@@ -115,11 +113,12 @@ export default defineRailway(() => {
       // in plumbtrack-mobile's Dockerfile). Build-time vars must be LITERALS:
       // a ref() resolves at runtime only and never reaches the Docker build
       // (live-verified 2026-09-09 failure mode). If the api domain changes,
-      // update here. DEVICE_BOOTSTRAP_TOKEN must match the api service's
-      // DEVICE_BOOTSTRAP_TOKEN — it is public-by-design (it ships in the
-      // browser bundle), production auth relies on api-side revocation work.
+      // update here.
       EXPO_PUBLIC_API_URL: "https://api-production-363e.up.railway.app",
       EXPO_PUBLIC_ORG_ID: "org_caulfield_south",
+      // Legacy enrollment var — the api's /api/auth/device now answers 410.
+      // Remove with the field app's enrollment code (mobile slice); harmless
+      // while set since nothing consumes it api-side.
       EXPO_PUBLIC_DEVICE_BOOTSTRAP_TOKEN: preserve(),
     },
   });

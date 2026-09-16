@@ -1,13 +1,14 @@
-// Brute-force probe: N rapid wrong-token enrollment attempts.
+// Brute-force probe: N rapid wrong-password login attempts against the live
+// session-minting route (device enrollment is retired — it answers 410).
 const N = Number(process.argv[2] ?? 150);
 const codes = {};
 const t0 = performance.now();
 const results = await Promise.all(
   Array.from({ length: N }, () =>
-    fetch("http://127.0.0.1:8081/api/auth/device", {
+    fetch("http://127.0.0.1:8081/api/auth/login", {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: "Bearer wrong-guess-" + Math.random() },
-      body: JSON.stringify({ deviceId: "stress" }),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "probe@example.com", password: "wrong-guess-" + Math.random() }),
     }).then((r) => r.status).catch(() => "ERR"),
   ),
 );

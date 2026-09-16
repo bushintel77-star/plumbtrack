@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
-import { issueAuthToken, type OrganizationRole } from "../lib/auth";
+import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, issueAuthToken, type OrganizationRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem, verifyPassword } from "../lib/passwords";
@@ -23,7 +23,6 @@ import { parseBody, sendValidationError } from "../lib/validation";
  *  - every event audited.
  */
 
-const HQ_SESSION_SECONDS = 12 * 60 * 60;
 const SESSION_COOKIE = "plumbtrack_hq_session";
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -82,15 +81,20 @@ function slugify(name: string): string {
   return `${base}-${randomBytes(3).toString("hex")}`;
 }
 
-function signIn(userId: string, organizationId: string, role: OrganizationRole, request: FastifyRequest, reply: FastifyReply) {
-  const expiresAt = Math.floor(Date.now() / 1000) + HQ_SESSION_SECONDS;
-  const token = issueAuthToken({ userId, organizationId, role, expiresInSeconds: HQ_SESSION_SECONDS });
-  reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: HQ_SESSION_SECONDS });
+function signIn(userId: string, organizationId: string, role: OrganizationRole, name: string | null, request: FastifyRequest, reply: FastifyReply) {
+  // Field technicians get the 30-day device session — a 12h window would log
+  // them out mid-shift with no way to re-auth on site. Office roles keep the
+  // shift-length session. The same asymmetry governs /api/auth/renew: a
+  // shorter session can never extend itself to the longer one.
+  const sessionSeconds = role === "technician" ? DEVICE_SESSION_SECONDS : HQ_SESSION_SECONDS;
+  const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
+  const token = issueAuthToken({ userId, organizationId, role, expiresInSeconds: sessionSeconds });
+  reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
   // The tenant hook exempts these public routes, so attach verified claims
   // manually — the audit event must be actor-scoped.
   request.auth = { userId, organizationId, role, expiresAt };
   request.organizationId = organizationId;
-  return { token, userId, organizationId, role, expiresAt };
+  return { token, userId, organizationId, role, expiresAt, name };
 }
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
@@ -129,7 +133,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       return { organization, user };
     });
 
-    const session = signIn(created.user.id, created.organization.id, "owner", request, reply);
+    const session = signIn(created.user.id, created.organization.id, "owner", name, request, reply);
     recordAuditEvent(request, {
       action: "auth.sign_up",
       entityType: "organization",
@@ -188,7 +192,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       data: { failedLoginCount: 0, lockedUntil: null },
     }).catch(() => undefined);
 
-    const session = signIn(user.id, membership.organizationId, membership.role, request, reply);
+    const session = signIn(user.id, membership.organizationId, membership.role, user.name, request, reply);
     recordAuditEvent(request, {
       action: "auth.login",
       entityType: "session",

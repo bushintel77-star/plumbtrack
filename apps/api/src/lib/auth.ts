@@ -22,6 +22,12 @@ export interface AuthClaims {
   expiresAt: number;
 }
 
+/** Field technicians sign in per device; a 30-day session survives quiet
+ *  periods and can never log a technician out mid-shift with no signal. */
+export const DEVICE_SESSION_SECONDS = 30 * 24 * 60 * 60;
+/** Office sessions are shift-length; the console renews every 15 minutes. */
+export const HQ_SESSION_SECONDS = 12 * 60 * 60;
+
 const DEV_SECRET = "plumbtrack-development-only-secret";
 
 function secret(): string | null {

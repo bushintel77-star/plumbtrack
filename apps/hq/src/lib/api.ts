@@ -60,6 +60,7 @@ export interface HqSession {
   organizationId: string
   role: string
   expiresAt: number
+  name: string | null
 }
 
 export class NetworkError extends Error {

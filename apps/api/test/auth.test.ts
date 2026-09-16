@@ -1,23 +1,25 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { findFirst, updateMany, findUnique, transaction, createDomainEvent } = vi.hoisted(() => ({
+const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userFindUnique } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   updateMany: vi.fn(),
   findUnique: vi.fn(),
   transaction: vi.fn(),
   createDomainEvent: vi.fn(),
+  userFindUnique: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
     job: { findFirst, updateMany, findUnique },
+    user: { findUnique: userFindUnique },
     domainEventOutbox: { create: createDomainEvent },
     $transaction: transaction,
   },
 }));
 
-import { issueAuthToken, verifyAuthToken } from "../src/lib/auth";
+import { issueAuthToken } from "../src/lib/auth";
 import { buildApp } from "../src/server";
 
 const ORG = "org-caulfield";
@@ -52,6 +54,7 @@ describe("authenticated tenancy and role authorization", () => {
     updateMany.mockResolvedValue({ count: 1 });
     findUnique.mockResolvedValue({ id: "J-1", orgId: ORG });
     createDomainEvent.mockResolvedValue({});
+    userFindUnique.mockResolvedValue(null);
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       job: { findFirst, findUnique, updateMany },
       domainEventOutbox: { create: createDomainEvent },
@@ -94,6 +97,8 @@ describe("authenticated tenancy and role authorization", () => {
       role: "technician",
     });
     expect(response.json()).not.toHaveProperty("token");
+    // A claims userId with no User row resolves name to null, never a 500.
+    expect(response.json().name).toBeNull();
   });
 
   it("blocks a technician from changing job metadata (field writes only)", async () => {
@@ -132,7 +137,7 @@ describe("authenticated tenancy and role authorization", () => {
   });
 });
 
-describe("device enrollment", () => {
+describe("retired device enrollment", () => {
   const previousLegacySetting = process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
   const previousAuthSecret = process.env.AUTH_SECRET;
   const previousBootstrap = process.env.DEVICE_BOOTSTRAP_TOKEN;
@@ -149,7 +154,7 @@ describe("device enrollment", () => {
     restore("DEVICE_ORG_ID", previousDeviceOrg);
   });
 
-  it("enrolls an owner session via the legacy header in development", async () => {
+  it("answers 410 in a dev/test app — the legacy-header enrollment path is gone too", async () => {
     process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "true";
     process.env.AUTH_SECRET = "test-auth-secret";
     delete process.env.DEVICE_BOOTSTRAP_TOKEN;
@@ -162,17 +167,15 @@ describe("device enrollment", () => {
         headers: { "x-organization-id": ORG },
         payload: { deviceId: "van-1" },
       });
-      expect(response.statusCode).toBe(201);
-      const body = response.json();
-      expect(body).toMatchObject({ organizationId: ORG, role: "owner" });
-      const claims = verifyAuthToken(body.token);
-      expect(claims).toMatchObject({ userId: "van-1", organizationId: ORG, role: "owner" });
+      expect(response.statusCode).toBe(410);
+      expect(response.json()).toMatchObject({ error: "Gone" });
+      expect(response.json().message).toMatch(/retired/);
     } finally {
       await devApp.close();
     }
   });
 
-  it("rejects production enrollment without the bootstrap secret", async () => {
+  it("answers 410 in a production-configured app", async () => {
     process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
     process.env.AUTH_SECRET = "test-auth-secret";
     delete process.env.DEVICE_BOOTSTRAP_TOKEN;
@@ -185,7 +188,8 @@ describe("device enrollment", () => {
         headers: { "x-organization-id": ORG },
         payload: { deviceId: "van-1" },
       });
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(410);
+      expect(response.json().message).toMatch(/retired/);
     } finally {
       await prodApp.close();
     }
@@ -197,7 +201,7 @@ describe("device enrollment", () => {
     const devApp = await buildApp({ logger: false })
     await devApp.ready()
     try {
-      const enrolled = await devApp.inject({ method: "POST", url: "/api/auth/device", headers: { "x-organization-id": ORG }, payload: { deviceId: "hq" } })
+      const enrolled = await devApp.inject({ method: "POST", url: "/api/auth/hq-session", headers: { "x-organization-id": ORG } })
       const cookie = enrolled.headers["set-cookie"]
       expect(cookie).toContain("plumbtrack_hq_session=")
       const renewed = await devApp.inject({ method: "POST", url: "/api/auth/renew", headers: { cookie } })
@@ -209,27 +213,7 @@ describe("device enrollment", () => {
     } finally { await devApp.close() }
   })
 
-  it("rejects a mismatched bootstrap secret", async () => {
-    process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
-    process.env.AUTH_SECRET = "test-auth-secret";
-    process.env.DEVICE_BOOTSTRAP_TOKEN = "the-real-secret";
-    process.env.DEVICE_ORG_ID = ORG;
-    const prodApp = await buildApp({ logger: false });
-    await prodApp.ready();
-    try {
-      const response = await prodApp.inject({
-        method: "POST",
-        url: "/api/auth/device",
-        headers: { authorization: "Bearer wrong-secret" },
-        payload: { deviceId: "van-1" },
-      });
-      expect(response.statusCode).toBe(401);
-    } finally {
-      await prodApp.close();
-    }
-  });
-
-  it("mints a technician-scoped session for a valid bootstrap secret", async () => {
+  it("answers 410 even when the retired bootstrap secret is presented", async () => {
     process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
     process.env.AUTH_SECRET = "test-auth-secret";
     process.env.DEVICE_BOOTSTRAP_TOKEN = "the-real-secret";
@@ -243,22 +227,38 @@ describe("device enrollment", () => {
         headers: { authorization: "Bearer the-real-secret" },
         payload: { deviceId: "van-1" },
       });
-      expect(response.statusCode).toBe(201);
-      const body = response.json();
-      expect(body).toMatchObject({ organizationId: ORG, role: "technician" });
-      const claims = verifyAuthToken(body.token);
-      expect(claims).toMatchObject({ userId: "van-1", organizationId: ORG, role: "technician" });
-      // Sessions are long-lived for offline field devices (~30 days).
-      expect(claims?.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000) + 29 * 24 * 60 * 60);
+      expect(response.statusCode).toBe(410);
+      // No session is minted on the retired path — no cookie, no token.
+      expect(response.cookies.find(c => c.name === "plumbtrack_hq_session")).toBeUndefined();
+      expect(response.json()).not.toHaveProperty("token");
     } finally {
       await prodApp.close();
     }
   });
 
-  it("fails fast when production enrollment lacks a device org", async () => {
+  it("answers 410 to an unauthenticated caller even with device env vars set", async () => {
     process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
     process.env.AUTH_SECRET = "test-auth-secret";
     process.env.DEVICE_BOOTSTRAP_TOKEN = "the-real-secret";
+    process.env.DEVICE_ORG_ID = ORG;
+    const prodApp = await buildApp({ logger: false });
+    await prodApp.ready();
+    try {
+      const response = await prodApp.inject({
+        method: "POST",
+        url: "/api/auth/device",
+        payload: { deviceId: "van-1" },
+      });
+      expect(response.statusCode).toBe(410);
+    } finally {
+      await prodApp.close();
+    }
+  });
+
+  it("answers 410 regardless of device env config — the vars are dead config, not guards", async () => {
+    process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = "false";
+    process.env.AUTH_SECRET = "test-auth-secret";
+    delete process.env.DEVICE_BOOTSTRAP_TOKEN;
     delete process.env.DEVICE_ORG_ID;
     const prodApp = await buildApp({ logger: false });
     await prodApp.ready();
@@ -269,7 +269,7 @@ describe("device enrollment", () => {
         headers: { authorization: "Bearer the-real-secret" },
         payload: { deviceId: "van-1" },
       });
-      expect(response.statusCode).toBe(500);
+      expect(response.statusCode).toBe(410);
     } finally {
       await prodApp.close();
     }
