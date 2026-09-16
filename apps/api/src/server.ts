@@ -47,7 +47,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // production deployment that still carries it so operators don't believe a
   // safety lever exists that has been removed.
   if (process.env.NODE_ENV === "production" && process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER === "true") {
-    throw new Error("PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER is no longer honoured in production — remove it and use HQ_BOOTSTRAP_TOKEN / DEVICE_BOOTSTRAP_TOKEN enrollment");
+    throw new Error("PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER is no longer honoured in production — remove it and sign in with email and password");
   }
   const app = Fastify({
     // Behind Railway's edge proxy every request arrives from the proxy IP.

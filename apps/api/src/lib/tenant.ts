@@ -25,11 +25,10 @@ export const tenantPlugin = fp(
     app.addHook("onRequest", async (request, reply) => {
       const url = request.url.split("?")[0];
 
-      // Device enrollment and HQ operator sign-in are intentionally public:
-      // the routes enforce the deployment bootstrap secrets (production) or
-      // the legacy dev header. Production callers present their raw secret as
-      // a bearer token, so the signed-session checks below must not run
-      // against them.
+      // HQ operator sign-in is intentionally public: in production the route
+      // answers 410 (retired), in dev/test it enforces the legacy header.
+      // Production callers presented their raw secret as a bearer token, so
+      // the signed-session checks below must not run against it.
       // Account auth is public by definition — sign-up, login and the
       // password-reset pair can't present a session that doesn't exist yet.
       // Each route carries the AUTH_RATE_LIMIT and mints the session itself.
@@ -38,7 +37,12 @@ export const tenantPlugin = fp(
         (url === "/api/auth/sign-up" ||
           url === "/api/auth/login" ||
           url === "/api/auth/forgot-password" ||
-          url === "/api/auth/reset-password")
+          url === "/api/auth/reset-password" ||
+          // Retired device enrollment: the route always answers 410, in
+          // every environment, to any caller — it must stay reachable so
+          // old field builds get a definitive answer instead of a 401 they
+          // would retry forever.
+          url === "/api/auth/device")
       ) {
         return;
       }
@@ -48,8 +52,8 @@ export const tenantPlugin = fp(
       if (request.method === "GET" && /^\/api\/invites\/[^/]+$/.test(url)) return;
       if (request.method === "POST" && /^\/api\/invites\/[^/]+\/accept$/.test(url)) return;
 
-      if (url === "/api/auth/device" || url === "/api/auth/hq-session") {
-        if (!isLegacyTenantFallbackAllowed()) return; // route enforces bootstrap
+      if (url === "/api/auth/hq-session") {
+        if (!isLegacyTenantFallbackAllowed()) return; // route answers 410 in production
         const legacyValue = request.headers[ORG_HEADER];
         if (typeof legacyValue === "string" && legacyValue.trim().length > 0) {
           request.organizationId = legacyValue.trim();
