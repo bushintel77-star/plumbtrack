@@ -176,8 +176,8 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
             onClick={() => {
               void authApi.signOut().catch(() => undefined).finally(() => {
                 // A signed-out console must not keep serving the cached board;
-                // the reload re-runs the session gate.
-                window.location.reload()
+                // /login re-runs the session gate.
+                window.location.assign("/login")
               })
             }}
           >

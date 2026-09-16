@@ -70,6 +70,7 @@ model Organization {
   integrations       IntegrationConnection[]
   integrationInterests IntegrationInterest[]
   oauthAuthorizations  OAuthAuthorization[]
+  teamInvites          TeamInvite[]
 
   @@map("organizations")
 }
@@ -87,12 +88,58 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
+  /// Argon2id hash — null until the person sets a password (invited users
+  /// accept their invite by choosing one). Never selected into a response.
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  /// Per-account lockout bookkeeping (the per-IP AUTH_RATE_LIMIT alone can't
+  /// stop a distributed guesser at one account).
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships OrganizationMembership[]
+  memberships         OrganizationMembership[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+/// Single-use, time-limited password reset. The raw token only ever exists
+/// in the emailed/texted link — the row stores its SHA-256 hash.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Team invite (§6B Team admin): emailed/SMS'd link the invitee accepts by
+/// setting their own password. Raw token is only ever in the link.
+model TeamInvite {
+  id        String            @id @default(cuid())
+  orgId     String
+  email     String
+  name      String?
+  role      OrganizationRole  @default(technician)
+  tokenHash String            @unique
+  invitedBy String?
+  createdAt DateTime          @default(now())
+  expiresAt DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, email])
+  @@map("team_invites")
 }
 
 model OrganizationMembership {

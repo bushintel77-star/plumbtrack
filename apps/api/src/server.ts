@@ -11,6 +11,8 @@ import { connectionRoutes } from "./routes/connections";
 import { tenantPlugin } from "./lib/tenant";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
+import { accountRoutes } from "./routes/accounts";
+import { inviteRoutes, teamRoutes } from "./routes/invites";
 import { organizationRoutes } from "./routes/organizations";
 import { jobRoutes } from "./routes/jobs";
 import { quoteRoutes } from "./routes/quotes";
@@ -125,6 +127,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(boardRoutes, { prefix: "/api/board" });
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(accountRoutes, { prefix: "/api/auth" });
+  await app.register(inviteRoutes, { prefix: "/api/invites" });
+  await app.register(teamRoutes, { prefix: "/api/team" });
   await app.register(organizationRoutes, { prefix: "/api/organizations" });
   await app.register(jobRoutes, { prefix: "/api/jobs" });
   await app.register(quoteRoutes, { prefix: "/api/quotes" });

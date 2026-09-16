@@ -5,6 +5,7 @@ import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { hqAppBase } from "../lib/urls";
 import { z } from "zod";
 import {
   exchangeSlackCode,
@@ -76,17 +77,6 @@ async function workspaceForOrg(orgId: string) {
  *  exactly what happened — consent DENIED and API FAILURE are first-class
  *  outcomes here, not silent no-ops (§9: the connect flow is not happy-path
  *  only). */
-function hqAppBase(): string {
-  const configured = process.env.HQ_APP_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
-  if (process.env.NODE_ENV === "production") {
-    // Never guess the console's public URL in prod — a wrong redirect domain
-    // is worse than a loud failure (see the CORS_ORIGINS boot check).
-    throw new Error("HQ_APP_URL must be configured in production");
-  }
-  return "http://localhost:3001";
-}
-
 function redirectToConnectResult(reply: FastifyReply, outcome: "connected" | "denied" | "failed"): FastifyReply {
   // Fastify 5: redirect takes the URL only — the status code rides .code().
   return reply.code(302).redirect(`${hqAppBase()}/?module=slack&slack_connect=${outcome}`);
