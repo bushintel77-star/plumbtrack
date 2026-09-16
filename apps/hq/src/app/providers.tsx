@@ -3,15 +3,9 @@
 import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useSlackBridge } from "@/lib/slackBridge"
 import { registerSyncDrain, type SyncOp } from "@/lib/offline"
 import { authApi, persistJobStatus } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
-
-function useBootstrapServices() {
-  // FSM → Slack state-machine bridge (transition cards + job channels).
-  useSlackBridge()
-}
 
 /** Replay a queued op against the endpoint matching its kind — assign ops
  *  carry {techId, startBlock} and must hit the assignment endpoint, not the
@@ -77,7 +71,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   )
 
-  useBootstrapServices()
   useServiceWorker()
 
   return (

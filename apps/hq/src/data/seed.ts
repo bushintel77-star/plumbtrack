@@ -1,6 +1,6 @@
 "use client"
 
-import type { Channel, Job, Technician } from "@/types"
+import type { Job, Technician } from "@/types"
 import { daysFromNowIso, isoDay } from "@/lib/format"
 
 const day = (offset: number): string => {
@@ -282,43 +282,5 @@ export const jobs: Job[] = [
     clockOnCount: 0,
     quote: { clientName: "Northgate Mall Facilities", lineItems: null, status: "draft" },
     documents: []
-  }
-]
-
-export const channels: Channel[] = [
-  {
-    id: "general",
-    name: "general",
-    unread: 0,
-    messages: [
-      { id: "m-1", author: "Dana", body: "Morning crew — Van 1 is loaded, heading to Sable Ct.", minutesAgo: 95 },
-      { id: "m-2", author: "Priya", body: "Reminder: timesheets lock at 18:00 sharp today.", minutesAgo: 61 },
-      { id: "m-3", author: "Mike", body: "Copy that. Boiler service first, then the heater swap.", minutesAgo: 34 }
-    ]
-  },
-  {
-    id: "field-updates",
-    name: "field-updates",
-    unread: 2,
-    messages: [
-      { id: "m-4", author: "Carlos", body: "Rough-in at Quarry Rd is ready for inspection photos.", minutesAgo: 48 },
-      { id: "m-5", author: "Dana", body: "Re-route 4B: wall opened, no surprises behind the tile.", minutesAgo: 22 }
-    ]
-  },
-  {
-    id: "jobs",
-    name: "jobs",
-    unread: 1,
-    messages: [
-      { id: "m-6", author: "Dispatch", body: "Emergency drainage call from Northgate Mall just came in — unassigned.", minutesAgo: 12 }
-    ]
-  },
-  {
-    id: "quotes",
-    name: "quotes",
-    unread: 0,
-    messages: [
-      { id: "m-7", author: "Office", body: "Meridian Dental approved the survey quote. Invoice ready.", minutesAgo: 140 }
-    ]
   }
 ]
