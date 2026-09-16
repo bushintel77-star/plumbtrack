@@ -5,9 +5,14 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import cookie from "@fastify/cookie";
 import { assertAuthConfiguration } from "./lib/auth";
+import { assertEncryptionConfiguration } from "./lib/secrets";
+import { setupRoutes } from "./routes/setup";
+import { connectionRoutes } from "./routes/connections";
 import { tenantPlugin } from "./lib/tenant";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
+import { accountRoutes } from "./routes/accounts";
+import { inviteRoutes, teamRoutes } from "./routes/invites";
 import { organizationRoutes } from "./routes/organizations";
 import { jobRoutes } from "./routes/jobs";
 import { quoteRoutes } from "./routes/quotes";
@@ -34,6 +39,9 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   assertAuthConfiguration();
+  // Integration credentials are encrypted at rest — refuse to start a
+  // production deployment that could accept a key it cannot protect.
+  assertEncryptionConfiguration();
   // The legacy tenant-header flag no longer has any effect in production
   // (lib/auth.ts hard-requires signed sessions there). Refuse to boot a
   // production deployment that still carries it so operators don't believe a
@@ -119,6 +127,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(healthRoutes, { prefix: "/api/health" });
   await app.register(boardRoutes, { prefix: "/api/board" });
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(accountRoutes, { prefix: "/api/auth" });
+  await app.register(inviteRoutes, { prefix: "/api/invites" });
+  await app.register(teamRoutes, { prefix: "/api/team" });
   await app.register(organizationRoutes, { prefix: "/api/organizations" });
   await app.register(jobRoutes, { prefix: "/api/jobs" });
   await app.register(quoteRoutes, { prefix: "/api/quotes" });
@@ -128,6 +139,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(customerRoutes, { prefix: "/api/customers" });
   await app.register(appointmentRoutes, { prefix: "/api/appointments" });
   await app.register(integrationRoutes, { prefix: "/api/integrations" });
+  await app.register(connectionRoutes, { prefix: "/api/integrations" });
+  await app.register(setupRoutes, { prefix: "/api/setup" });
   await app.register(slackEventRoutes, { prefix: "/api/slack" });
   await app.register(slackRoutes, { prefix: "/api/slack" });
   await app.register(streamRoutes);

@@ -102,6 +102,11 @@ export interface Job {
   title: string
   client: string
   address: string
+  /** Customer phone — drives the inspector Call link; absent when the
+   *  job record has no number (the link hides rather than dial a name). */
+  phone?: string
+  /** Linked CRM customer id — CRM history matches on this, not the name. */
+  customerId?: string
   priority: JobPriority
   /** Skill tag the assigned technician must hold (BR-04 constraint). */
   requiredSkill?: string
@@ -185,45 +190,6 @@ export interface AttentionFlag {
   detail: string
 }
 
-export interface ChatMessage {
-  id: string
-  author: string
-  body: string
-  minutesAgo: number
-}
-
-export interface Channel {
-  id: string
-  name: string
-  unread: number
-  messages: ChatMessage[]
-  /** Temporary on-site incident channels archive when the job completes. */
-  archived?: boolean
-}
-
-/** Slack bridge card lifecycle — mirrors the FSM state machine: a new
- *  unassigned job alerts the #dispatch-queue, claiming rewrites the card,
- *  en-route disables the action and adds an ETA, on-site spins up a
- *  #job-{id} channel, completion archives it. */
-export type SlackCardKind = "new-job" | "claimed" | "en-route" | "on-site" | "complete"
-
-export interface SlackDispatchCard {
-  id: string
-  jobId: string
-  kind: SlackCardKind
-  /** Slack channel the card posts to (Block Kit surface name). */
-  channel: string
-  title: string
-  client: string
-  body: string
-  /** Live drive-time estimate in minutes (en-route cards). */
-  etaMinutes?: number
-  /** Technician who claimed via the interactive Accept button. */
-  claimedBy?: string | null
-  actionsDisabled: boolean
-  ts: number
-}
-
 export interface SendQuoteResult {
   ok: boolean
   reason?: string
@@ -250,6 +216,7 @@ export type AppModule =
   | "reports"
   | "accounting"
   | "slack"
+  | "setup"
 
 export const SKILLS = ["drainage", "gas", "hot-water", "leak-detection", "general"] as const
 export type Skill = (typeof SKILLS)[number]

@@ -65,6 +65,12 @@ model Organization {
   jobMessages        JobMessage[]
   slackWorkspaces    SlackWorkspace[]
   slackJobThreads    SlackJobThread[]
+  smsMessages        SmsMessage[]
+  setup              OrgSetup?
+  integrations       IntegrationConnection[]
+  integrationInterests IntegrationInterest[]
+  oauthAuthorizations  OAuthAuthorization[]
+  teamInvites          TeamInvite[]
 
   @@map("organizations")
 }
@@ -82,12 +88,58 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
+  /// Argon2id hash — null until the person sets a password (invited users
+  /// accept their invite by choosing one). Never selected into a response.
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  /// Per-account lockout bookkeeping (the per-IP AUTH_RATE_LIMIT alone can't
+  /// stop a distributed guesser at one account).
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships OrganizationMembership[]
+  memberships         OrganizationMembership[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+/// Single-use, time-limited password reset. The raw token only ever exists
+/// in the emailed/texted link — the row stores its SHA-256 hash.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// Team invite (§6B Team admin): emailed/SMS'd link the invitee accepts by
+/// setting their own password. Raw token is only ever in the link.
+model TeamInvite {
+  id        String            @id @default(cuid())
+  orgId     String
+  email     String
+  name      String?
+  role      OrganizationRole  @default(technician)
+  tokenHash String            @unique
+  invitedBy String?
+  createdAt DateTime          @default(now())
+  expiresAt DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, email])
+  @@map("team_invites")
 }
 
 model OrganizationMembership {
@@ -372,6 +424,7 @@ model Job {
   checklistItems ChecklistItem[]
   messages       JobMessage[]
   slackThread    SlackJobThread?
+  smsMessages    SmsMessage[]
 
   @@index([orgId, status])
   // Board poll (orderBy createdAt) and offline sync cursor (updatedAt) are
@@ -706,4 +759,128 @@ model SlackChannelRoute {
 
   @@unique([workspaceId, eventType])
   @@map("slack_channel_routes")
+}
+
+/// A customer SMS sent (or attempted) for a job — ETA texts today. Serves
+/// three purposes: the outbox opId makes a retried send return the recorded
+/// outcome instead of double-texting the customer; the row is the audit trail
+/// of what was texted to whom (dispute evidence); and per-org counts feed the
+/// SMS spend cap.
+model SmsMessage {
+  id                String       @id @default(cuid())
+  orgId             String
+  org               Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobId             String
+  job               Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// E.164/national destination — retained deliberately: the audit value of
+  /// "we texted this number" is the point of the record.
+  phone             String
+  body              String
+  /// Client outbox key — dedupes retries.
+  opId              String?      @unique
+  /// "sent" | "provider_unconfigured" | "failed"
+  status            String
+  providerMessageId String?
+  /// Session userId that triggered the send (a device id until per-operator
+  /// auth lands — Phase 4).
+  sentBy            String
+  createdAt         DateTime     @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([jobId])
+  @@map("sms_messages")
+}
+
+// ── Guided setup + integrations ─────────────────────────────────────────────
+
+/// One setup record per org. `answers` holds the validated step payloads
+/// (contract: packages/... zod schemas in apps/api/src/schemas/setup.ts) so a
+/// new step never needs a migration; the columns are what other features read.
+model OrgSetup {
+  id             String       @id @default(cuid())
+  orgId          String       @unique
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// "in_progress" | "complete"
+  status         String       @default("in_progress")
+  /// Step id the operator is on, so Resume returns to the right place.
+  currentStep    String       @default("business")
+  completedSteps String[]     @default([])
+  skippedSteps   String[]     @default([])
+  answers        Json         @default("{}")
+  startedAt      DateTime     @default(now())
+  launchedAt     DateTime?
+  launchedBy     String?
+  updatedAt      DateTime     @updatedAt
+
+  @@map("org_setup")
+}
+
+/// A live connection to an external app. Credentials are encrypted at rest
+/// (lib/secrets.ts, AES-256-GCM) and never leave the API process.
+model IntegrationConnection {
+  id             String       @id @default(cuid())
+  orgId          String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// Catalog id, e.g. "xero", "stripe", "twilio".
+  provider       String
+  /// "oauth_pkce" | "api_key"
+  authType       String
+  /// "connected" | "needs_attention" | "disconnected"
+  status         String       @default("connected")
+  /// What the operator sees they connected ("Caulfield South Plumbing Pty Ltd").
+  accountLabel   String?
+  scopes         String[]     @default([])
+  accessTokenEnc String?
+  refreshTokenEnc String?
+  apiKeyEnc      String?
+  /// Non-secret provider config the operator chose (account codes, channel ids).
+  settings       Json         @default("{}")
+  expiresAt      DateTime?
+  connectedBy    String?
+  connectedAt    DateTime     @default(now())
+  lastCheckedAt  DateTime?
+  lastError      String?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([orgId, provider])
+  @@index([orgId, status])
+  @@map("integration_connections")
+}
+
+/// "Tell me when this one is ready" on a provider FieldLoop cannot connect to
+/// yet — the honest alternative to a fake Connect button.
+model IntegrationInterest {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider    String
+  requestedBy String?
+  note        String?
+  createdAt   DateTime     @default(now())
+
+  @@unique([orgId, provider])
+  @@map("integration_interests")
+}
+
+/// In-flight OAuth 2.0 authorization (PKCE). The code verifier is stored
+/// encrypted server-side — never in the browser — and each row is single-use
+/// and short-lived.
+model OAuthAuthorization {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  provider    String
+  state       String       @unique
+  verifierEnc String
+  redirectUri String
+  /// Where to send the operator back to in HQ once the round trip finishes.
+  returnTo    String?
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  expiresAt   DateTime
+  consumedAt  DateTime?
+
+  @@index([orgId, provider])
+  @@index([expiresAt])
+  @@map("oauth_authorizations")
 }

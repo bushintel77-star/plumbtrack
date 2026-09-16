@@ -5,6 +5,7 @@ import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { hqAppBase } from "../lib/urls";
 import { z } from "zod";
 import {
   exchangeSlackCode,
@@ -76,10 +77,6 @@ async function workspaceForOrg(orgId: string) {
  *  exactly what happened — consent DENIED and API FAILURE are first-class
  *  outcomes here, not silent no-ops (§9: the connect flow is not happy-path
  *  only). */
-function hqAppBase(): string {
-  return process.env.HQ_APP_URL?.trim() || "https://hq-production-7911.up.railway.app";
-}
-
 function redirectToConnectResult(reply: FastifyReply, outcome: "connected" | "denied" | "failed"): FastifyReply {
   // Fastify 5: redirect takes the URL only — the status code rides .code().
   return reply.code(302).redirect(`${hqAppBase()}/?module=slack&slack_connect=${outcome}`);

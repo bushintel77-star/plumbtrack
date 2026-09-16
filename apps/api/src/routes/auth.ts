@@ -8,10 +8,11 @@ import { recordAuditEvent } from "../lib/audit";
 const DEVICE_SESSION_SECONDS = 30 * 24 * 60 * 60;
 /** HQ station sessions are shift-length; the console renews every 15 minutes. */
 const HQ_SESSION_SECONDS = 12 * 60 * 60;
-/** Roles an HQ operator session may carry — never the field `technician` role. */
-const HQ_STATION_ROLES = ["dispatcher", "manager", "accountant", "admin", "owner"] as const;
 const SESSION_COOKIE = "plumbtrack_hq_session";
-const COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/" };
+// Cross-origin console↔API deployments need SameSite=None+Secure or the
+// session cookie never rides credentialed fetches (Lax doesn't send on
+// cross-site XHR — production sign-in silently couldn't persist before this).
+const COOKIE_OPTIONS = { httpOnly: true, sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax", secure: process.env.NODE_ENV === "production", path: "/" };
 
 /**
  * Session-minting routes get their own tight limiter, on top of the global
@@ -121,52 +122,30 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
-   * HQ operator sign-in — the station counterpart of device enrollment and
-   * the prerequisite for disabling the legacy tenant header in production.
+   * HQ operator sign-in — dev/test only. The legacy `x-organization-id`
+   * header signs in an owner-level session, preserving local fixtures.
    *
-   * Development/test: the legacy `x-organization-id` header signs in an
-   * owner-level session, preserving the local demo and test fixtures.
-   *
-   * Production: the operator presents the deployment's shared bootstrap
-   * secret (`HQ_BOOTSTRAP_TOKEN`) as a bearer token; the minted session
-   * carries `HQ_OPERATOR_ROLE` (default `owner`) for `HQ_ORG_ID` (fallback
-   * `DEVICE_ORG_ID`). The secret is a station-access key entered at the
-   * keyboard — never baked into the web bundle — not an account.
+   * Production answers 410: real accounts (`/api/auth/sign-up`, `/login`,
+   * team invites) replaced the shared `HQ_BOOTSTRAP_TOKEN` station key —
+   * sessions now carry a real `User.id` and the member's actual role.
    */
   app.post("/hq-session", { config: { rateLimit: AUTH_RATE_LIMIT } }, async (request, reply) => {
     const production = !isLegacyTenantFallbackAllowed();
 
-    let orgId: string | undefined;
-    let role: OrganizationRole;
-
+    // Production retired the shared station secret (P0-1): real accounts
+    // (POST /api/auth/sign-up, /login, invites) are the only way in. The
+    // token path stays for dev/test so local fixtures keep working.
     if (production) {
-      const bootstrapToken = process.env.HQ_BOOTSTRAP_TOKEN?.trim();
-      const presented = getBearerToken(request);
-      if (!bootstrapToken || !presented || !safeEqual(presented, bootstrapToken)) {
-        return sendUnauthorized(reply);
-      }
-      orgId = (process.env.HQ_ORG_ID ?? process.env.DEVICE_ORG_ID)?.trim();
-      if (!orgId) {
-        return reply.code(500).send({
-          statusCode: 500,
-          error: "Server Error",
-          message: "HQ_ORG_ID (or DEVICE_ORG_ID) must be configured for HQ sign-in",
-        });
-      }
-      const configuredRole = (process.env.HQ_OPERATOR_ROLE ?? "owner").trim() as (typeof HQ_STATION_ROLES)[number];
-      if (!HQ_STATION_ROLES.includes(configuredRole)) {
-        return reply.code(500).send({
-          statusCode: 500,
-          error: "Server Error",
-          message: `HQ_OPERATOR_ROLE must be one of: ${HQ_STATION_ROLES.join(", ")}`,
-        });
-      }
-      role = configuredRole;
-    } else {
-      orgId = getOrgId(request);
-      if (!orgId) return sendMissingOrg(reply);
-      role = "owner";
+      return reply.code(410).send({
+        statusCode: 410,
+        error: "Gone",
+        message: "Station-token sign-in is retired. Sign in with email and password at /login.",
+      });
     }
+
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const role: OrganizationRole = "owner";
 
     const expiresAt = Math.floor(Date.now() / 1000) + HQ_SESSION_SECONDS;
     const token = issueAuthToken({

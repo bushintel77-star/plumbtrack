@@ -4,16 +4,14 @@ import { create } from "zustand"
 import { useShallow } from "zustand/react/shallow"
 import type {
   AssignCheck,
-  Channel,
   DataMode,
   Job,
   JobStatus,
   Quote,
   SendQuoteResult,
-  SlackDispatchCard,
   Technician
 } from "@/types"
-import { channels as seedChannels, jobs as seedJobs, technicians as seedTechs } from "@/data/seed"
+import { jobs as seedJobs, technicians as seedTechs } from "@/data/seed"
 import type { ApiAttentionFlag, ApiBoardPayload } from "@/lib/adapter"
 import { adaptApiBoard, adaptStaffRoster } from "@/lib/adapter"
 import { TOTAL_BLOCKS } from "@/lib/format"
@@ -65,8 +63,6 @@ interface BoardState {
   /** Normalized job dictionary (keyed by jobId) — O(1) lookups/updates for
    *  high-frequency telemetry mutations (research §State Management). */
   jobs: Record<string, Job>
-  channels: Channel[]
-  activeChannelId: string
   selectedJobId: string | null
   paletteOpen: boolean
   /** Details overlay (researched topology: selection opens an overlay). */
@@ -86,15 +82,10 @@ interface BoardState {
 
   /** Route Optimizer slide-over (research §Efficient Route). */
   optimizerOpen: boolean
-  /** Slack bridge comms drawer (research §Slack FSM integration). */
-  commsOpen: boolean
-  /** Block-Kit-style dispatch cards posted on FSM transitions. */
-  slackFeed: SlackDispatchCard[]
 
   selectJob: (jobId: string | null) => void
   openDetails: (jobId: string) => void
   closeDetails: () => void
-  setActiveChannel: (channelId: string) => void
   setPaletteOpen: (open: boolean) => void
   setTheme: (theme: "light" | "dark") => void
   setDataMode: (mode: DataMode) => void
@@ -127,17 +118,7 @@ interface BoardState {
     stops: Array<{ jobId: string; techId: string; startBlock: number }>
   ) => AssignCheck
 
-  /** Slack bridge surface. */
   setOptimizerOpen: (open: boolean) => void
-  setCommsOpen: (open: boolean) => void
-  postSlackCard: (card: Omit<SlackDispatchCard, "id" | "ts">) => void
-  rewriteSlackCard: (
-    jobId: string,
-    patch: Partial<Omit<SlackDispatchCard, "id" | "ts" | "jobId">>
-  ) => void
-  /** Temporary incident channel per on-site job (#job-{id}), archived on completion. */
-  spinUpJobChannel: (jobId: string, title: string) => void
-  archiveJobChannel: (jobId: string) => void
 
   /** Single-Active-State Enforcer (BR-01): clocking on demotes every other
    *  active job on the same technician row and restarts the timer at zero. */
@@ -149,8 +130,6 @@ interface BoardState {
   markQuoteApproved: (jobId: string) => SendQuoteResult
   setQuoteClient: (jobId: string, clientName: string) => void
   addQuoteLineItem: (jobId: string) => void
-
-  postMessage: (channelId: string, body: string) => void
 
   /** Snapshot/restore for optimistic rollback (BR-07). */
   snapshotJobs: () => void
@@ -195,8 +174,6 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   technicians: DEMO_SEED ? seedTechs : [],
   vehicles: seedVehicles,
   jobs: seedJobsById,
-  channels: DEMO_SEED ? seedChannels : [],
-  activeChannelId: "general",
   selectedJobId: DEMO_SEED ? "j-1001" : "",
   paletteOpen: false,
   detailsOpen: false,
@@ -208,22 +185,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   simulateFailure: false,
   offline: false,
   optimizerOpen: false,
-  commsOpen: false,
-  slackFeed: [],
 
   selectJob: jobId => set({ selectedJobId: jobId }),
 
   openDetails: jobId => set({ selectedJobId: jobId, detailsOpen: true }),
 
   closeDetails: () => set({ detailsOpen: false }),
-
-  setActiveChannel: channelId =>
-    set(s => ({
-      activeChannelId: channelId,
-      channels: s.channels.map(c =>
-        c.id === channelId ? { ...c, unread: 0 } : c
-      )
-    })),
 
   setPaletteOpen: open => set({ paletteOpen: open }),
 
@@ -409,71 +376,6 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   },
 
   setOptimizerOpen: open => set({ optimizerOpen: open }),
-  setCommsOpen: open => set({ commsOpen: open }),
-
-  postSlackCard: card =>
-    set(s => ({
-      slackFeed: [
-        {
-          ...card,
-          id: `sc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          ts: Date.now()
-        },
-        ...s.slackFeed
-      ].slice(0, 60)
-    })),
-
-  rewriteSlackCard: (jobId, patch) =>
-    set(s => ({
-      slackFeed: s.slackFeed.map(card =>
-        card.jobId === jobId ? { ...card, ...patch } : card
-      )
-    })),
-
-  spinUpJobChannel: (jobId, title) =>
-    set(s => {
-      const id = `job-${jobId}`
-      if (s.channels.some(c => c.id === id)) return s
-      return {
-        channels: [
-          ...s.channels,
-          {
-            id,
-            name: id,
-            unread: 1,
-            messages: [
-              {
-                id: `m-${id}-open`,
-                author: "PlumbTrack",
-                body: `Incident channel opened for “${title}” — field notes, parts and photos thread here. Customer tracking stays on the FSM job.`,
-                minutesAgo: 0
-              }
-            ]
-          }
-        ]
-      }
-    }),
-
-  archiveJobChannel: jobId =>
-    set(s => ({
-      channels: s.channels.map(c =>
-        c.id === `job-${jobId}` && !c.archived
-          ? {
-            ...c,
-            archived: true,
-            messages: [
-              ...c.messages,
-              {
-                id: `m-${c.id}-archive`,
-                author: "PlumbTrack",
-                body: "Job completed — field notes and parts synced to the FSM record. Channel archived.",
-                minutesAgo: 0
-              }
-            ]
-          }
-          : c
-      )
-    })),
 
   clockOn: jobId => {
     const job = get().jobs[jobId]
@@ -582,21 +484,6 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         }
       }
     }),
-
-  postMessage: (channelId, body) =>
-    set(s => ({
-      channels: s.channels.map(c =>
-        c.id === channelId
-          ? {
-            ...c,
-            messages: [
-              ...c.messages,
-              { id: `m-${Date.now()}`, author: "HQ", body, minutesAgo: 0 }
-            ]
-          }
-          : c
-      )
-    })),
 
   snapshotJobs: () => {
     rollbackSnapshot = get().jobs

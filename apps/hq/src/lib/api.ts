@@ -25,6 +25,25 @@ const ORG_HEADER = "x-organization-id"
 const REQUEST_ID_HEADER = "x-request-id"
 const DEV_ORG_ID = process.env.NEXT_PUBLIC_HQ_DEV_ORG_ID ?? "seed-org"
 
+/**
+ * The header exists so unsigned dev/test requests can pick an org. Once a
+ * real session is established the session's org claim is authoritative —
+ * and the API refuses (403) a request whose header contradicts it. Sending
+ * the baked dev org id alongside a signed session broke exactly that way:
+ * a sign-up into a new org 403'd every subsequent call (walkthrough
+ * 2026-09-16). Production builds never send it — there is no unsigned flow.
+ */
+let sessionEstablished = process.env.NODE_ENV === "production"
+
+/** Marks a verified session so the dev org header stops riding requests. */
+export function markSessionEstablished(): void {
+  sessionEstablished = true
+}
+
+function orgHeaders(): Record<string, string> {
+  return sessionEstablished ? {} : { [ORG_HEADER]: DEV_ORG_ID }
+}
+
 const API_TIMEOUT_MS = 4000
 
 /** `HQ_FORCE_DEMO=1` keeps the board deterministic (Playwright, offline demos). */
@@ -73,7 +92,7 @@ export async function apiGet<T>(path: string): Promise<T> {
       credentials: "include",
       signal: controller.signal,
       headers: {
-        [ORG_HEADER]: DEV_ORG_ID,
+        ...orgHeaders(),
         [REQUEST_ID_HEADER]: newRequestId()
       }
     })
@@ -113,7 +132,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       signal: init.signal ?? controller.signal,
       headers: {
         "Content-Type": "application/json",
-        [ORG_HEADER]: DEV_ORG_ID,
+        ...orgHeaders(),
         [REQUEST_ID_HEADER]: newRequestId(),
         ...(init.headers ?? {})
       }
@@ -155,7 +174,11 @@ export interface JobMessageBridge {
 }
 
 export const authApi = {
-  session: () => apiGet<HqSession>("/api/auth/session"),
+  session: () =>
+    apiGet<HqSession>("/api/auth/session").then(session => {
+      markSessionEstablished()
+      return session
+    }),
   streamToken: () => apiGet<{ token: string; organizationId: string; role: string }>("/api/auth/stream-token"),
   assignment: (jobId: string, technicianId: string, startBlock: number) =>
     apiRequest(`/api/jobs/${jobId}/assignment`, {
@@ -163,7 +186,10 @@ export const authApi = {
       body: JSON.stringify({ technicianId, startBlock })
     }),
   renew: () => apiRequest<HqSession>("/api/auth/renew", { method: "POST" }),
-  signOut: () => apiRequest<void>("/api/auth/sign-out", { method: "POST" }),
+  signOut: () =>
+    apiRequest<void>("/api/auth/sign-out", { method: "POST" }).finally(() => {
+      sessionEstablished = process.env.NODE_ENV === "production"
+    }),
   /**
    * Customer ETA notification — sends the "on our way, ETA ~N min" SMS to the
    * job's customer. ETA is computed on the client and the server templates +
@@ -191,7 +217,88 @@ export const authApi = {
     apiRequest<HqSession>("/api/auth/hq-session", {
       method: "POST",
       headers: { Authorization: `Bearer ${bootstrapToken}` }
+    }).then(session => {
+      markSessionEstablished()
+      return session
+    }),
+  /** Real account auth — email + password, mints the same signed session
+   *  cookie the station path does, but with the member's actual userId and
+   *  OrganizationMembership role. */
+  login: (email: string, password: string) =>
+    apiRequest<HqSession>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password })
+    }).then(session => {
+      markSessionEstablished()
+      return session
+    }),
+  signUp: (input: { businessName: string; name: string; email: string; password: string }) =>
+    apiRequest<HqSession>("/api/auth/sign-up", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }).then(session => {
+      markSessionEstablished()
+      return session
+    }),
+  /** Always 202 — `delivery` reports whether a provider actually sent the
+   *  reset link ("email") or none is configured ("unconfigured"). */
+  forgotPassword: (email: string) =>
+    apiRequest<{ ok: boolean; delivery: "email" | "unconfigured" }>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email })
+    }),
+  resetPassword: (token: string, password: string) =>
+    apiRequest<{ ok: boolean }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password })
+    }),
+  /** Public invite-link peek for the acceptance page. Throws HttpError(404)
+   *  when the token is expired, revoked, used or garbage. */
+  invite: (token: string) =>
+    apiGet<{ valid: boolean; email: string; name: string | null; role: string; organizationName: string }>(
+      `/api/invites/${encodeURIComponent(token)}`
+    ),
+  acceptInvite: (token: string, input: { name?: string; password: string }) =>
+    apiRequest<HqSession>(`/api/invites/${encodeURIComponent(token)}/accept`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    }).then(session => {
+      markSessionEstablished()
+      return session
+    }),
+  /** Office-side: create + deliver a team invite (owner/admin only). When no
+   *  email provider is configured the response carries `inviteUrl` for the
+   *  inviter to share — the always-working channel. */
+  sendInvite: (input: { email: string; role: string; name?: string }) =>
+    apiRequest<{
+      id: string
+      email: string
+      role: string
+      expiresAt: string
+      delivery: "email" | "link"
+      inviteUrl?: string
+    }>("/api/team/invites", {
+      method: "POST",
+      body: JSON.stringify(input)
     })
+}
+
+/** Pull the server's `{message}` out of an HttpError body when present —
+ *  form surfaces show the API's words ("account is locked", "already on the
+ *  team") rather than a generic guess. */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof NetworkError) return "The API is unreachable — try again when it is online."
+  if (error instanceof HttpError) {
+    const json = error.message.slice(error.message.indexOf("{"))
+    try {
+      const parsed = JSON.parse(json) as { message?: string }
+      if (parsed.message) return parsed.message
+    } catch {
+      // fall through to the raw status
+    }
+    return fallback
+  }
+  return fallback
 }
 
 // ── Slack integration (design §4.6) ─────────────────────────────────────────
@@ -268,7 +375,7 @@ export async function persistJobStatus(
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        [ORG_HEADER]: DEV_ORG_ID,
+        ...orgHeaders(),
         [REQUEST_ID_HEADER]: newRequestId()
       },
       body: JSON.stringify({ status })

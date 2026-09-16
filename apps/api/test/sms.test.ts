@@ -1,8 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { jobFindFirst } = vi.hoisted(() => ({ jobFindFirst: vi.fn() }));
-vi.mock("@plumbtrack/database", () => ({ prisma: { job: { findFirst: jobFindFirst } } }));
+const { jobFindFirst, orgFindUnique, smsMessageFindFirst, smsMessageCreate } = vi.hoisted(() => ({
+  jobFindFirst: vi.fn(),
+  orgFindUnique: vi.fn(),
+  smsMessageFindFirst: vi.fn(),
+  smsMessageCreate: vi.fn(),
+}));
+vi.mock("@plumbtrack/database", () => ({
+  prisma: {
+    job: { findFirst: jobFindFirst },
+    organization: { findUnique: orgFindUnique },
+    smsMessage: { findFirst: smsMessageFindFirst, create: smsMessageCreate },
+  },
+}));
 
 import { buildApp } from "../src/server";
 import { issueAuthToken, type OrganizationRole } from "../src/lib/auth";
@@ -27,6 +38,9 @@ describe("POST /api/sms/eta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     jobFindFirst.mockResolvedValue({ id: "job-1", orgId: ORG, phone: "+61412345678" });
+    orgFindUnique.mockResolvedValue({ name: "Test Plumbing Co" });
+    smsMessageFindFirst.mockResolvedValue(null);
+    smsMessageCreate.mockResolvedValue({ id: "sms-1" });
   });
 
   it("returns test mode (202) when Twilio is not configured", async () => {
@@ -60,5 +74,43 @@ describe("POST /api/sms/eta", () => {
       payload: { jobId: "job-1", etaMinutes: 15 },
     });
     expect(response.statusCode).toBe(403);
+  });
+
+  it("records the send outcome with the outbox opId", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/sms/eta",
+      headers: { authorization: bearer("dispatcher") },
+      payload: { jobId: "job-1", etaMinutes: 15, opId: "sms-op-1" },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(smsMessageCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: ORG,
+        jobId: "job-1",
+        opId: "sms-op-1",
+        status: "provider_unconfigured",
+      }),
+    });
+  });
+
+  it("dedupes a retried opId — returns the recorded outcome without re-sending", async () => {
+    smsMessageFindFirst.mockResolvedValue({
+      id: "sms-1",
+      status: "sent",
+      providerMessageId: "SM123",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/sms/eta",
+      headers: { authorization: bearer("dispatcher") },
+      payload: { jobId: "job-1", etaMinutes: 15, opId: "sms-op-1" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ sent: true, mode: "live", providerMessageId: "SM123", duplicate: true });
+    expect(smsMessageCreate).not.toHaveBeenCalled();
   });
 });

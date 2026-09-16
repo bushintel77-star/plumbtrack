@@ -13,6 +13,7 @@ import {
   Map as MapIcon,
   MessageSquare,
   Radio,
+  Settings,
   Table2,
   Users,
   Network
@@ -21,14 +22,13 @@ import {
 import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
 import { type FieldLoopMode } from "@/features/fieldloop/context"
-import { HqSignIn } from "@/features/auth/HqSignIn"
 import { useTelemetrySocket } from "@/lib/telemetry"
 
 import { CommandPalette } from "@/features/board/CommandPalette"
-import { SlackCommsPanel } from "@/features/comms/SlackCommsPanel"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
 import { FieldLoopWorkspace, type Surface } from "@/features/fieldloop/FieldLoopWorkspace"
+import { SetupWizard } from "@/features/setup/SetupWizard"
 
 const NAV: Array<{
   id: AppModule
@@ -46,7 +46,8 @@ const NAV: Array<{
     { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
     { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
     { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" },
-    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" }
+    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" },
+    { id: "setup", label: "Setup", icon: Settings, enabled: true, milestone: "" }
   ]
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
@@ -141,8 +142,8 @@ export function AppShell() {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
 
-  // Station session gate. A 401 from the API means production auth is on and
-  // this browser has no session — show sign-in instead of falling back to
+  // Session gate. A 401 from the API means production auth is on and this
+  // browser has no session — route to /login rather than falling back to
   // demo data. Network failures keep the demo fallback so the offline board
   // stays usable, and FORCE_DEMO (Playwright/demos) never gates.
   const [authGate, setAuthGate] = useState<"checking" | "open" | "signed-in">("checking")
@@ -178,12 +179,11 @@ export function AppShell() {
     return () => window.removeEventListener("plumbtrack:session-expired", onSessionExpired)
   }, [])
 
-  const handleSignedIn = (): void => {
-    // Re-arm the board query: a previous 401 may have flipped dataMode to
-    // demo, which suspends refetching; "connecting" re-enables live hydration.
-    useBoardStore.setState({ dataMode: "connecting" })
-    setAuthGate("signed-in")
-  }
+  // An unauthenticated console goes to /login — the full page load after
+  // sign-in re-runs this gate and re-arms live hydration on its own.
+  useEffect(() => {
+    if (authGate === "open") window.location.assign("/login")
+  }, [authGate])
 
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
@@ -196,19 +196,18 @@ export function AppShell() {
           Configuration error: NEXT_PUBLIC_HQ_API_URL was not set at build time — the console cannot reach the API. Rebuild the deployment with it configured.
         </div>
       )}
-      {authGate === "open" ? (
-        <HqSignIn onSignedIn={handleSignedIn} />
-      ) : authGate === "checking" ? (
-        // Hold the console back until the gate resolves — the store boots with
-        // seed data, and rendering it before the 401 lands leaks fictional
-        // jobs/clients to an unauthenticated visitor.
+      {authGate === "checking" || authGate === "open" ? (
+        // Hold the console back until the gate resolves ("open" is mid-
+        // redirect to /login) — the store boots with seed data, and rendering
+        // it before the 401 lands leaks fictional jobs/clients.
         null
       ) : (
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-h-0 flex-1">
+            {activeModule === "setup" && <SetupWizard onExit={() => navigate("dispatch")} />}
             {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
             {activeModule === "operations" && <OperationsHub />}
-            {!ENABLED.has(activeModule) && (
+            {activeModule !== "setup" && !ENABLED.has(activeModule) && (
               <PlaceholderModule
                 id={activeModule}
                 milestone={NAV.find(n => n.id === activeModule)?.milestone ?? "later"}
@@ -218,7 +217,6 @@ export function AppShell() {
         </div>
       )}
       <CommandPalette />
-      <SlackCommsPanel />
       <Toaster />
     </div>
   )

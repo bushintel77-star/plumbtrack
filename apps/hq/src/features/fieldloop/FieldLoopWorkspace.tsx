@@ -81,10 +81,8 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
   const failedOps = useFailedOps(s => s.ops)
   const syncPaneOpen = useFailedOps(s => s.syncPaneOpen)
   const setSyncPaneOpen = useFailedOps(s => s.setSyncPaneOpen)
-  // Slack comms bridge — the panel renders app-wide; this is its only opener.
-  const setCommsOpen = useBoardStore(s => s.setCommsOpen)
-  const slackFeed = useBoardStore(s => s.slackFeed)
-  const newJobCards = slackFeed.filter(card => card.kind === "new-job").length
+  // COMMS opens the real Slack surface — the local simulated comms drawer
+  // was removed (it rendered fake cards that never reached Slack).
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -138,16 +136,12 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
             type="button"
             className="fl-linkbtn"
             data-testid="comms-trigger"
-            aria-label={`Open comms — ${slackFeed.length} Slack cards`}
-            onClick={() => setCommsOpen(true)}
+            aria-label="Open the Slack comms surface"
+            aria-current={surface === "slack" ? "page" : undefined}
+            onClick={() => void setSurface("slack")}
           >
             <MessageSquare size={12} />
             COMMS
-            {newJobCards > 0 && (
-              <span className="tnum rounded-full bg-urgent px-1.5 text-[10px] font-bold text-on-accent">
-                {newJobCards}
-              </span>
-            )}
           </button>
           {/* Connection state is deliberately outside the job status palette:
               red/amber/green mean work, never network. Demo latches after a
@@ -182,8 +176,8 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
             onClick={() => {
               void authApi.signOut().catch(() => undefined).finally(() => {
                 // A signed-out console must not keep serving the cached board;
-                // the reload re-runs the session gate.
-                window.location.reload()
+                // /login re-runs the session gate.
+                window.location.assign("/login")
               })
             }}
           >

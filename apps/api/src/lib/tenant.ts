@@ -30,6 +30,24 @@ export const tenantPlugin = fp(
       // the legacy dev header. Production callers present their raw secret as
       // a bearer token, so the signed-session checks below must not run
       // against them.
+      // Account auth is public by definition — sign-up, login and the
+      // password-reset pair can't present a session that doesn't exist yet.
+      // Each route carries the AUTH_RATE_LIMIT and mints the session itself.
+      if (
+        request.method === "POST" &&
+        (url === "/api/auth/sign-up" ||
+          url === "/api/auth/login" ||
+          url === "/api/auth/forgot-password" ||
+          url === "/api/auth/reset-password")
+      ) {
+        return;
+      }
+
+      // Invite links are the capability: the validity peek and the accept
+      // POST are unauthenticated (rate-limited, token hashed at rest).
+      if (request.method === "GET" && /^\/api\/invites\/[^/]+$/.test(url)) return;
+      if (request.method === "POST" && /^\/api\/invites\/[^/]+\/accept$/.test(url)) return;
+
       if (url === "/api/auth/device" || url === "/api/auth/hq-session") {
         if (!isLegacyTenantFallbackAllowed()) return; // route enforces bootstrap
         const legacyValue = request.headers[ORG_HEADER];
