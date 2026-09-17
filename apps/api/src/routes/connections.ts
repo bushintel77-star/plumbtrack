@@ -18,6 +18,7 @@ import {
   type IntegrationProvider,
 } from "../integrations/catalog";
 import { verificationAvailable, verifyCredentials } from "../integrations/verify";
+import { hqAppBase } from "../lib/urls";
 
 /**
  * Integration connections for the setup wizard and the integrations page.
@@ -49,16 +50,20 @@ function callbackUrl(provider: string): string {
   return `${base ?? "http://localhost:8080"}/api/integrations/oauth/callback/${provider}`;
 }
 
-function hqBase(): string {
-  return process.env.HQ_APP_URL?.trim().replace(/\/+$/, "") || "http://localhost:3001";
+/** `returnTo` must stay on the HQ console: startsWith("/") alone lets
+ *  "//evil.com" through — resolved against the base it goes cross-origin. */
+function safeReturnTo(returnTo: string | null | undefined): string | null {
+  if (!returnTo || !returnTo.startsWith("/")) return null;
+  const base = hqAppBase();
+  const url = new URL(returnTo, base);
+  return url.origin === new URL(base).origin ? returnTo : null;
 }
 
 /** Where the operator lands after the provider's round trip. `returnTo` may
  *  already carry its own query (e.g. `/?module=setup`) — merge rather than
  *  concatenate, or a second `?` would corrupt the URL. */
 function finishRedirect(reply: FastifyReply, returnTo: string | null, provider: string, outcome: "connected" | "denied" | "failed"): FastifyReply {
-  const path = returnTo && returnTo.startsWith("/") ? returnTo : "/";
-  const url = new URL(path, hqBase());
+  const url = new URL(safeReturnTo(returnTo) ?? "/", hqAppBase());
   url.searchParams.set("provider", provider);
   url.searchParams.set("connection", outcome);
   return reply.code(302).redirect(url.toString());
@@ -246,7 +251,7 @@ export async function connectionRoutes(app: FastifyInstance): Promise<void> {
         state,
         verifierEnc: encryptSecret(verifier),
         redirectUri: callbackUrl(provider.id),
-        returnTo: returnTo && returnTo.startsWith("/") ? returnTo : null,
+        returnTo: safeReturnTo(returnTo),
         createdBy: request.auth?.userId ?? null,
         expiresAt: new Date(Date.now() + AUTHORIZATION_TTL_MS),
       },

@@ -137,7 +137,7 @@ export default function LoginPage() {
       </form>
       <div className="mt-4 flex items-center gap-1.5 text-ink-low">
         <Radio className="h-3.5 w-3.5 text-chrome-400" />
-        <span className="label-mono text-2xs">SESSION ISSUED BY THE API · 12 HOURS</span>
+        <span className="label-mono text-2xs">SESSION ISSUED BY THE API</span>
       </div>
       {STATION_TOKEN_ENABLED && <StationTokenForm onSignedIn={enter} />}
     </AuthShell>

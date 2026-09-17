@@ -206,6 +206,28 @@ describe("integration connections", () => {
     expect(mocks.authUpdate).toHaveBeenCalled();
   });
 
+  it("keeps a '//evil.com' returnTo on the HQ origin — protocol-relative is not a path", async () => {
+    mocks.authFindUnique.mockResolvedValue({
+      id: "auth-1",
+      orgId: ORG,
+      provider: "xero",
+      state: "state-1",
+      verifierEnc: "x",
+      redirectUri: "https://api.fieldloop.test/api/integrations/oauth/callback/xero",
+      returnTo: "//evil.com",
+      expiresAt: new Date(Date.now() + 60_000),
+      consumedAt: null,
+      createdBy: "u-owner",
+    });
+
+    const response = await app.inject({ method: "GET", url: "/api/integrations/oauth/callback/xero?state=state-1&error=access_denied" });
+
+    expect(response.statusCode).toBe(302);
+    const location = new URL(response.headers.location as string);
+    expect(location.origin).toBe("https://hq.fieldloop.test");
+    expect(location.searchParams.get("connection")).toBe("denied");
+  });
+
   it("refuses a replayed or expired authorization", async () => {
     mocks.authFindUnique.mockResolvedValue({
       id: "auth-1", orgId: ORG, provider: "xero", state: "state-1", verifierEnc: "x",
