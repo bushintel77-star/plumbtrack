@@ -16,7 +16,8 @@ import { parseBody, sendValidationError } from "../lib/validation";
  * member's role from `OrganizationMembership`, the org they belong to.
  *
  * Security contract (docs/AUTH_LOGIN_HANDOVER_PROMPT.md §7):
- *  - generic errors on login/forgot — never leak which emails exist;
+ *  - generic errors AND identical argon2 work on login/forgot — neither the
+ *    response body nor its timing leaks which emails exist;
  *  - per-IP AUTH_RATE_LIMIT + per-account lockout counters;
  *  - reset tokens random 32 bytes, SHA-256'd at rest, single-use, 1h TTL;
  *  - passwords argon2id-hashed, never logged or returned;
@@ -74,6 +75,15 @@ const resetSchema = z.object({
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+let dummyHashPromise: Promise<string> | null = null;
+/** Verify against a throwaway hash when no account/password exists, so an
+ *  unknown email costs the same argon2 work as a known one — otherwise the
+ *  response time itself enumerates accounts. */
+function dummyHash(): Promise<string> {
+  dummyHashPromise ??= hashPassword(randomBytes(32).toString("hex"));
+  return dummyHashPromise;
 }
 
 function slugify(name: string): string {
@@ -165,16 +175,25 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const verified = user?.passwordHash ? await verifyPassword(user.passwordHash, password) : false;
+    // An expired lock restarts the count — otherwise failedLoginCount stays
+    // at the threshold forever and one wrong guess re-locks the account.
+    const lockExpired = Boolean(user?.lockedUntil && user.lockedUntil.getTime() <= Date.now());
+    const priorFailures = lockExpired ? 0 : (user?.failedLoginCount ?? 0);
+
+    // Always one argon2 verify: an unknown email (or an invited user with no
+    // password yet) must cost the same as a wrong password on a real account.
+    const verified = await verifyPassword(user?.passwordHash ?? (await dummyHash()), password);
     if (!user || !membership || !verified) {
       if (user) {
-        const failedLoginCount = user.failedLoginCount + 1;
+        const failedLoginCount = priorFailures + 1;
         const locked = failedLoginCount >= LOGIN_LOCKOUT_AFTER;
         await prisma.user.update({
           where: { id: user.id },
           data: {
             failedLoginCount,
-            ...(locked ? { lockedUntil: new Date(Date.now() + LOGIN_LOCKOUT_MS) } : {}),
+            ...(locked
+              ? { lockedUntil: new Date(Date.now() + LOGIN_LOCKOUT_MS) }
+              : lockExpired ? { lockedUntil: null } : {}),
           },
         }).catch(() => undefined);
       }
@@ -212,11 +231,15 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
     const { email } = parsed.data;
 
+    // Resolved before the account lookup so a missing HQ_APP_URL fails
+    // identically for every caller — never a 500 that only registered
+    // emails can trigger (which would itself enumerate accounts).
+    const base = hqAppBase();
     const user = await prisma.user.findUnique({ where: { email } });
     let delivered = false;
     if (user) {
       const rawToken = randomBytes(32).toString("base64url");
-      const resetUrl = `${hqAppBase()}/reset-password?token=${rawToken}`;
+      const resetUrl = `${base}/reset-password?token=${rawToken}`;
       await prisma.passwordResetToken.create({
         data: {
           userId: user.id,

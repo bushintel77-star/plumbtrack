@@ -266,7 +266,7 @@ export function TextField({
   /** A button that sits with the input, e.g. Look up or Test connection. */
   right?: ReactNode
   /** Password fields get a reveal toggle by default; pass false to suppress
-   *  it (a shared secret being pasted into a dev-only field, say). */
+   *  it. Currently unused — kept as the opt-out if a field ever needs it. */
   reveal?: boolean
 }) {
   const id = useId()

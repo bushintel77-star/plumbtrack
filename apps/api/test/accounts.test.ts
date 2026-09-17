@@ -77,6 +77,7 @@ vi.mock("@plumbtrack/database", () => ({
 import argon2 from "argon2";
 import { buildApp } from "../src/server";
 import { issueAuthToken } from "../src/lib/auth";
+import * as passwords from "../src/lib/passwords";
 
 const ORG = "org-new-co";
 
@@ -293,6 +294,81 @@ describe("account auth", () => {
       expect(locked.statusCode).toBe(429);
     });
 
+    it("restarts the failure count once the lock window expires — no permanent re-lock", async () => {
+      // failedLoginCount stays at the threshold after the first lockout; if
+      // expiry didn't reset it, one wrong guess would re-lock forever.
+      userFindUnique.mockResolvedValue({
+        id: "u-1",
+        passwordHash: hash,
+        failedLoginCount: 5,
+        lockedUntil: new Date(Date.now() - 60_000),
+        memberships: [{ organizationId: ORG, role: "owner" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "d@mallee.example", password: "wrong password entirely" },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(userUpdate).toHaveBeenCalledWith({
+        where: { id: "u-1" },
+        data: { failedLoginCount: 1, lockedUntil: null },
+      });
+    });
+
+    it("clears the expired lock and counters on a correct sign-in", async () => {
+      userFindUnique.mockResolvedValue({
+        id: "u-1",
+        passwordHash: hash,
+        failedLoginCount: 5,
+        lockedUntil: new Date(Date.now() - 60_000),
+        memberships: [{ organizationId: ORG, role: "owner" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "d@mallee.example", password },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().token).toBeTruthy();
+      expect(userUpdate).toHaveBeenCalledWith({
+        where: { id: "u-1" },
+        data: { failedLoginCount: 0, lockedUntil: null },
+      });
+    });
+
+    it("runs the same argon2 verify for unknown emails and unaccepted invites", async () => {
+      // Assert on the call, not the clock — the timing parity comes from
+      // verifyPassword running once per attempt either way.
+      const verifySpy = vi.spyOn(passwords, "verifyPassword");
+
+      userFindUnique.mockResolvedValue(null);
+      const unknown = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "nobody@elsewhere.example", password: "wrong password entirely" },
+      });
+      expect(unknown.statusCode).toBe(401);
+      expect(verifySpy).toHaveBeenCalled();
+
+      verifySpy.mockClear();
+      userFindUnique.mockResolvedValue({
+        id: "u-invited",
+        passwordHash: null,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        memberships: [{ organizationId: ORG, role: "technician" }],
+      });
+      const invited = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "invited@mallee.example", password: "wrong password entirely" },
+      });
+      expect(invited.statusCode).toBe(401);
+      expect(verifySpy).toHaveBeenCalled();
+      verifySpy.mockRestore();
+    });
+
     it("mints a ~30-day session for a technician — field devices can't re-auth mid-shift", async () => {
       userFindUnique.mockResolvedValue({
         id: "u-tech",
@@ -412,6 +488,38 @@ describe("account auth", () => {
       expect(Object.keys(missing.json()).sort()).toEqual(Object.keys(present.json()).sort());
       // No email provider configured in this environment → honest flag.
       expect(present.json().delivery).toBe("unconfigured");
+    });
+
+    it("fails identically for known and unknown emails when HQ_APP_URL is missing in production", async () => {
+      // The 2026-09-09 deploy drift silently dropped HQ_APP_URL; a 500 that
+      // only registered emails can reach is itself an enumeration oracle.
+      const previousNodeEnv = process.env.NODE_ENV;
+      const previousHqUrl = process.env.HQ_APP_URL;
+      process.env.NODE_ENV = "production";
+      delete process.env.HQ_APP_URL;
+      try {
+        userFindUnique.mockResolvedValue({ id: "u-1" });
+        const present = await app.inject({
+          method: "POST",
+          url: "/api/auth/forgot-password",
+          payload: { email: "real@example.com" },
+        });
+        userFindUnique.mockResolvedValue(null);
+        const missing = await app.inject({
+          method: "POST",
+          url: "/api/auth/forgot-password",
+          payload: { email: "ghost@example.com" },
+        });
+        // Both must be the misconfigured-deployment 500 — equality alone
+        // would pass even if hqAppBase() never threw on either path.
+        expect(present.statusCode).toBe(500);
+        expect(missing.statusCode).toBe(500);
+      } finally {
+        if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = previousNodeEnv;
+        if (previousHqUrl === undefined) delete process.env.HQ_APP_URL;
+        else process.env.HQ_APP_URL = previousHqUrl;
+      }
     });
 
     it("resets with a valid token and rejects reuse", async () => {
