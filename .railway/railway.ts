@@ -36,16 +36,24 @@ export default defineRailway(() => {
       // to (the HQ Slack surface reads ?slack_connect=connected|denied|failed).
       HQ_APP_URL: "https://hq-production-7911.up.railway.app",
       // Production auth is on: the legacy x-organization-id owner fallback is
-      // rejected. Sessions require the secrets below, which are set in the
-      // Railway dashboard (never committed). Set AUTH_SECRET and
-      // HQ_BOOTSTRAP_TOKEN BEFORE applying this config — the API fails to
-      // boot without AUTH_SECRET when production auth is enabled.
+      // rejected. Sessions are signed with AUTH_SECRET, set in the Railway
+      // dashboard (never committed). Set it BEFORE applying this config — the
+      // API refuses to boot without it when production auth is enabled.
+      //
+      // HQ_BOOTSTRAP_TOKEN / HQ_ORG_ID / HQ_OPERATOR_ROLE were dropped here
+      // deliberately: POST /api/auth/hq-session answers 410 in production
+      // before reading any of them, and no production source path references
+      // them. Removing them from the IaC lets an apply delete the leftover
+      // shared station secret from the environment instead of preserving it.
       PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER: "false",
       AUTH_SECRET: preserve(),
-      HQ_BOOTSTRAP_TOKEN: preserve(),
-      // Station sign-in scope and role (dispatcher|manager|accountant|admin|owner).
-      HQ_ORG_ID: "org_caulfield_south",
-      HQ_OPERATOR_ROLE: "owner",
+      // AES-256-GCM key (32 bytes base64) for integration credentials at rest.
+      // `assertEncryptionConfiguration()` throws on a production boot without
+      // it, and it is the ONLY way to decrypt stored credentials — losing it
+      // is unrecoverable, not merely a re-entry. It was set in the dashboard
+      // but missing here, so `railway config apply` planned to DELETE it and
+      // take the api down; preserve() closes that.
+      APP_ENCRYPTION_KEY: preserve(),
       // Explicit allowlist — credentials:true must never pair with a reflected
       // origin. Update if the web/hq services are recreated with new domains.
       CORS_ORIGINS: "https://web-production-364b4f.up.railway.app,https://hq-production-7911.up.railway.app",
@@ -87,6 +95,13 @@ export default defineRailway(() => {
       // Media upload completion upstream (signed PUT target base) — set with
       // the bucket credentials when object storage is provisioned.
       MEDIA_UPLOAD_BASE_URL: preserve(),
+      // Transactional email (Resend) — password reset and team invites. Both
+      // must be set or `isEmailConfigured()` is false: /forgot-password then
+      // mints a token, delivers it nowhere, and answers
+      // `delivery: "unconfigured"`, leaving operators with no recovery path.
+      // EMAIL_FROM must be an address on a Resend-verified domain.
+      RESEND_API_KEY: preserve(),
+      EMAIL_FROM: preserve(),
     },
     replicas: { "us-west2": 1 },
   });
@@ -116,6 +131,11 @@ export default defineRailway(() => {
       // update here.
       EXPO_PUBLIC_API_URL: "https://api-production-363e.up.railway.app",
       EXPO_PUBLIC_ORG_ID: "org_caulfield_south",
+      // Set in the dashboard, absent here, so an apply planned to delete it.
+      // No source path reads it, so the deletion looked harmless — but it is
+      // build-time inlined, and this file is not the field agent's repo, so
+      // preserve() rather than guess a literal the owner may rely on.
+      EXPO_PUBLIC_ORG_NAME: preserve(),
       // Legacy enrollment var — the api's /api/auth/device now answers 410.
       // Remove with the field app's enrollment code (mobile slice); harmless
       // while set since nothing consumes it api-side.
