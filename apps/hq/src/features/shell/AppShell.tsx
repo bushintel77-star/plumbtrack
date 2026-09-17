@@ -29,6 +29,9 @@ import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
 import { FieldLoopWorkspace, type Surface } from "@/features/fieldloop/FieldLoopWorkspace"
 import { SetupWizard } from "@/features/setup/SetupWizard"
+import { setupApi } from "@/features/setup/api"
+import { ConsoleLoading } from "@/features/shell/ConsoleLoading"
+import { shouldOpenSetup } from "@/features/shell/firstRun"
 
 const NAV: Array<{
   id: AppModule
@@ -112,6 +115,10 @@ export function AppShell() {
   // and dashboard cards all navigate through the URL (shareable, back-button
   // friendly, and immune to bidirectional-sync loops).
   const [urlModule, setUrlModule] = useQueryState("module", parseAsString.withDefault("dispatch"))
+  // Raw presence of the same key — null on a bare `/`, where the first-run
+  // gate may redirect; an explicit value (including "setup") is never
+  // overridden. nuqs keeps both instances of the key in sync.
+  const [moduleParam] = useQueryState("module", parseAsString)
   const [modeParam, setModeParam] = useQueryState("mode", parseAsString)
   const theme = useBoardStore(s => s.theme)
   const activeModule: AppModule = ENABLED.has(urlModule as AppModule)
@@ -147,6 +154,10 @@ export function AppShell() {
   // demo data. Network failures keep the demo fallback so the offline board
   // stays usable, and FORCE_DEMO (Playwright/demos) never gates.
   const [authGate, setAuthGate] = useState<"checking" | "open" | "signed-in">("checking")
+  // The member's role, captured from the session probe — the first-run check
+  // below only runs for owner/admin (the setup API 403s every other role,
+  // so they're never sent into a wizard they can't use).
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
   useEffect(() => {
     if (FORCE_DEMO) {
       setAuthGate("signed-in")
@@ -155,8 +166,10 @@ export function AppShell() {
     let alive = true
     authApi
       .session()
-      .then(() => {
-        if (alive) setAuthGate("signed-in")
+      .then(session => {
+        if (!alive) return
+        setSessionRole(session.role)
+        setAuthGate("signed-in")
       })
       .catch((error: unknown) => {
         if (!alive) return
@@ -185,6 +198,33 @@ export function AppShell() {
     if (authGate === "open") window.location.assign("/login")
   }, [authGate])
 
+  // First-run landing: a signed-in owner/admin arriving on a bare `/` with
+  // setup still in progress lands in the wizard, not on an empty dispatch
+  // board. It's a default landing, not a cage — once `module` is set (the
+  // redirect itself sets it, and so does the wizard's onExit) this never
+  // fires again in the session. Any failure renders the normal console.
+  const firstRunEligible = moduleParam === null && (sessionRole === "owner" || sessionRole === "admin")
+  const [firstRunChecked, setFirstRunChecked] = useState(false)
+  useEffect(() => {
+    if (authGate !== "signed-in" || !firstRunEligible || firstRunChecked) return
+    let alive = true
+    setupApi
+      .state()
+      .then(state => {
+        if (!alive) return
+        if (shouldOpenSetup({ moduleParam, role: sessionRole, setupStatus: state.status })) {
+          void setUrlModule("setup")
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setFirstRunChecked(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [authGate, firstRunEligible, firstRunChecked, moduleParam, sessionRole, setUrlModule])
+
   return (
     <div className="flex h-dvh w-screen overflow-hidden bg-chrome-void">
       {API_URL_IS_DEFAULT && !FORCE_DEMO && (
@@ -196,11 +236,13 @@ export function AppShell() {
           Configuration error: NEXT_PUBLIC_HQ_API_URL was not set at build time — the console cannot reach the API. Rebuild the deployment with it configured.
         </div>
       )}
-      {authGate === "checking" || authGate === "open" ? (
-        // Hold the console back until the gate resolves ("open" is mid-
-        // redirect to /login) — the store boots with seed data, and rendering
-        // it before the 401 lands leaks fictional jobs/clients.
-        null
+      {authGate !== "signed-in" || (firstRunEligible && !firstRunChecked) ? (
+        // A branded hold, not a blank one: the console stays back until the
+        // gate resolves ("open" is mid-redirect to /login) and, only when a
+        // first-run redirect is possible, until the setup check lands — the
+        // store boots with seed data, and rendering it early still leaks
+        // fictional jobs/clients or flashes a board we're about to leave.
+        <ConsoleLoading />
       ) : (
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-h-0 flex-1">
