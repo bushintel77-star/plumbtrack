@@ -3,21 +3,7 @@
 import { useEffect, useState } from "react"
 import { API_URL_IS_DEFAULT, authApi, FORCE_DEMO, HttpError } from "@/lib/api"
 import { useQueryState, parseAsString } from "nuqs"
-import {
-  BarChart3,
-  Briefcase,
-  Building2,
-  CalendarDays,
-  FileText,
-  LayoutDashboard,
-  Map as MapIcon,
-  MessageSquare,
-  Radio,
-  Settings,
-  Table2,
-  Users,
-  Network
-} from "lucide-react"
+import { FileText } from "lucide-react"
 
 import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
@@ -32,28 +18,8 @@ import { SetupWizard } from "@/features/setup/SetupWizard"
 import { setupApi } from "@/features/setup/api"
 import { ConsoleLoading } from "@/features/shell/ConsoleLoading"
 import { shouldOpenSetup } from "@/features/shell/firstRun"
-
-const NAV: Array<{
-  id: AppModule
-  label: string
-  icon: typeof LayoutDashboard
-  enabled: boolean
-  milestone: string
-}> = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true, milestone: "" },
-    { id: "dispatch", label: "Dispatch", icon: Table2, enabled: true, milestone: "" },
-    { id: "operations", label: "Operations", icon: Radio, enabled: true, milestone: "" },
-    { id: "crews", label: "Crews", icon: Users, enabled: true, milestone: "" },
-    { id: "jobs", label: "Jobs", icon: Briefcase, enabled: true, milestone: "" },
-    { id: "customers", label: "Customers", icon: Building2, enabled: true, milestone: "" },
-    { id: "forms", label: "Forms", icon: FileText, enabled: true, milestone: "" },
-    { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
-    { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" },
-    { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" },
-    { id: "setup", label: "Setup", icon: Settings, enabled: true, milestone: "" }
-  ]
-
-const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
+import { NAV, visibleNav } from "@/features/shell/nav"
+import { TeamRoster } from "@/features/team/TeamRoster"
 
 /* Modules the Crewline workspace now owns. The legacy `module` value still
    decides which surface opens, so existing links and redirects keep landing
@@ -61,7 +27,6 @@ const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 const CREWLINE_MODULES: Partial<Record<AppModule, Surface>> = {
   dashboard: "dispatch",
   dispatch: "dispatch",
-  crews: "dispatch",
   jobs: "dispatch",
   map: "map",
   forms: "documents",
@@ -121,7 +86,12 @@ export function AppShell() {
   const [moduleParam] = useQueryState("module", parseAsString)
   const [modeParam, setModeParam] = useQueryState("mode", parseAsString)
   const theme = useBoardStore(s => s.theme)
-  const activeModule: AppModule = ENABLED.has(urlModule as AppModule)
+  // The member's role, captured from the session probe — filters the nav
+  // (Setup is company setup, owner/admin only) and gates the first-run
+  // check below (the setup API 403s every other role).
+  const [sessionRole, setSessionRole] = useState<string | null>(null)
+  const enabledModules = new Set(visibleNav(sessionRole).filter(item => item.enabled).map(item => item.id))
+  const activeModule: AppModule = enabledModules.has(urlModule as AppModule)
     ? (urlModule as AppModule)
     : "dashboard"
 
@@ -154,10 +124,6 @@ export function AppShell() {
   // demo data. Network failures keep the demo fallback so the offline board
   // stays usable, and FORCE_DEMO (Playwright/demos) never gates.
   const [authGate, setAuthGate] = useState<"checking" | "open" | "signed-in">("checking")
-  // The member's role, captured from the session probe — the first-run check
-  // below only runs for owner/admin (the setup API 403s every other role,
-  // so they're never sent into a wizard they can't use).
-  const [sessionRole, setSessionRole] = useState<string | null>(null)
   useEffect(() => {
     if (FORCE_DEMO) {
       setAuthGate("signed-in")
@@ -248,8 +214,9 @@ export function AppShell() {
           <main className="min-h-0 flex-1">
             {activeModule === "setup" && <SetupWizard onExit={() => navigate("dispatch")} />}
             {crewlineSurface && <CrewlineWorkspace moduleSurface={crewlineSurface} />}
+            {activeModule === "crews" && <TeamRoster role={sessionRole} />}
             {activeModule === "operations" && <OperationsHub />}
-            {activeModule !== "setup" && !ENABLED.has(activeModule) && (
+            {activeModule !== "setup" && !enabledModules.has(activeModule) && (
               <PlaceholderModule
                 id={activeModule}
                 milestone={NAV.find(n => n.id === activeModule)?.milestone ?? "later"}

@@ -284,6 +284,27 @@ export const authApi = {
     })
 }
 
+export interface TeamMember {
+  userId: string
+  name: string | null
+  email: string
+  role: string
+  skills: string[]
+  joinedAt: string
+}
+
+/** Team roster (Crews module). Reads are open to office roles; the skills
+ *  write is owner/admin and free-form — `requiredSkill` on jobs accepts any
+ *  string, so there is no enum to validate against. */
+export const team = {
+  members: () => apiGet<{ members: TeamMember[] }>("/api/team/members"),
+  setSkills: (userId: string, skills: string[]) =>
+    apiRequest<TeamMember>(`/api/team/members/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ skills })
+    })
+}
+
 /** Pull the server's `{message}` out of an HttpError body when present —
  *  form surfaces show the API's words ("account is locked", "already on the
  *  team") rather than a generic guess. */

@@ -11,8 +11,19 @@ import { hqAppBase } from "../lib/urls";
 import { parseBody, sendValidationError } from "../lib/validation";
 
 /**
- * Team invites (ONBOARDING §6B — the acceptance half of Team admin).
+ * Team admin (ONBOARDING §6B).
  *
+ *   GET   /api/team/members        office roles list the roster (skills
+ *                                  included — assignment depends on them)
+ *   PATCH /api/team/members/:userId  owner/admin edit a member's skills.
+ *                                  Free-form on purpose: `requiredSkill` on
+ *                                  jobs accepts any string, so there is no
+ *                                  enum to validate against. This is the
+ *                                  only write path for membership skills —
+ *                                  without it an invited junior technician
+ *                                  is permanently unassignable to any job
+ *                                  that declares a requiredSkill.
+ *   POST /api/team/invites        owner/admin creates an invite; delivered
  *   POST /api/team/invites        owner/admin creates an invite; delivered
  *                               by email when a provider is configured,
  *                               otherwise the raw link is returned for the
@@ -48,6 +59,48 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const INVITABLE_ROLES = ORGANIZATION_ROLES;
 
+const TEAM_READ_ROLES = ["dispatcher", "manager", "accountant", "admin", "owner"] as const;
+const TEAM_WRITE_ROLES = ["admin", "owner"] as const;
+
+// No min(1): empty/whitespace entries are normalized away rather than
+// rejected — the form sends what the operator typed, the server decides.
+const memberSkillsSchema = z.object({
+  skills: z.array(z.string().trim().max(40)).max(20),
+});
+
+/** Trim, drop empties, dedupe case-insensitively keeping the first
+ *  occurrence, preserve the given order. */
+function normalizeSkills(skills: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const raw of skills) {
+    const skill = raw.trim();
+    if (!skill) continue;
+    const key = skill.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(skill);
+  }
+  return normalized;
+}
+
+function memberShape(membership: {
+  userId: string;
+  role: string;
+  skills: string[];
+  createdAt: Date;
+  user: { name: string | null; email: string };
+}) {
+  return {
+    userId: membership.userId,
+    name: membership.user.name,
+    email: membership.user.email,
+    role: membership.role,
+    skills: membership.skills,
+    joinedAt: membership.createdAt.toISOString(),
+  };
+}
+
 const createInviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   role: z.enum(INVITABLE_ROLES),
@@ -65,6 +118,59 @@ function sha256(value: string): string {
 
 /** Mounted at /api/team — the office-side invite management surface. */
 export async function teamRoutes(app: FastifyInstance): Promise<void> {
+  /** The org roster — every office role can read it (dispatch needs skills
+   *  to judge assignability); technicians have no business reading the
+   *  company's member list. */
+  app.get("/members", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_READ_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const memberships = await prisma.organizationMembership.findMany({
+      where: { organizationId: orgId },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    return { members: memberships.map(memberShape) };
+  });
+
+  /** Edit one member's skills. Scoped by the composite org+user key, so a
+   *  userId from another org is simply not found — same 404 as a stranger,
+   *  never a hint that the person exists elsewhere. */
+  app.patch("/members/:userId", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const parsed = parseBody(memberSkillsSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    const skills = normalizeSkills(parsed.data.skills);
+    const { userId } = request.params as { userId: string };
+
+    const membership = await prisma.organizationMembership.findUnique({
+      where: { organizationId_userId: { organizationId: orgId, userId } },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    if (!membership) {
+      return reply.code(404).send({ message: "That person isn't on your team." });
+    }
+
+    const updated = await prisma.organizationMembership.update({
+      where: { organizationId_userId: { organizationId: orgId, userId } },
+      data: { skills },
+      include: { user: { select: { name: true, email: true } } },
+    });
+    recordAuditEvent(request, {
+      action: "team.member_skills_updated",
+      entityType: "organization_membership",
+      entityId: membership.id,
+      metadata: { skills },
+    });
+    return memberShape(updated);
+  });
+
   /** Create + deliver an invite. Owner/admin; inviting a new owner requires
    *  the requester to be an owner. */
   app.post("/invites", { config: { rateLimit: authRateLimit() } }, async (request, reply) => {
