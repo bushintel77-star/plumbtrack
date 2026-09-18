@@ -20,6 +20,10 @@ export interface AuthClaims {
   organizationId: string;
   role: OrganizationRole;
   expiresAt: number;
+  /** Session row id (sessions table). Optional because dev/test tokens
+   *  minted outside a real sign-in carry none — production rejects those;
+   *  see the tenant hook. */
+  sid?: string;
 }
 
 /** Field technicians sign in per device; a 30-day session survives quiet
@@ -77,6 +81,9 @@ export function issueAuthToken(input: {
   organizationId: string;
   role: OrganizationRole;
   expiresInSeconds?: number;
+  /** Bind the token to a sessions row so the tenant hook can re-check (and
+   *  revoke) it per request. */
+  sessionId?: string;
 }): string {
   const signingSecret = secret();
   if (!signingSecret) throw new Error("AUTH_SECRET must be configured before issuing production sessions");
@@ -86,6 +93,7 @@ export function issueAuthToken(input: {
     role: input.role,
     expiresAt: Math.floor(Date.now() / 1000) + (input.expiresInSeconds ?? 900),
   };
+  if (input.sessionId) payload.sid = input.sessionId;
   const encoded = encode(JSON.stringify(payload));
   return `${encoded}.${signature(encoded, signingSecret)}`;
 }
@@ -114,6 +122,7 @@ export function verifyAuthToken(token: string): AuthClaims | null {
       organizationId: claims.organizationId,
       role: claims.role as OrganizationRole,
       expiresAt: claims.expiresAt,
+      ...(typeof claims.sid === "string" ? { sid: claims.sid } : {}),
     };
   } catch {
     return null;

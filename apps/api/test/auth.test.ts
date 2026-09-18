@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userFindUnique, membershipFindUnique, orgFindUnique } = vi.hoisted(() => ({
+const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userFindUnique, membershipFindUnique, orgFindUnique, sessionFindUnique, sessionCreate, sessionUpdateMany } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   updateMany: vi.fn(),
   findUnique: vi.fn(),
@@ -10,6 +10,9 @@ const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userF
   userFindUnique: vi.fn(),
   membershipFindUnique: vi.fn(),
   orgFindUnique: vi.fn(),
+  sessionFindUnique: vi.fn(),
+  sessionCreate: vi.fn(),
+  sessionUpdateMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -18,6 +21,7 @@ vi.mock("@plumbtrack/database", () => ({
     user: { findUnique: userFindUnique },
     organization: { findUnique: orgFindUnique },
     organizationMembership: { findUnique: membershipFindUnique },
+    session: { findUnique: sessionFindUnique, create: sessionCreate, updateMany: sessionUpdateMany },
     domainEventOutbox: { create: createDomainEvent },
     $transaction: transaction,
   },
@@ -28,8 +32,35 @@ import { buildApp } from "../src/server";
 
 const ORG = "org-caulfield";
 
+/** Production rehearsal rejects sid-less tokens, so every minted token binds
+ *  to a row in this in-memory session store the prisma mock reads. */
+const sessionRows = new Map<string, {
+  id: string; userId: string; organizationId: string; role: string;
+  issuedAt: Date; expiresAt: Date; lastSeenAt: Date;
+  revokedAt: Date | null; revokedReason: string | null;
+  userAgent: string | null; ip: string | null;
+}>();
+
+function addSessionRow(input: { id: string; userId?: string; organizationId?: string; role: string }): void {
+  sessionRows.set(input.id, {
+    id: input.id,
+    userId: input.userId ?? "user-1",
+    organizationId: input.organizationId ?? ORG,
+    role: input.role,
+    issuedAt: new Date(),
+    expiresAt: new Date(Date.now() + 3600_000),
+    lastSeenAt: new Date(),
+    revokedAt: null,
+    revokedReason: null,
+    userAgent: null,
+    ip: null,
+  });
+}
+
 function token(role: "technician" | "manager" = "technician"): string {
-  return issueAuthToken({ userId: "user-1", organizationId: ORG, role });
+  const sid = `sess-${role}`;
+  addSessionRow({ id: sid, role });
+  return issueAuthToken({ userId: "user-1", organizationId: ORG, role, sessionId: sid });
 }
 
 describe("authenticated tenancy and role authorization", () => {
@@ -61,6 +92,10 @@ describe("authenticated tenancy and role authorization", () => {
     userFindUnique.mockResolvedValue(null);
     membershipFindUnique.mockResolvedValue(null);
     orgFindUnique.mockResolvedValue(null);
+    sessionRows.clear();
+    sessionFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => sessionRows.get(where.id) ?? null);
+    sessionCreate.mockResolvedValue({ id: "sess-new" });
+    sessionUpdateMany.mockResolvedValue({ count: 0 });
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       job: { findFirst, findUnique, updateMany },
       domainEventOutbox: { create: createDomainEvent },

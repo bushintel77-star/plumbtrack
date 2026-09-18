@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
 import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, issueAuthToken, type OrganizationRole } from "../lib/auth";
+import { createSession } from "../lib/sessions";
 import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem, verifyPassword } from "../lib/passwords";
@@ -98,11 +99,21 @@ async function signIn(userId: string, organizationId: string, role: Organization
   // shorter session can never extend itself to the longer one.
   const sessionSeconds = role === "technician" ? DEVICE_SESSION_SECONDS : HQ_SESSION_SECONDS;
   const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
-  const token = issueAuthToken({ userId, organizationId, role, expiresInSeconds: sessionSeconds });
+  // One sessions row per device sign-in — this is what makes the token
+  // revocable (the tenant hook re-reads the row on every request).
+  const sessionRow = await createSession({
+    userId,
+    organizationId,
+    role,
+    expiresInSeconds: sessionSeconds,
+    userAgent: request.headers["user-agent"] ?? null,
+    ip: request.ip,
+  });
+  const token = issueAuthToken({ userId, organizationId, role, expiresInSeconds: sessionSeconds, sessionId: sessionRow.id });
   reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
   // The tenant hook exempts these public routes, so attach verified claims
   // manually — the audit event must be actor-scoped.
-  request.auth = { userId, organizationId, role, expiresAt };
+  request.auth = { userId, organizationId, role, expiresAt, sid: sessionRow.id };
   request.organizationId = organizationId;
   // Resolved at mint time, not carried in the claims — the field app shows
   // this name to customers (ETA SMS, profile), so an org rename must reach
