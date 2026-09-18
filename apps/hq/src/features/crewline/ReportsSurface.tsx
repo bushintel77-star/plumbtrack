@@ -6,7 +6,7 @@ import { CreditCard } from "lucide-react"
 
 import { apiGet, apiRequest } from "@/lib/api"
 import { formatMoney } from "@/lib/format"
-import { marginRow, marginTotals, jobRevenue } from "@/lib/fieldloop"
+import { marginRow, marginTotals, jobRevenue } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
 import { useJobsList } from "@/stores/boardStore"
 

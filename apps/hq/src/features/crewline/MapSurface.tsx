@@ -6,7 +6,7 @@ import { MapPin, Navigation, PanelLeftOpen, PanelRightOpen } from "lucide-react"
 
 import { MapErrorBoundary } from "@/features/map/MapErrorBoundary"
 import { DAY_START_MINUTES, blockLabel, formatDate } from "@/lib/format"
-import { arrivedJobFor, computeRouteOrder, dispatchStatus, jobsOnDay } from "@/lib/fieldloop"
+import { arrivedJobFor, computeRouteOrder, dispatchStatus, jobsOnDay } from "@/lib/crewline"
 import { travelMinutes } from "@/lib/travel"
 import { useBoardStore, useJobsList, type LiveLocation } from "@/stores/boardStore"
 import type { GeoPoint, Job, Technician } from "@/types"
@@ -72,7 +72,7 @@ export function MapSurface({
   onSelectJob
 }: {
   day: string
-  /** URL-backed FieldLoop selection, shared with every other surface. */
+  /** URL-backed Crewline selection, shared with every other surface. */
   selectedJobId: string
   onSelectJob: (jobId: string) => void
 }) {

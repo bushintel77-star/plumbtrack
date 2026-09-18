@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "sonner"
 
 import { useBoardStore } from "@/stores/boardStore"
 
-/* Watermelon toast pattern: Sonner themed entirely through the FieldLoop
+/* Watermelon toast pattern: Sonner themed entirely through the Crewline
    tokens — glass panel, etched border, chassis radius. The board theme
    drives Sonner's light/dark shell so toasts follow the active colourway. */
 

@@ -52,9 +52,9 @@ const CONNECTION_COPY = {
   demo: "Demo data"
 } as const
 
-export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurface?: Surface }) {
+export function CrewlineWorkspace({ moduleSurface = "dispatch" }: { moduleSurface?: Surface }) {
   // Live board data, demo fallback and the timer heartbeat come from the same
-  // lifecycle the legacy Board uses, so FieldLoop is never stuck on seed data.
+  // lifecycle the legacy Board uses, so Crewline is never stuck on seed data.
   useBoardLifecycle()
   // The legacy `module` param picks the entry surface; `surface` overrides it
   // once the dispatcher moves the rail, keeping both history and copied links
@@ -98,7 +98,7 @@ export function FieldLoopWorkspace({ moduleSurface = "dispatch" }: { moduleSurfa
   return (
     <div className="fl-window" data-testid="fieldloop-workspace">
       <header className="fl-topbar">
-        <span className="fl-brand">FIELDLOOP</span>
+        <span className="fl-brand">CREWLINE</span>
         <span className="fl-divider" />
         <span className="fl-section">{SURFACE_META[surface].label}</span>
         <button type="button" className="fl-search" onClick={() => setPaletteOpen(true)}>

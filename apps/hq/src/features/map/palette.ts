@@ -96,7 +96,7 @@ export function readComputedTokens(): (token: string) => string {
 }
 
 /** The one precedence law for map pin colour — mirrors `dispatchStatus` in
- *  lib/fieldloop exactly (complete > unassigned > urgent > state), so a job
+ *  lib/crewline exactly (complete > unassigned > urgent > state), so a job
  *  never reads as one colour on the board and another on the map. Amber
  *  (pending) marks unassigned work: it is the dispatcher's action queue. */
 export function statusColor(

@@ -18,7 +18,7 @@ import {
 /**
  * Slack workspace integration surface (design §4.6).
  *
- * FieldLoop has NO native Message entity — the messages are Slack's, read
+ * Crewline has NO native Message entity — the messages are Slack's, read
  * through Slack's own API. This module owns the two integration entities:
  *
  *   SlackWorkspace    { orgId, teamId, accessToken, connectedAt }

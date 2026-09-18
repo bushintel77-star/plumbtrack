@@ -20,7 +20,7 @@ import {
   STRAIGHT_LINE_LABEL,
   weekDays,
   worstSeverity
-} from "@/lib/fieldloop"
+} from "@/lib/crewline"
 import type { Job, Technician } from "@/types"
 
 const DAY = "2026-03-11" // a Wednesday

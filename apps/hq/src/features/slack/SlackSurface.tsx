@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
  *    when the deployment has no Slack app configured the API answers 503 and
  *    the CTA says so honestly instead of pretending.
  *  - CONNECTED: Channels come from conversations.list, thread messages from
- *    conversations.history — Slack owns the messages; FieldLoop stores none.
+ *    conversations.history — Slack owns the messages; Crewline stores none.
  *    The Automation Routing pane is the live SlackChannelRoute table.
  *
  * The workspace access token never reaches this component — every Slack call
@@ -261,10 +261,10 @@ export function SlackSurface() {
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-chrome-wash text-chrome-400">
                 <Hash size={22} aria-hidden="true" />
               </span>
-              <h2 className="text-lg font-bold text-ink">Connect FieldLoop to Slack</h2>
+              <h2 className="text-lg font-bold text-ink">Connect Crewline to Slack</h2>
               <p className="mt-2 max-w-sm text-[13px] leading-relaxed text-ink-mid">
                 See job alerts and team messages without leaving Slack, or bring your team&apos;s
-                Slack conversations into FieldLoop. FieldLoop already posts job events once
+                Slack conversations into Crewline. Crewline already posts job events once
                 connected — this adds two-way visibility inside the app.
               </p>
               <button
@@ -298,14 +298,14 @@ export function SlackSurface() {
                 <div className="flex items-center gap-2 border-b border-line px-4 py-2">
                   <Hash size={13} className="text-ink-low" aria-hidden="true" />
                   <span className="text-sm font-bold text-ink">{activeChannel.name}</span>
-                  <span className="label-mono text-2xs text-ink-low">READ FROM SLACK&apos;S API — NOT STORED IN FIELDLOOP</span>
+                  <span className="label-mono text-2xs text-ink-low">READ FROM SLACK&apos;S API — NOT STORED IN CREWLINE</span>
                 </div>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
                   {messages.length === 0 && <p className="text-xs text-ink-low">No messages — this channel is quiet (or the bot can&apos;t read it).</p>}
                   {messages.map(message => (
                     <div key={message.ts} className={cn("max-w-[72%] rounded-2xl border px-3 py-2 text-[13px] leading-relaxed", message.fromBot ? "border-chrome-400/60 bg-chrome-wash" : "border-line bg-fill")}>
                       <p className="mb-0.5 text-[11px] font-semibold text-ink-mid">
-                        {message.fromBot ? "FieldLoop automation" : message.username ?? message.user ?? "Member"}
+                        {message.fromBot ? "Crewline automation" : message.username ?? message.user ?? "Member"}
                       </p>
                       <p className="whitespace-pre-wrap text-ink">{message.text}</p>
                     </div>

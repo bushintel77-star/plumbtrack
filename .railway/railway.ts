@@ -107,7 +107,7 @@ export default defineRailway(() => {
   });
 
   const web = service("web", {
-    // This service serves the **FieldLoop field agent** — the Expo app in the
+    // This service serves the **Crewline field agent** — the Expo app in the
     // plumbtrack-mobile repo (local: my-mobile-app/). The source MUST point at
     // that repo: the monorepo root has no top-level Dockerfile, so leaving
     // this on plumbtrack would make any reconnected GitHub auto-deploy fail

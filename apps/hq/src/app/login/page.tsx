@@ -94,7 +94,7 @@ export default function LoginPage() {
       subtitle="Your email and password — the ones from sign-up or your invite."
       footer={
         <>
-          New to FieldLoop?{" "}
+          New to Crewline?{" "}
           <Link href="/signup" className="font-semibold text-chrome-600 hover:underline">
             Create a business account
           </Link>

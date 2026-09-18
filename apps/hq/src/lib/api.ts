@@ -305,7 +305,7 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
 // ── Slack integration (design §4.6) ─────────────────────────────────────────
 // The workspace access token NEVER appears in any response here — it lives in
 // the API's SlackWorkspace table. The messages surfaced through `messages`
-// are Slack's own, read through Slack's API; FieldLoop has no Message entity.
+// are Slack's own, read through Slack's API; Crewline has no Message entity.
 
 export interface SlackRouteBinding {
   eventType: string

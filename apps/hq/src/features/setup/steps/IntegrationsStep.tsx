@@ -197,7 +197,7 @@ export function IntegrationsStep() {
   }, [Boolean(data)])
 
   if (isLoading) {
-    return <p className="py-6 text-sm text-ink-mid">Loading the apps FieldLoop can connect to…</p>
+    return <p className="py-6 text-sm text-ink-mid">Loading the apps Crewline can connect to…</p>
   }
   if (error || !data) {
     return <p className="py-6 text-sm text-urgent">Couldn&apos;t load integrations. Refresh the page to try again.</p>
@@ -206,7 +206,7 @@ export function IntegrationsStep() {
   if (!data.credentialStorageReady) {
     return (
       <div className="rounded-xl border border-pending bg-pending-wash p-4 text-sm text-ink">
-        <p className="font-semibold">This FieldLoop can&apos;t store integration credentials yet.</p>
+        <p className="font-semibold">This Crewline can&apos;t store integration credentials yet.</p>
         <p className="mt-1 text-xs text-ink-mid">
           Ask your administrator to set <span className="label-mono">APP_ENCRYPTION_KEY</span> on the server. You can skip this
           step for now and come back once it&apos;s set up.
@@ -220,7 +220,7 @@ export function IntegrationsStep() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-ink-mid">
-        Connect the apps you already use — FieldLoop will start sending real data instead of asking you to enter it twice.
+        Connect the apps you already use — Crewline will start sending real data instead of asking you to enter it twice.
         Nothing here is required; connect what applies now and add the rest later from Settings.
       </p>
       {categories.map(category => (

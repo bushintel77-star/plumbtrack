@@ -114,8 +114,8 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { name: true } });
       const result = await sendEmail(
         email,
-        `You're invited to ${org?.name ?? "a FieldLoop team"}`,
-        `You've been invited to join ${org?.name ?? "a team"} on FieldLoop as ${role}.\n\n${inviteUrl}\n\nThe link works once and expires in 7 days.`,
+        `You're invited to ${org?.name ?? "a Crewline team"}`,
+        `You've been invited to join ${org?.name ?? "a team"} on Crewline as ${role}.\n\n${inviteUrl}\n\nThe link works once and expires in 7 days.`,
       );
       delivered = result.delivered;
     } catch {

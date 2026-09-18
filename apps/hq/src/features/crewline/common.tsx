@@ -4,8 +4,8 @@ import { useState, type ReactNode } from "react"
 import { Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { initialsOf } from "@/lib/fieldloop"
-import type { ExpiryState } from "@/lib/fieldloop"
+import { initialsOf } from "@/lib/crewline"
+import type { ExpiryState } from "@/lib/crewline"
 import type { DispatchStatus } from "@/types"
 
 export function Avatar({ name, size }: { name: string; size?: "small" | "large" }) {

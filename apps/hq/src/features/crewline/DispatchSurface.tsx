@@ -24,7 +24,7 @@ import {
   shiftDay,
   weekDays,
   worstSeverity
-} from "@/lib/fieldloop"
+} from "@/lib/crewline"
 import { DAY_START_MINUTES, MINUTES_PER_BLOCK, TOTAL_BLOCKS, blockLabel, dayLabel, todayIsoDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"

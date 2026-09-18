@@ -22,7 +22,7 @@ import { readComputedTokens, personColor, resolvePalette, statusColor, type MapP
 /**
  * Live WebGL map (research §Phase 3): MapLibre vector tiles, GeoJSON layers
  * for job pins and dashed per-tech route polylines. Technician location is
- * intentionally not rendered: FieldLoop permits only point-in-time capture at
+ * intentionally not rendered: Crewline permits only point-in-time capture at
  * clock-in/clock-out, never live movement or breadcrumb history. Route
  * polylines render straight-line immediately, then upgrade to road-following
  * geometry once the routing tier answers — offline the heuristic stays.
@@ -91,7 +91,7 @@ interface MapLibreViewProps {
    *  of the canvas pin — the only per-pin affordance that is reachable
    *  without a pointer, since WebGL layers are invisible to the a11y tree. */
   orderedStopIds?: string[]
-  /** URL-backed FieldLoop selection. The FieldLoop surface keeps selection
+  /** URL-backed Crewline selection. The Crewline surface keeps selection
    *  in the query string and never writes the zustand store, so this prop —
    *  not the store — is the authority here; falling back to the store keeps
    *  any future consumer that does drive store selection working. */

@@ -1,5 +1,5 @@
 /**
- * Integration catalog — the single source of truth for what FieldLoop can
+ * Integration catalog — the single source of truth for what Crewline can
  * connect to, how it authenticates, and the step-by-step instructions the
  * setup wizard shows a first-time operator.
  *
@@ -48,7 +48,7 @@ export interface IntegrationProvider {
   category: IntegrationCategory;
   /** What it does for a plumbing business, in one line. */
   blurb: string;
-  /** What FieldLoop will send or read once connected. */
+  /** What Crewline will send or read once connected. */
   syncs: string[];
   authType: AuthType;
   /** Numbered, novice-proof instructions shown next to the inputs. */
@@ -83,8 +83,8 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     steps: [
       "Click Connect — we'll send you to Xero's own sign-in page.",
       "Sign in with the Xero login you already use for the business.",
-      "Choose the organisation FieldLoop should use, then click Allow access.",
-      "Xero sends you straight back here. Nothing is typed, and your Xero password never touches FieldLoop.",
+      "Choose the organisation Crewline should use, then click Allow access.",
+      "Xero sends you straight back here. Nothing is typed, and your Xero password never touches Crewline.",
     ],
     scopes: ["offline_access", "accounting.contacts", "accounting.transactions", "accounting.settings"],
     requiresEnv: ["XERO_CLIENT_ID"],
@@ -105,7 +105,7 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     steps: [
       "Click Connect — we'll send you to MYOB's sign-in page.",
       "Sign in with your my.MYOB account.",
-      "Pick the company file FieldLoop should use and allow access.",
+      "Pick the company file Crewline should use and allow access.",
       "MYOB sends you back here automatically.",
     ],
     scopes: ["CompanyFile", "offline_access"],
@@ -127,7 +127,7 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     steps: [
       "Click Connect — we'll send you to Intuit's sign-in page.",
       "Sign in and choose your QuickBooks company.",
-      "Click Connect to approve FieldLoop.",
+      "Click Connect to approve Crewline.",
       "Intuit sends you back here automatically.",
     ],
     scopes: ["com.intuit.quickbooks.accounting"],
@@ -219,7 +219,7 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     steps: [
       "Click Connect — we'll send you to Slack.",
       "Choose the workspace, then click Allow.",
-      "Back in FieldLoop, pick the channel job messages should post to.",
+      "Back in Crewline, pick the channel job messages should post to.",
     ],
     requiresEnv: ["SLACK_CLIENT_ID"],
     docsUrl: "https://slack.com/apps",
@@ -235,7 +235,7 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     steps: [
       "Click Connect — we'll send you to Google's sign-in page.",
       "Choose your work Google account.",
-      "Review what FieldLoop is asking for and click Allow.",
+      "Review what Crewline is asking for and click Allow.",
       "Google sends you back here automatically.",
     ],
     scopes: ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/drive.file"],
@@ -272,7 +272,7 @@ export const INTEGRATION_PROVIDERS: readonly IntegrationProvider[] = [
     id: "hubspot",
     name: "HubSpot",
     category: "crm",
-    blurb: "Keep the customers you already track in HubSpot in step with FieldLoop.",
+    blurb: "Keep the customers you already track in HubSpot in step with Crewline.",
     syncs: ["Customers", "Contact history"],
     authType: "oauth_pkce",
     minutes: 3,
@@ -317,7 +317,7 @@ export function providerUnavailableReason(provider: IntegrationProvider): string
   if (providerAvailable(provider)) return null;
   if (provider.authType === "none") return "Not available yet — we'll let you know when it's ready.";
   const missing = (provider.requiresEnv ?? []).filter(name => env(name) === undefined);
-  return `Not set up on this FieldLoop yet (missing ${missing.join(", ")}). Ask your administrator to add it.`;
+  return `Not set up on this Crewline yet (missing ${missing.join(", ")}). Ask your administrator to add it.`;
 }
 
 export function authorizeUrlFor(provider: IntegrationProvider): string | null {

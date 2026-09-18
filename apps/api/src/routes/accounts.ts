@@ -250,7 +250,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       try {
         const result = await sendEmail(
           email,
-          "Reset your FieldLoop password",
+          "Reset your Crewline password",
           `Someone asked to reset the password for this account.\n\n${resetUrl}\n\nThe link works once and expires in one hour. If this wasn't you, ignore this email.`,
         );
         delivered = result.delivered;

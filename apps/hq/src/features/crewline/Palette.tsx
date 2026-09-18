@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Search } from "lucide-react"
 
 import { blockLabel } from "@/lib/format"
-import { initialsOf } from "@/lib/fieldloop"
+import { initialsOf } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
 import { useBoardStore, useJobsList } from "@/stores/boardStore"
 

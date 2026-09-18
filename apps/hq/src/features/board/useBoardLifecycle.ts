@@ -12,7 +12,7 @@ import { useBoardStore } from "@/stores/boardStore"
  * Store lifecycle for any workspace that reads the board: live API hydration
  * with the seeded demo fallback, the offline cache write, and the one-second
  * heartbeat that drives running timers. Mount it once per visible workspace —
- * both the legacy Board and the FieldLoop shell depend on it.
+ * both the legacy Board and the Crewline shell depend on it.
  */
 export function useBoardLifecycle(): void {
   const dataMode = useBoardStore(s => s.dataMode)

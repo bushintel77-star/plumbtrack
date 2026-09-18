@@ -24,12 +24,12 @@ export function AuthShell({
     <div className="flex min-h-dvh w-full items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm">
         <div className="panel rounded-xl p-8">
-          <Link href="/landing" className="flex items-center gap-2.5" aria-label="FieldLoop home">
+          <Link href="/landing" className="flex items-center gap-2.5" aria-label="Crewline home">
             <div className="btn-primary flex h-9 w-9 items-center justify-center rounded-md text-xs font-black text-on-accent">
               FL
             </div>
             <div>
-              <div className="text-sm font-bold tracking-tight text-ink">FieldLoop</div>
+              <div className="text-sm font-bold tracking-tight text-ink">Crewline</div>
               <div className="label-mono text-2xs text-ink-low">FIELD SERVICE OPS</div>
             </div>
           </Link>

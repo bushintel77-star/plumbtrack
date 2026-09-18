@@ -97,7 +97,7 @@ export function renderJobThreadParent(event: JobMessagePostedEvent): SlackRender
       },
       {
         type: "context",
-        elements: [{ type: "mrkdwn", text: "Dispatch ↔ field messages for this job. Reply in this thread — replies go straight to the job in FieldLoop." }],
+        elements: [{ type: "mrkdwn", text: "Dispatch ↔ field messages for this job. Reply in this thread — replies go straight to the job in Crewline." }],
       },
     ],
   };

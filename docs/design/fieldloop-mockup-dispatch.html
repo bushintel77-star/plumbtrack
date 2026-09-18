@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FieldLoop — Dispatch</title>
+<title>Crewline — Dispatch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -524,7 +524,7 @@
 <div class="window">
   <header class="topbar">
     <div class="topbar-left">
-      <span class="wordmark">FIELDLOOP</span>
+      <span class="wordmark">CREWLINE</span>
       <span class="topbar-divider"></span>
       <span class="topbar-section">Dispatch</span>
     </div>
@@ -813,13 +813,13 @@
   // clearly-labeled preview state, never presented as live Slack data.
   const slackMessages = {
     'dispatch-alerts': [
-      { from:'bot', sender:'FieldLoop Bot', text:'✅ Job completed — Gas leak inspection, 42 Kooyong Rd, Armadale (Dave Mitchell)', time:'7:22 AM' },
-      { from:'bot', sender:'FieldLoop Bot', text:'✅ Job completed — Hot water repair, 12 Kooyong Rd, Toorak (Dave Mitchell)', time:'Mon 9:48 AM' },
+      { from:'bot', sender:'Crewline Bot', text:'✅ Job completed — Gas leak inspection, 42 Kooyong Rd, Armadale (Dave Mitchell)', time:'7:22 AM' },
+      { from:'bot', sender:'Crewline Bot', text:'✅ Job completed — Hot water repair, 12 Kooyong Rd, Toorak (Dave Mitchell)', time:'Mon 9:48 AM' },
       { from:'human', sender:'Sam (Office)', text:'Nice work team, busy week', time:'Mon 9:50 AM' },
-      { from:'bot', sender:'FieldLoop Bot', text:'⚠️ Unassigned job — Drain camera inspection, 3 Beach Rd, Elwood', time:'7:46 AM' }
+      { from:'bot', sender:'Crewline Bot', text:'⚠️ Unassigned job — Drain camera inspection, 3 Beach Rd, Elwood', time:'7:46 AM' }
     ],
     'urgent-jobs': [
-      { from:'bot', sender:'FieldLoop Bot', text:'🚨 Urgent job created — Blocked drain, 24 Wattle St, Caulfield South', time:'8:01 AM' }
+      { from:'bot', sender:'Crewline Bot', text:'🚨 Urgent job created — Blocked drain, 24 Wattle St, Caulfield South', time:'8:01 AM' }
     ],
     'general': []
   };
@@ -1280,8 +1280,8 @@
     document.getElementById('slackCanvas').innerHTML = `
       <div class="slack-connect-wrap">
         <div class="slack-connect-icon">${ICON_HASH}</div>
-        <div class="slack-connect-title">Connect FieldLoop to Slack</div>
-        <div class="slack-connect-desc">See job alerts and team messages without leaving Slack, or bring your team's Slack conversations into FieldLoop. FieldLoop already posts job events automatically once connected — this adds two-way visibility inside the app.</div>
+        <div class="slack-connect-title">Connect Crewline to Slack</div>
+        <div class="slack-connect-desc">See job alerts and team messages without leaving Slack, or bring your team's Slack conversations into Crewline. Crewline already posts job events automatically once connected — this adds two-way visibility inside the app.</div>
         <button class="slack-connect-btn" onclick="connectSlack()">${ICON_HASH}Connect to Slack</button>
         <div class="slack-connect-note">Not connected yet — this button starts Slack's real OAuth flow once wired to a backend. Nothing is connected right now.</div>
       </div>`;

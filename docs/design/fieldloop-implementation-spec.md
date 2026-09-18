@@ -10,9 +10,9 @@
 > correction described in §8's precedent applies only to background
 > tracking OUTSIDE a shift, which remains prohibited.
 
-# FieldLoop — Design Implementation Spec
+# Crewline — Design Implementation Spec
 
-This document maps three finished HTML/CSS/JS design references onto the real FieldLoop product so a developer (or build agent) can swap this design in for what currently exists. **These reference files are frontend design artifacts only** — plain HTML/CSS/vanilla JS, not the real stack. They exist to lock visual design, interaction behavior, and information architecture. None of their client-side logic (invoice math, route ordering, offline queuing, etc.) should be copied as-is into production — it should be reimplemented against real data and real backend services, using the reference files as the exact behavioral and visual spec.
+This document maps three finished HTML/CSS/JS design references onto the real Crewline product so a developer (or build agent) can swap this design in for what currently exists. **These reference files are frontend design artifacts only** — plain HTML/CSS/vanilla JS, not the real stack. They exist to lock visual design, interaction behavior, and information architecture. None of their client-side logic (invoice math, route ordering, offline queuing, etc.) should be copied as-is into production — it should be reimplemented against real data and real backend services, using the reference files as the exact behavioral and visual spec.
 
 **Reference files:**
 | Surface | File | Represents |
@@ -85,7 +85,7 @@ These entities are used across two or more surfaces and should be modeled once, 
 `id, job_id, customer_id, title, description, price, status (pending|approved|declined), resolved_at`
 
 **SlackWorkspace / SlackChannelRoute**
-`SlackWorkspace {org_id, team_id, access_token, connected_at}` and `SlackChannelRoute {event_type, channel_id}` — see §4.6. There is no internal `Message` entity in this product; the equivalent concept is real Slack messages accessed via Slack's own API, not a FieldLoop-native messaging table.
+`SlackWorkspace {org_id, team_id, access_token, connected_at}` and `SlackChannelRoute {event_type, channel_id}` — see §4.6. There is no internal `Message` entity in this product; the equivalent concept is real Slack messages accessed via Slack's own API, not a Crewline-native messaging table.
 
 **Needs-Attention Flag** (computed, not stored)
 Derived from job data: a job still open past its scheduled end time; two consecutive jobs for the same technician with insufficient travel buffer between different addresses; an unassigned job. This logic should live server-side (or a shared selector layer) so mobile, dispatch, and any future surface see **identical** flags — don't let each client compute its own version and drift.
@@ -152,7 +152,7 @@ Real revenue/cost/margin math over job data — a per-technician margin breakdow
 ### 4.6 Slack integration
 **This connects to the real external Slack product via OAuth — it is not an in-app chat feature.** An earlier design pass built a custom job-scoped messaging clone here; that was a misread of the requirement and has been fully removed from the reference file. What's there now is a connection surface, correctly shaped for what "integration" actually means.
 
-**Existing backend capability (confirmed, not hypothetical):** the transactional outbox already routes domain events through an `IntegrationRouter` with a working Slack adapter — `job.completed` and similar events already post to Slack today. This feature extends that into something visible and two-way inside FieldLoop; it isn't starting from zero.
+**Existing backend capability (confirmed, not hypothetical):** the transactional outbox already routes domain events through an `IntegrationRouter` with a working Slack adapter — `job.completed` and similar events already post to Slack today. This feature extends that into something visible and two-way inside Crewline; it isn't starting from zero.
 
 **Two states, and the reference file must not blur them:**
 1. **Disconnected (default).** Plain explanation of what connecting does, a "Connect to Slack" button, and copy stating outright that nothing is connected yet. No fake "Connected ✓" indicator anywhere in this state — building one would misrepresent a capability that doesn't exist, the same reasoning that ruled out a fake Xero toggle (§8).
@@ -165,7 +165,7 @@ Real revenue/cost/margin math over job data — a per-technician margin breakdow
 - `conversations.list` to populate the real channel list (replacing the hardcoded `slackChannels` array in the reference).
 - `conversations.history` to populate real thread content (replacing the hardcoded `slackMessages` object).
 - `chat.postMessage` to make the compose box actually send (replacing the local-array-push in the reference's `sendSlackMessage`).
-- Real-time updates for messages posted directly in Slack to appear back in FieldLoop — Slack's Events API or Socket Mode, not polling.
+- Real-time updates for messages posted directly in Slack to appear back in Crewline — Slack's Events API or Socket Mode, not polling.
 - A real `SlackWorkspace` record (org id, Slack team id, access token, connected_at) and a real, editable `event_type → channel_id` mapping table backing the Automation Routing pane — the reference's `slackRouting` array is illustrative of the shape, not the real config store.
 - **Data model addition:** `SlackWorkspace {org_id, team_id, access_token, connected_at}`, `SlackChannelRoute {event_type, channel_id}`.
 
@@ -303,4 +303,4 @@ A running status check, separate from §6's integration table — this section i
 - **Editable Automation Routing (§4.6).** The routing pane is read-only — it displays which backend event posts to which channel, but there's no UI for changing that mapping. If the real product wants this configurable rather than fixed, that UI doesn't exist yet.
 
 ### Explicitly out of scope (not gaps — decided against, don't reopen without a reason)
-Van filtering (redundant given one van per technician), a FieldLoop-native mobile messaging UI (superseded by real Slack access once dispatch's Slack integration is real), a faked Xero "Connected" state (§8), Slack's own OAuth consent and channel-permission screens (that's Slack's UI to design, not FieldLoop's — nothing to build here beyond handling the callback).
+Van filtering (redundant given one van per technician), a Crewline-native mobile messaging UI (superseded by real Slack access once dispatch's Slack integration is real), a faked Xero "Connected" state (§8), Slack's own OAuth consent and channel-permission screens (that's Slack's UI to design, not Crewline's — nothing to build here beyond handling the callback).
