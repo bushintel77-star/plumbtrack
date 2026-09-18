@@ -46,6 +46,9 @@ apps/hq/playwright-report/
 apps/hq/shots/
 apps/hq/shots-premium/
 
+# Local verification evidence: capture scripts + screenshots from agent runs
+.shots/
+
 # Local-only collateral: mobile app has its own repo, the rest is design material
 my-mobile-app/
 shots/
