@@ -26,7 +26,7 @@ export function FieldAppStep({
     <>
       <Question
         label="How should location tracking work by default?"
-        hint="Every technician can change this for themselves on their phone — this only sets what they start with. FieldLoop never tracks location outside a shift, either way."
+        hint="Every technician can change this for themselves on their phone — this only sets what they start with. Crewline never tracks location outside a shift, either way."
       >
         <ChipChoice label="Default tracking mode" options={TRACKING_OPTIONS} value={value.trackingDefault} onChange={next => onChange({ trackingDefault: next })} />
       </Question>

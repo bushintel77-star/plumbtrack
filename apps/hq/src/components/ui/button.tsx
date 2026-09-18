@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 /* Watermelon-style polish over the shadcn/Radix base, entirely on the
-   FieldLoop bridge tokens: gradient primary from --btn-primary-bg, hardware
+   Crewline bridge tokens: gradient primary from --btn-primary-bg, hardware
    shadow token, soft 2px focus halo, and a press-scale state. */
 
 const buttonVariants = cva(

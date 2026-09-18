@@ -6,7 +6,7 @@ import { Mail, MapPin, Phone, Search } from "lucide-react"
 
 import { apiGet } from "@/lib/api"
 import { formatDate, formatMoney } from "@/lib/format"
-import { dispatchStatus, jobRevenue } from "@/lib/fieldloop"
+import { dispatchStatus, jobRevenue } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
 import { useJobsList } from "@/stores/boardStore"
 

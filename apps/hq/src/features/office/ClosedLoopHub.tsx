@@ -20,7 +20,7 @@ export function ClosedLoopHub() {
     <section className="border-b border-line bg-void-95 px-4 py-3" data-testid="closed-loop-hub">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="label-mono text-2xs text-chrome-400">FIELDLOOP CLOSED LOOP</div>
+          <div className="label-mono text-2xs text-chrome-400">CREWLINE CLOSED LOOP</div>
           <p className="mt-1 text-xs text-ink-mid">One operational thread from field activity to customer payment.</p>
         </div>
         <span className="label-mono rounded-full border border-line px-2 py-1 text-2xs text-ink-low">

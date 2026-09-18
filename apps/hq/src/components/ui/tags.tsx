@@ -1,6 +1,6 @@
 "use client"
 
-/* Kibo UI tags composition, hand-ported onto the FieldLoop primitives
+/* Kibo UI tags composition, hand-ported onto the Crewline primitives
    (Badge / Button / Command / Popover). Multi-select tag picker:
    Tags, TagsTrigger, TagsValue (removable), TagsContent, TagsInput,
    TagsList, TagsEmpty, TagsGroup, TagsItem. */

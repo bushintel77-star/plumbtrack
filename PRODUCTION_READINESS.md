@@ -124,7 +124,7 @@ the API to serve the deployed client, plus minimal client/HQ fixes.
 auth (P0-1), media bucket credentials (owner action — blocks photos e2e),
 sync tombstones, HQ e2e rewrite. **e2e coverage note: the web PWA suite died
 with `apps/web` — CI currently has zero e2e jobs** (the unit/typecheck gate
-only); the HQ Playwright suite targets the pre-FieldLoop shell and is not
+only); the HQ Playwright suite targets the pre-Crewline shell and is not
 wired.
 
 **Deployed + live-verified 2026-09-14** (deployments `api 545bbd7c`/`3166d7dc`,
@@ -157,7 +157,7 @@ with a minted technician session:
 - **HQ Payments** creates real Stripe Checkout links for completed unpaid jobs, priced from quoted revenue (STRIPE_SECRET_KEY still required).
 - **Cleanup**: apps/dispatch deleted (superseded twice over); HQ orphaned DashboardModule/OperationsCoverageCard + dead seed exports removed; field agent duplicate jobs screen removed.
 
-## 2026-09-10 — web service now serves the FieldLoop field agent
+## 2026-09-10 — web service now serves the Crewline field agent
 
 The technician URL (web-production-364b4f) serves the **Expo field agent** from the `plumbtrack-mobile` repo — the chosen "Steel Instrument" mockup design — replacing the superseded first-draft PWA (`apps/web` deleted 2026-09-11 — undeployed and superseded; its quote/invoice/docs/notification surfaces are the porting backlog, recoverable from git history). Deployed end-to-end verified: enrollment (201 technician, session persisted), WatermelonDB pull-sync (LIVE badge, real jobs listed), clock-on with GPS + pay engine.
 
@@ -214,7 +214,7 @@ Everything below was found by a live stress test + zero-mock audit and fixed on 
 ### P0 — must close before multi-operator live operations
 
 1. **Per-operator auth** — sign-in is still shared bootstrap secrets (`HQ_BOOTSTRAP_TOKEN` owner session; public `DEVICE_BOOTSTRAP_TOKEN` enrollment). No per-user identity, no revocation, no lockout. Design project before onboarding a second org or operator.
-2. **e2e rewrite (release validation)** — the HQ Playwright suite (35/36 specs) targets the pre-FieldLoop shell (`nav-*` sidebar, `demo-badge`, `palette-trigger` — none exist in source) and is not wired anywhere. The web PWA suite that used to be the CI baseline died with `apps/web` — **CI currently has zero e2e jobs**; the only gate is typecheck/lint/unit/build. Needs a rewrite against `FieldLoopWorkspace` + a CI job.
+2. **e2e rewrite (release validation)** — the HQ Playwright suite (35/36 specs) targets the pre-Crewline shell (`nav-*` sidebar, `demo-badge`, `palette-trigger` — none exist in source) and is not wired anywhere. The web PWA suite that used to be the CI baseline died with `apps/web` — **CI currently has zero e2e jobs**; the only gate is typecheck/lint/unit/build. Needs a rewrite against `CrewlineWorkspace` + a CI job.
 3. **SMS/cost audit** — Twilio sends are role-gated and rate-limited, but there is no per-org spend cap or provider-side budget alert.
 
 ### P1 — required for a complete FSM loop
@@ -239,7 +239,7 @@ Everything below was found by a live stress test + zero-mock audit and fixed on 
 - P0 items closed and demonstrated on a clean production start.
 - No unauthenticated access to tenant data or mutations (met today; keep it green).
 - Assignment and status mutations server-authoritative and auditable (met for jobs; quotes/docs still client-side).
-- HQ e2e suite rewritten and wired to CI, running green against the FieldLoop shell.
+- HQ e2e suite rewritten and wired to CI, running green against the Crewline shell.
 - Deployment, rollback, and incident runbooks documented.
 
 ## Verified current checks (2026-09-04)

@@ -41,7 +41,7 @@ export function CommsStep({
         />
       </Question>
 
-      <Question label="Quiet hours" hint="FieldLoop won't send an automatic message to a customer after this time.">
+      <Question label="Quiet hours" hint="Crewline won't send an automatic message to a customer after this time.">
         <ChipChoice label="Quiet hours" options={QUIET_OPTIONS} value={value.quietHours} onChange={next => onChange({ quietHours: next })} />
       </Question>
     </>

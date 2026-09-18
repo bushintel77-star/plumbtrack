@@ -160,7 +160,7 @@ export async function connectionRoutes(app: FastifyInstance): Promise<void> {
     if (!provider || provider.authType !== "api_key") return reply.code(404).send({ message: "Unknown provider" });
     if (!encryptionConfigured()) {
       return reply.code(503).send({
-        message: "This FieldLoop can't store credentials yet (APP_ENCRYPTION_KEY isn't set). Ask your administrator to add it — nothing was saved.",
+        message: "This Crewline can't store credentials yet (APP_ENCRYPTION_KEY isn't set). Ask your administrator to add it — nothing was saved.",
       });
     }
     const parsed = parseBody(credentialsSchema, request.body);
@@ -235,11 +235,11 @@ export async function connectionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(503).send({ message: providerUnavailableReason(provider) ?? "Not available yet." });
     }
     if (!encryptionConfigured()) {
-      return reply.code(503).send({ message: "This FieldLoop can't store credentials yet (APP_ENCRYPTION_KEY isn't set)." });
+      return reply.code(503).send({ message: "This Crewline can't store credentials yet (APP_ENCRYPTION_KEY isn't set)." });
     }
     const authorizeUrl = authorizeUrlFor(provider);
     const { clientId } = clientCredentialsFor(provider);
-    if (!authorizeUrl || !clientId) return reply.code(503).send({ message: `${provider.name} isn't configured on this FieldLoop yet.` });
+    if (!authorizeUrl || !clientId) return reply.code(503).send({ message: `${provider.name} isn't configured on this Crewline yet.` });
 
     const verifier = createCodeVerifier();
     const state = createState();

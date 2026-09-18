@@ -49,7 +49,7 @@ export default function SignupPage() {
 
   return (
     <AuthShell
-      title="Create your FieldLoop account"
+      title="Create your Crewline account"
       subtitle="Set up your business — you'll be the owner, and guided setup walks you through the rest."
       footer={
         <>

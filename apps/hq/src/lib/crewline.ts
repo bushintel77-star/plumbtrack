@@ -16,7 +16,7 @@ import { absenceFor, jobDay } from "@/lib/schedule"
 import { travelMinutes, haversineKm } from "@/lib/travel"
 
 /**
- * The FieldLoop derivation layer.
+ * The Crewline derivation layer.
  *
  * Every surface — board, inspector, map, documents, CRM, reports — reads its
  * numbers from here rather than recomputing them locally, so a dispatcher and

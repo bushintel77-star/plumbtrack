@@ -1,4 +1,4 @@
-# FieldLoop design references — CANONICAL
+# Crewline design references — CANONICAL
 
 The mockups + implementation spec are the approved design baseline for all
 three surfaces. They are versioned HERE so design intent can never again
@@ -10,9 +10,9 @@ happened before 2026-09-11).
   at the top first: it records dated amendments (e.g. the §8 location-policy
   supersession).
 - `fieldloop-mockup-technician.html` — technician app design reference
-  (implemented: FieldLoop field agent, plumbtrack-mobile).
+  (implemented: Crewline field agent, plumbtrack-mobile).
 - `fieldloop-mockup-dispatch.html` — dispatch console design reference
-  (implemented: apps/hq FieldLoop workspace; day/week/month + some panes
+  (implemented: apps/hq Crewline workspace; day/week/month + some panes
   remain the gap — see PRODUCTION_READINESS.md).
 - `fieldloop-mockup-customer-portal.html` — customer portal design
   reference (NOT yet built; spec §5 — new standalone surface).

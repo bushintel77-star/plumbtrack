@@ -12,7 +12,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ═══ FieldLoop Dispatch reference: light blueprint colourway ═══════════ */
+  /* ═══ Crewline Dispatch reference: light blueprint colourway ═══════════ */
   --chassis-void: #eef1f2;
   --reference-canvas: #eef1f2;
   --reference-panel: #ffffff;
@@ -179,7 +179,7 @@
 
 @layer components {
   /* ═══════════════════════════════════════════════════════════════════════
-     FieldLoop — light blueprint dispatch chrome.
+     Crewline — light blueprint dispatch chrome.
      Structure is deep blue and neutral; red / amber / green are reserved for
      job, work and compliance status and are never spent on connection or
      presence. Big Shoulders is display-only (wordmark, hero numerals),

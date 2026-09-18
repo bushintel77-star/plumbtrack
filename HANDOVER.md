@@ -1,4 +1,4 @@
-# FieldLoop — Handover (2026-09-11)
+# Crewline — Handover (2026-09-11)
 
 One-page handoff for whoever picks this up next (human or agent). The
 standing operational traps live in AGENTS.md; the readiness register lives
@@ -42,7 +42,7 @@ link — for the field agent), then CONFIRM with
   (real Stripe Checkout links priced from quoted revenue).
 - **One FSM + one dispatch**: apps/dispatch (Electron) and apps/web (draft
   PWA) deleted; HQ legacy kanban/calendar Board removed with its real
-  capabilities (message thread, SMS ETA, evidence) ported into the FieldLoop
+  capabilities (message thread, SMS ETA, evidence) ported into the Crewline
   inspector; SMS button now reads the provider response.
 - **Tracking modes (owner decision 2026-09-11)**: two technician-selectable
   modes — SHIFT TRACKING (default; position shared while clocked on, paused

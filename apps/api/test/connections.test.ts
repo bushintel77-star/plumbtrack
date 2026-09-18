@@ -44,8 +44,8 @@ describe("integration connections", () => {
 
   beforeAll(async () => {
     process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
-    process.env.PUBLIC_API_BASE_URL = "https://api.fieldloop.test";
-    process.env.HQ_APP_URL = "https://hq.fieldloop.test";
+    process.env.PUBLIC_API_BASE_URL = "https://api.crewline.test";
+    process.env.HQ_APP_URL = "https://hq.crewline.test";
     app = await buildApp({ logger: false });
     await app.ready();
   });
@@ -166,7 +166,7 @@ describe("integration connections", () => {
     expect(url.origin + url.pathname).toBe("https://login.xero.com/identity/connect/authorize");
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
     expect(url.searchParams.get("response_type")).toBe("code");
-    expect(url.searchParams.get("redirect_uri")).toBe("https://api.fieldloop.test/api/integrations/oauth/callback/xero");
+    expect(url.searchParams.get("redirect_uri")).toBe("https://api.crewline.test/api/integrations/oauth/callback/xero");
 
     const stored = mocks.authCreate.mock.calls[0][0].data;
     expect(stored.state).toBe(url.searchParams.get("state"));
@@ -192,7 +192,7 @@ describe("integration connections", () => {
       provider: "xero",
       state: "state-1",
       verifierEnc: "x",
-      redirectUri: "https://api.fieldloop.test/api/integrations/oauth/callback/xero",
+      redirectUri: "https://api.crewline.test/api/integrations/oauth/callback/xero",
       returnTo: "/setup",
       expiresAt: new Date(Date.now() + 60_000),
       consumedAt: null,
@@ -202,7 +202,7 @@ describe("integration connections", () => {
     const response = await app.inject({ method: "GET", url: "/api/integrations/oauth/callback/xero?state=state-1&error=access_denied" });
 
     expect(response.statusCode).toBe(302);
-    expect(response.headers.location).toBe("https://hq.fieldloop.test/setup?provider=xero&connection=denied");
+    expect(response.headers.location).toBe("https://hq.crewline.test/setup?provider=xero&connection=denied");
     expect(mocks.authUpdate).toHaveBeenCalled();
   });
 
@@ -213,7 +213,7 @@ describe("integration connections", () => {
       provider: "xero",
       state: "state-1",
       verifierEnc: "x",
-      redirectUri: "https://api.fieldloop.test/api/integrations/oauth/callback/xero",
+      redirectUri: "https://api.crewline.test/api/integrations/oauth/callback/xero",
       returnTo: "//evil.com",
       expiresAt: new Date(Date.now() + 60_000),
       consumedAt: null,
@@ -224,14 +224,14 @@ describe("integration connections", () => {
 
     expect(response.statusCode).toBe(302);
     const location = new URL(response.headers.location as string);
-    expect(location.origin).toBe("https://hq.fieldloop.test");
+    expect(location.origin).toBe("https://hq.crewline.test");
     expect(location.searchParams.get("connection")).toBe("denied");
   });
 
   it("refuses a replayed or expired authorization", async () => {
     mocks.authFindUnique.mockResolvedValue({
       id: "auth-1", orgId: ORG, provider: "xero", state: "state-1", verifierEnc: "x",
-      redirectUri: "https://api.fieldloop.test/api/integrations/oauth/callback/xero",
+      redirectUri: "https://api.crewline.test/api/integrations/oauth/callback/xero",
       returnTo: "/setup", expiresAt: new Date(Date.now() - 1_000), consumedAt: null, createdBy: null,
     });
 

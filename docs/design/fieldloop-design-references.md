@@ -1,4 +1,4 @@
-# FieldLoop Design References & Component Matrix
+# Crewline Design References & Component Matrix
 
 **Status:** Approved design direction  
 **Audience:** Product, design, frontend, mobile, QA  
@@ -6,7 +6,7 @@
 
 ## Purpose
 
-FieldLoop is a mobile-first field-service application for plumbing technicians working outdoors, in buildings, with gloves, unreliable connectivity, and limited attention. Dispatch HQ is the desktop coordination surface for the same closed-loop job record.
+Crewline is a mobile-first field-service application for plumbing technicians working outdoors, in buildings, with gloves, unreliable connectivity, and limited attention. Dispatch HQ is the desktop coordination surface for the same closed-loop job record.
 
 The product direction is **industrial/utilitarian instrument panel**: distinctive enough to feel like a trade tool, restrained enough to keep status, safety, time, and evidence legible.
 
@@ -85,7 +85,7 @@ Status always uses color + icon + label. Color alone is never sufficient.
 
 ## Reference-to-component matrix
 
-| Research principle | Product interpretation | FieldLoop component / surface | Dispatch HQ component / surface | Acceptance check |
+| Research principle | Product interpretation | Crewline component / surface | Dispatch HQ component / surface | Acceptance check |
 | --- | --- | --- | --- | --- |
 | North-star metric/state first | Show what needs attention now | `InstrumentHeader`, current job focus | `DecisionStrip`, active job/timer summary | First glance identifies current state and next action |
 | Progressive disclosure | Show essentials, reveal detail on demand | Job detail, `SyncSheet`, sign-off review | Job detail sheet, route drawer, queue sheet | No persistent secondary panel competes with the main surface |
@@ -109,7 +109,7 @@ Status always uses color + icon + label. Color alone is never sufficient.
 
 ## Component rules
 
-### FieldLoop
+### Crewline
 
 - `InstrumentHeader`: persistent brand, shift/location honesty, live connection.
 - `SyncBadge` / `SyncSheet`: automatic sync indicator and exception recovery; never a manual sync destination.

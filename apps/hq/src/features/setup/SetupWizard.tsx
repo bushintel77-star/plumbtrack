@@ -32,11 +32,11 @@ const STEP_DEFS: StepDefinition[] = [
   { id: "services", title: "What you do", lede: "The types of work you take on — this sets up job types, checklists and forms automatically.", required: true },
   { id: "area", title: "Where and when", lede: "Your service area and the hours you're usually working.", required: false },
   { id: "pricing", title: "Pricing & payments", lede: "A starting point for the invoice builder — change any of it later.", required: false },
-  { id: "comms", title: "Customer messages", lede: "What FieldLoop tells customers automatically, and when it stays quiet.", required: false },
+  { id: "comms", title: "Customer messages", lede: "What Crewline tells customers automatically, and when it stays quiet.", required: false },
   { id: "compliance", title: "Compliance & sign-off", lede: "What has to happen before a job counts as done.", required: false },
   { id: "fieldapp", title: "Field app defaults", lede: "How the technician app behaves for a new team member.", required: false },
   { id: "integrations", title: "Connect your apps", lede: "Accounting, payments, messaging and more — connect what you already use.", required: false },
-  { id: "invite", title: "Invite your team", lede: "Get everyone into FieldLoop — no typing required.", required: false }
+  { id: "invite", title: "Invite your team", lede: "Get everyone into Crewline — no typing required.", required: false }
 ]
 
 /** Every answers object starts empty; steps merge in what's already saved. */
@@ -216,7 +216,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
     try {
       const result = await setupApi.launch()
       queryClient.setQueryData(["setup"], result)
-      toast({ title: "FieldLoop is set up", description: "Your team can start using it now." })
+      toast({ title: "Crewline is set up", description: "Your team can start using it now." })
       onExit()
     } catch (thrown) {
       toast({ title: "Not quite ready", description: readableError(thrown, "A few required steps still need finishing."), variant: "destructive" })
@@ -238,7 +238,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
     <div className="flex h-full min-w-0 flex-col bg-background">
       <header className="flex shrink-0 items-center justify-between border-b border-line bg-card px-6 py-3">
         <div>
-          <p className="label-mono text-2xs text-ink-low">FIELDLOOP SETUP</p>
+          <p className="label-mono text-2xs text-ink-low">CREWLINE SETUP</p>
           <p className="text-sm font-semibold text-ink">
             {data.progress.done} of {data.progress.total} steps done
           </p>
@@ -285,7 +285,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
           <div className="mx-auto max-w-3xl pb-24">
             {reviewing ? (
               <>
-                <StepHeading index={STEP_DEFS.length + 1} total={STEP_DEFS.length + 1} title="Review & launch" lede="Here's what FieldLoop is set up to do. You can jump back to any step to change something." />
+                <StepHeading index={STEP_DEFS.length + 1} total={STEP_DEFS.length + 1} title="Review & launch" lede="Here's what Crewline is set up to do. You can jump back to any step to change something." />
                 <div className="mt-6 space-y-3">
                   {STEP_DEFS.map((def, index) => {
                     const state = stepState.get(def.id)
@@ -331,7 +331,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
                     className="flex min-h-11 items-center gap-2 rounded-lg bg-[image:var(--btn-primary-bg)] px-5 text-sm font-bold text-on-accent shadow-hardware hover:brightness-110 disabled:opacity-50"
                   >
                     <PartyPopper className="h-4 w-4" />
-                    {launching ? "Launching…" : "Launch FieldLoop"}
+                    {launching ? "Launching…" : "Launch Crewline"}
                   </button>
                 </div>
               </>

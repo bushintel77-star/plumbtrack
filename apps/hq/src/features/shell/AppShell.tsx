@@ -21,13 +21,13 @@ import {
 
 import { useBoardStore } from "@/stores/boardStore"
 import type { AppModule } from "@/types"
-import { type FieldLoopMode } from "@/features/fieldloop/context"
+import { type CrewlineMode } from "@/features/crewline/context"
 import { useTelemetrySocket } from "@/lib/telemetry"
 
 import { CommandPalette } from "@/features/board/CommandPalette"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
-import { FieldLoopWorkspace, type Surface } from "@/features/fieldloop/FieldLoopWorkspace"
+import { CrewlineWorkspace, type Surface } from "@/features/crewline/CrewlineWorkspace"
 import { SetupWizard } from "@/features/setup/SetupWizard"
 import { setupApi } from "@/features/setup/api"
 import { ConsoleLoading } from "@/features/shell/ConsoleLoading"
@@ -55,10 +55,10 @@ const NAV: Array<{
 
 const ENABLED = new Set(NAV.filter(item => item.enabled).map(item => item.id))
 
-/* Modules the FieldLoop workspace now owns. The legacy `module` value still
+/* Modules the Crewline workspace now owns. The legacy `module` value still
    decides which surface opens, so existing links and redirects keep landing
    where they always did; `surface` then takes over inside the workspace. */
-const FIELDLOOP_MODULES: Partial<Record<AppModule, Surface>> = {
+const CREWLINE_MODULES: Partial<Record<AppModule, Surface>> = {
   dashboard: "dispatch",
   dispatch: "dispatch",
   crews: "dispatch",
@@ -93,9 +93,9 @@ function PlaceholderModule({ id, milestone }: { id: AppModule; milestone: string
   )
 }
 
-/** Map legacy module nav onto FieldLoop modes so the workspace opens the
+/** Map legacy module nav onto Crewline modes so the workspace opens the
  *  right tab instead of always defaulting to Dispatch. */
-const MODULE_TO_MODE: Partial<Record<AppModule, FieldLoopMode>> = {
+const MODULE_TO_MODE: Partial<Record<AppModule, CrewlineMode>> = {
   dashboard: "dispatch",
   dispatch: "dispatch",
   map: "map",
@@ -137,7 +137,7 @@ export function AppShell() {
     const mapped = MODULE_TO_MODE[id]
     if (mapped) void setModeParam(mapped)
   }
-  const fieldLoopSurface = FIELDLOOP_MODULES[activeModule]
+  const crewlineSurface = CREWLINE_MODULES[activeModule]
 
   // Adopt the persisted theme after hydration, then keep the class in sync
   // with the store. The server and first client render intentionally match.
@@ -247,7 +247,7 @@ export function AppShell() {
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="min-h-0 flex-1">
             {activeModule === "setup" && <SetupWizard onExit={() => navigate("dispatch")} />}
-            {fieldLoopSurface && <FieldLoopWorkspace moduleSurface={fieldLoopSurface} />}
+            {crewlineSurface && <CrewlineWorkspace moduleSurface={crewlineSurface} />}
             {activeModule === "operations" && <OperationsHub />}
             {activeModule !== "setup" && !ENABLED.has(activeModule) && (
               <PlaceholderModule

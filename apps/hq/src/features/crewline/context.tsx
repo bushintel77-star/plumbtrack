@@ -2,10 +2,10 @@
 
 import { createContext, useContext } from "react"
 
-import type { AttentionFlag, DerivedCustomer } from "@/lib/fieldloop"
+import type { AttentionFlag, DerivedCustomer } from "@/lib/crewline"
 import type { ComplianceDoc, Job, ServiceAgreement, Technician } from "@/types"
 
-export type FieldLoopMode = "dispatch" | "map" | "documents" | "crm" | "reports"
+export type CrewlineMode = "dispatch" | "map" | "documents" | "crm" | "reports"
 export type BoardZoom = "day" | "week" | "month"
 
 /**
@@ -34,7 +34,7 @@ export interface FailedOp {
   retry: () => { ok: boolean; reason?: string }
 }
 
-export interface FieldLoopContextValue {
+export interface CrewlineContextValue {
   /* Data */
   jobs: Job[]
   technicians: Technician[]
@@ -48,8 +48,8 @@ export interface FieldLoopContextValue {
   now: number
 
   /* View state (mirrored into the URL so a view is shareable) */
-  mode: FieldLoopMode
-  setMode: (mode: FieldLoopMode) => void
+  mode: CrewlineMode
+  setMode: (mode: CrewlineMode) => void
   zoom: BoardZoom
   setZoom: (zoom: BoardZoom) => void
   /** ISO day the board is showing. */
@@ -84,10 +84,10 @@ export interface FieldLoopContextValue {
   setPaletteOpen: (open: boolean) => void
 }
 
-export const FieldLoopContext = createContext<FieldLoopContextValue | null>(null)
+export const CrewlineContext = createContext<CrewlineContextValue | null>(null)
 
-export function useFieldLoop(): FieldLoopContextValue {
-  const value = useContext(FieldLoopContext)
-  if (!value) throw new Error("useFieldLoop must be used inside FieldLoopWorkspace")
+export function useCrewline(): CrewlineContextValue {
+  const value = useContext(CrewlineContext)
+  if (!value) throw new Error("useCrewline must be used inside CrewlineWorkspace")
   return value
 }

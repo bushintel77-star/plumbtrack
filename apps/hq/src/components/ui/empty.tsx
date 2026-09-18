@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-/* Watermelon empty-state composition on FieldLoop tokens — used by the
+/* Watermelon empty-state composition on Crewline tokens — used by the
    board, list and map job lists when filters leave nothing to show. */
 
 function Empty({ className, ...props }: React.ComponentProps<"div">) {

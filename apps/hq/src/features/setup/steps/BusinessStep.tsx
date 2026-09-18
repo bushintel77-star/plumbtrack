@@ -112,7 +112,7 @@ export function BusinessStep({
         />
       </Question>
 
-      <Question label="Business structure" optional hint="This changes nothing in FieldLoop today — it's here so it's on file for later.">
+      <Question label="Business structure" optional hint="This changes nothing in Crewline today — it's here so it's on file for later.">
         <ChipChoice
           label="Business structure"
           options={ENTITY_OPTIONS}

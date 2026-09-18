@@ -695,7 +695,7 @@ model Rfi {
 
 /// Slack workspace integration (design §4.6). One connected workspace per org.
 /// The bot access token lives HERE and only ever crosses the API boundary —
-/// it is never returned to any client. There is no FieldLoop Message entity:
+/// it is never returned to any client. There is no Crewline Message entity:
 /// the messages are Slack's, read through Slack's own API.
 model SlackWorkspace {
   id          String   @id @default(cuid())
@@ -847,7 +847,7 @@ model IntegrationConnection {
   @@map("integration_connections")
 }
 
-/// "Tell me when this one is ready" on a provider FieldLoop cannot connect to
+/// "Tell me when this one is ready" on a provider Crewline cannot connect to
 /// yet — the honest alternative to a fake Connect button.
 model IntegrationInterest {
   id          String       @id @default(cuid())

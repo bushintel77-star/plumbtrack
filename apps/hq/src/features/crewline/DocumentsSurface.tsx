@@ -6,7 +6,7 @@ import { FileText, Download } from "lucide-react"
 
 import { apiGet } from "@/lib/api"
 import { formatDate } from "@/lib/format"
-import { documentVerdict } from "@/lib/fieldloop"
+import { documentVerdict } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
 import { DOC_CATEGORIES, type ComplianceDoc, type DocCategory } from "@/types"
 

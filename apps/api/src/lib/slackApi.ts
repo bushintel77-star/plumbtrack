@@ -3,7 +3,7 @@
  *
  * Everything a real integration needs lives here: the OAuth `oauth.v2.access`
  * code exchange, `chat.postMessage` (outbound automations), `conversations.list`
- * (channel picker) and `conversations.history` (two-way visibility: FieldLoop
+ * (channel picker) and `conversations.history` (two-way visibility: Crewline
  * reads the team's real Slack messages instead of owning a Message entity).
  *
  * Security posture:
@@ -173,7 +173,7 @@ export async function slackListChannels(token: string): Promise<SlackApiResult<{
 }
 
 export interface SlackHistoryMessage {
-  /** Slack ts — the message's identity; there is no FieldLoop Message row. */
+  /** Slack ts — the message's identity; there is no Crewline Message row. */
   ts: string;
   text: string;
   /** Bot postings from our own automations render with the bot treatment. */

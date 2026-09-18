@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { fuzzyMatch } from "@/features/fieldloop/Palette"
+import { fuzzyMatch } from "@/features/crewline/Palette"
 
 describe("command palette fuzzy match", () => {
   it("matches out-of-order gaps as an ordered subsequence", () => {

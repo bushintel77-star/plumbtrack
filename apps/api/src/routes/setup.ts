@@ -147,7 +147,7 @@ export async function setupRoutes(app: FastifyInstance): Promise<void> {
     const guid = process.env.ABR_GUID?.trim();
     if (!guid) {
       return reply.code(503).send({
-        message: "ABN lookup isn't set up on this FieldLoop yet — type the business name instead.",
+        message: "ABN lookup isn't set up on this Crewline yet — type the business name instead.",
         configured: false,
       });
     }

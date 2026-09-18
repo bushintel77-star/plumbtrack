@@ -1,6 +1,6 @@
 "use client"
 
-/* Kibo UI combobox composition, hand-ported onto the FieldLoop primitives
+/* Kibo UI combobox composition, hand-ported onto the Crewline primitives
    (Button / Command / Popover). Context-wired parts keep the Kibo API:
    Combobox, ComboboxTrigger, ComboboxContent, ComboboxInput, ComboboxList,
    ComboboxEmpty, ComboboxGroup, ComboboxItem, ComboboxSeparator,
