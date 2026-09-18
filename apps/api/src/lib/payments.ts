@@ -50,7 +50,7 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
     "line_items[0][quantity]": "1",
     "line_items[0][price_data][currency]": input.currency ?? "aud",
     "line_items[0][price_data][unit_amount]": String(Math.max(1, Math.round(input.amountCents))),
-    "line_items[0][price_data][product_data][name]": `PlumbTrack invoice — ${input.jobId}`,
+    "line_items[0][price_data][product_data][name]": `Crewline invoice — ${input.jobId}`,
     "line_items[0][price_data][product_data][description]": input.description.slice(0, 120),
     "metadata[job_id]": input.jobId,
     "metadata[client]": input.client.slice(0, 120),

@@ -28,7 +28,7 @@ const plexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "PlumbTrack HQ — Dispatch Command Center",
+  title: "Crewline HQ — Dispatch Command Center",
   description:
     "Dispatcher command center: dashboard, schedule board, live technician timers, quotes and compliance."
 }

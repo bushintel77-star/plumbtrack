@@ -1,4 +1,4 @@
-# Detached local API for PlumbTrack — survives agent sessions and terminals.
+# Detached local API for Crewline — survives agent sessions and terminals.
 # Sets DATABASE_URL from apps/api/.env (beats the machine-global kellybet env)
 # and runs the API hidden with logs beside it.
 $root = "C:\Users\Tim\Downloads\KellyBet-Fresh\plumbtrack-workspac"

@@ -52,7 +52,7 @@ export const jobs: Job[] = [
     },
     documents: [
       { id: "d-1001-a", name: "Plumbing Permit", ref: "PP-88412", expiresAt: daysFromNowIso(12), category: "Job Records", docType: "Permit", linkedJobId: "j-1001", owner: "Northgate Mall Facilities" },
-      { id: "d-1001-b", name: "Liability Insurance", ref: "INS-2201", expiresAt: daysFromNowIso(45), category: "Compliance & Licenses", docType: "Insurance", entityType: "company", owner: "PlumbTrack Pty Ltd" }
+      { id: "d-1001-b", name: "Liability Insurance", ref: "INS-2201", expiresAt: daysFromNowIso(45), category: "Compliance & Licenses", docType: "Insurance", entityType: "company", owner: "Caulfield South Plumbing Pty Ltd" }
     ]
   },
   {
