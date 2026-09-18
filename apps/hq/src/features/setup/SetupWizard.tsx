@@ -299,7 +299,7 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
               under a step rail should align to the rail, not float centred
               in a full-width main. The sticky footers live OUTSIDE this
               column so they back the full main width. */}
-          <div className="max-w-[1160px] px-6 py-6 pb-24">
+          <div className="max-w-[1160px] px-6 py-6 pb-4">
             {reviewing ? (
               <>
                 <StepHeading index={STEP_DEFS.length + 1} total={STEP_DEFS.length + 1} title="Review & launch" lede="Here's what Crewline is set up to do. You can jump back to any step to change something." />

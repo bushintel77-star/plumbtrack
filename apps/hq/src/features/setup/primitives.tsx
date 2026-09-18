@@ -67,7 +67,7 @@ export function Question({
         )}
       </div>
       {hint && (
-        <aside className="order-1 flex gap-2 rounded-lg border border-line bg-recess p-3 text-xs leading-relaxed text-ink-mid lg:order-none lg:self-start">
+        <aside className="order-1 flex gap-2 text-xs leading-relaxed text-ink-mid lg:order-none lg:self-start lg:pt-2">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-chrome-400" aria-hidden="true" />
           <span>{hint}</span>
         </aside>
@@ -255,7 +255,8 @@ export function TextField({
   maxLength,
   right,
   reveal,
-  width = "full"
+  width = "full",
+  labelHidden = false
 }: {
   label: string
   value: string
@@ -272,6 +273,10 @@ export function TextField({
    *  phone), medium for names, full for addresses and free text. Below sm
    *  every field is full-width regardless. */
   width?: "short" | "medium" | "full"
+  /** Hides the visible micro-label when the surrounding Question already
+   *  says the same thing — kept sr-only so the input stays labelled for
+   *  screen readers (htmlFor/id wiring is untouched). */
+  labelHidden?: boolean
   /** A button that sits with the input, e.g. Look up or Test connection. */
   right?: ReactNode
   /** Password fields get a reveal toggle by default; pass false to suppress
@@ -290,7 +295,7 @@ export function TextField({
   const isPassword = type === "password" && reveal !== false
   return (
     <div>
-      <label htmlFor={id} className="label-mono text-2xs text-ink-low">
+      <label htmlFor={id} className={cn("label-mono text-2xs text-ink-low", labelHidden && "sr-only")}>
         {label.toUpperCase()}
       </label>
       <div className="mt-1.5 flex gap-2">

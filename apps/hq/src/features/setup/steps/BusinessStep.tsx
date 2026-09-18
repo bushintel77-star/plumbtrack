@@ -75,6 +75,7 @@ export function BusinessStep({
           inputMode="numeric"
           maxLength={14}
           width="short"
+          labelHidden
           error={lookupError}
           right={
             <button
@@ -112,6 +113,7 @@ export function BusinessStep({
           onChange={next => onChange({ tradingName: next })}
           placeholder="Caulfield South Plumbing"
           width="medium"
+          labelHidden
         />
       </Question>
 
@@ -139,6 +141,7 @@ export function BusinessStep({
           value={value.baseAddress ?? ""}
           onChange={next => onChange({ baseAddress: next })}
           placeholder="14 Grange Rd, Caulfield South VIC"
+          labelHidden
         />
       </Question>
     </>
