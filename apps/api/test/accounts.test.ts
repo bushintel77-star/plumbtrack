@@ -16,6 +16,7 @@ const {
   orgFindUnique,
   membershipCreate,
   membershipFindFirst,
+  membershipFindUnique,
   membershipUpsert,
   orgSetupCreate,
   resetTokenCreate,
@@ -35,6 +36,7 @@ const {
   orgFindUnique: vi.fn(),
   membershipCreate: vi.fn(),
   membershipFindFirst: vi.fn(),
+  membershipFindUnique: vi.fn(),
   membershipUpsert: vi.fn(),
   orgSetupCreate: vi.fn(),
   resetTokenCreate: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("@plumbtrack/database", () => ({
     organizationMembership: {
       create: membershipCreate,
       findFirst: membershipFindFirst,
+      findUnique: membershipFindUnique,
       upsert: membershipUpsert,
     },
     orgSetup: { create: orgSetupCreate },
@@ -224,6 +227,9 @@ describe("account auth", () => {
       expect(body.userId).toBe("u-dispatcher");
       expect(body.role).toBe("dispatcher");
       expect(body.organizationId).toBe(ORG);
+      // The org's trading name travels with the session so the field app
+      // never has to carry a build-time business name.
+      expect(body.organizationName).toBe("Mallee Plumbing");
       expect(userUpdate).toHaveBeenCalledWith({
         where: { id: "u-dispatcher" },
         data: { failedLoginCount: 0, lockedUntil: null },
@@ -433,8 +439,11 @@ describe("account auth", () => {
   });
 
   describe("GET /api/auth/session", () => {
-    it("returns the signed-in user's name resolved from the user row", async () => {
-      userFindUnique.mockResolvedValue({ name: "Dave Roper" });
+    it("returns the signed-in user's name and the org name resolved per request", async () => {
+      membershipFindUnique.mockResolvedValue({
+        user: { name: "Dave Roper" },
+        organization: { name: "Mallee Plumbing" },
+      });
       const response = await app.inject({
         method: "GET",
         url: "/api/auth/session",
@@ -446,16 +455,18 @@ describe("account auth", () => {
         userId: "user-1",
         role: "technician",
         name: "Dave Roper",
+        organizationName: "Mallee Plumbing",
       });
-      // Resolved per request — never baked into the signed claims.
-      expect(userFindUnique).toHaveBeenCalledWith({
-        where: { id: "user-1" },
-        select: { name: true },
+      // One membership-join read resolves both names — never baked into the
+      // signed claims.
+      expect(membershipFindUnique).toHaveBeenCalledWith({
+        where: { organizationId_userId: { organizationId: ORG, userId: "user-1" } },
+        select: { user: { select: { name: true } }, organization: { select: { name: true } } },
       });
     });
 
-    it("returns name: null for claims whose userId has no User row", async () => {
-      userFindUnique.mockResolvedValue(null);
+    it("returns null names for claims with no membership row", async () => {
+      membershipFindUnique.mockResolvedValue(null);
       const response = await app.inject({
         method: "GET",
         url: "/api/auth/session",
@@ -463,6 +474,7 @@ describe("account auth", () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.json().name).toBeNull();
+      expect(response.json().organizationName).toBeNull();
     });
   });
 

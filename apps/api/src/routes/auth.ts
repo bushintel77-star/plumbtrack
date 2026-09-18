@@ -24,22 +24,32 @@ const AUTH_RATE_LIMIT = {
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.get("/session", async (request, reply) => {
     if (!request.auth) return sendUnauthorized(reply);
-    // Resolve the display name per request rather than baking it into the
-    // signed claims — a renamed user would otherwise keep a stale name until
-    // re-login, and every token would carry PII it doesn't need. A claims
-    // userId with no User row (legacy/dev sessions) reads as null, never a
-    // 500.
-    const user = await prisma.user.findUnique({
-      where: { id: request.auth.userId },
-      select: { name: true },
+    // Resolve the display name and the org's trading name per request rather
+    // than baking them into the signed claims — a renamed user/org would
+    // otherwise keep stale names until re-login, and every token would carry
+    // PII it doesn't need. The membership join fetches both in one round
+    // trip; a claims pair with no membership (legacy/dev sessions) reads as
+    // null, never a 500.
+    const membership = await prisma.organizationMembership.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: request.auth.organizationId,
+          userId: request.auth.userId,
+        },
+      },
+      select: {
+        user: { select: { name: true } },
+        organization: { select: { name: true } },
+      },
     });
     return {
       authenticated: true,
       userId: request.auth.userId,
       organizationId: request.auth.organizationId,
+      organizationName: membership?.organization.name ?? null,
       role: request.auth.role,
       expiresAt: request.auth.expiresAt,
-      name: user?.name ?? null,
+      name: membership?.user.name ?? null,
     };
   });
 
@@ -136,7 +146,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const token = issueAuthToken({ userId: request.auth.userId, organizationId: request.auth.organizationId, role: request.auth.role, expiresInSeconds: sessionSeconds });
     const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
     reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
-    return { authenticated: true, organizationId: request.auth.organizationId, role: request.auth.role, expiresAt };
+    const org = await prisma.organization.findUnique({
+      where: { id: request.auth.organizationId },
+      select: { name: true },
+    });
+    return { authenticated: true, organizationId: request.auth.organizationId, organizationName: org?.name ?? null, role: request.auth.role, expiresAt };
   });
 
   app.post("/sign-out", async (_request, reply) => {

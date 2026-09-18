@@ -91,7 +91,7 @@ function slugify(name: string): string {
   return `${base}-${randomBytes(3).toString("hex")}`;
 }
 
-function signIn(userId: string, organizationId: string, role: OrganizationRole, name: string | null, request: FastifyRequest, reply: FastifyReply) {
+async function signIn(userId: string, organizationId: string, role: OrganizationRole, name: string | null, request: FastifyRequest, reply: FastifyReply) {
   // Field technicians get the 30-day device session — a 12h window would log
   // them out mid-shift with no way to re-auth on site. Office roles keep the
   // shift-length session. The same asymmetry governs /api/auth/renew: a
@@ -104,7 +104,14 @@ function signIn(userId: string, organizationId: string, role: OrganizationRole, 
   // manually — the audit event must be actor-scoped.
   request.auth = { userId, organizationId, role, expiresAt };
   request.organizationId = organizationId;
-  return { token, userId, organizationId, role, expiresAt, name };
+  // Resolved at mint time, not carried in the claims — the field app shows
+  // this name to customers (ETA SMS, profile), so an org rename must reach
+  // devices without a re-login.
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true },
+  });
+  return { token, userId, organizationId, organizationName: org?.name ?? null, role, expiresAt, name };
 }
 
 export async function accountRoutes(app: FastifyInstance): Promise<void> {
@@ -143,7 +150,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       return { organization, user };
     });
 
-    const session = signIn(created.user.id, created.organization.id, "owner", name, request, reply);
+    const session = await signIn(created.user.id, created.organization.id, "owner", name, request, reply);
     recordAuditEvent(request, {
       action: "auth.sign_up",
       entityType: "organization",
@@ -211,7 +218,7 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
       data: { failedLoginCount: 0, lockedUntil: null },
     }).catch(() => undefined);
 
-    const session = signIn(user.id, membership.organizationId, membership.role, user.name, request, reply);
+    const session = await signIn(user.id, membership.organizationId, membership.role, user.name, request, reply);
     recordAuditEvent(request, {
       action: "auth.login",
       entityType: "session",

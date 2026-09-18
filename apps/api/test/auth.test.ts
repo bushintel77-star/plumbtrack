@@ -1,19 +1,23 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userFindUnique } = vi.hoisted(() => ({
+const { findFirst, updateMany, findUnique, transaction, createDomainEvent, userFindUnique, membershipFindUnique, orgFindUnique } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   updateMany: vi.fn(),
   findUnique: vi.fn(),
   transaction: vi.fn(),
   createDomainEvent: vi.fn(),
   userFindUnique: vi.fn(),
+  membershipFindUnique: vi.fn(),
+  orgFindUnique: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
     job: { findFirst, updateMany, findUnique },
     user: { findUnique: userFindUnique },
+    organization: { findUnique: orgFindUnique },
+    organizationMembership: { findUnique: membershipFindUnique },
     domainEventOutbox: { create: createDomainEvent },
     $transaction: transaction,
   },
@@ -55,6 +59,8 @@ describe("authenticated tenancy and role authorization", () => {
     findUnique.mockResolvedValue({ id: "J-1", orgId: ORG });
     createDomainEvent.mockResolvedValue({});
     userFindUnique.mockResolvedValue(null);
+    membershipFindUnique.mockResolvedValue(null);
+    orgFindUnique.mockResolvedValue(null);
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       job: { findFirst, findUnique, updateMany },
       domainEventOutbox: { create: createDomainEvent },
@@ -97,8 +103,29 @@ describe("authenticated tenancy and role authorization", () => {
       role: "technician",
     });
     expect(response.json()).not.toHaveProperty("token");
-    // A claims userId with no User row resolves name to null, never a 500.
+    // A claims pair with no membership resolves both names to null, never a
+    // 500 (legacy/dev sessions like the hq-operator userId land here).
     expect(response.json().name).toBeNull();
+    expect(response.json().organizationName).toBeNull();
+  });
+
+  it("resolves the organization name per request so a rename propagates without re-login", async () => {
+    membershipFindUnique.mockResolvedValue({
+      user: { name: "Sam Field" },
+      organization: { name: "Mallee Plumbing" },
+    });
+    const bearer = { authorization: `Bearer ${token()}` };
+    const first = await app.inject({ method: "GET", url: "/api/auth/session", headers: bearer });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toMatchObject({ name: "Sam Field", organizationName: "Mallee Plumbing" });
+
+    // Same token, org renamed underneath — the next read sees the new name.
+    membershipFindUnique.mockResolvedValue({
+      user: { name: "Sam Field" },
+      organization: { name: "Mallee Waterworks" },
+    });
+    const second = await app.inject({ method: "GET", url: "/api/auth/session", headers: bearer });
+    expect(second.json().organizationName).toBe("Mallee Waterworks");
   });
 
   it("blocks a technician from changing job metadata (field writes only)", async () => {
