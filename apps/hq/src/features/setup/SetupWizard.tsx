@@ -294,12 +294,12 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
           </button>
         </nav>
 
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">
           {/* Content left-aligns to the rail with a 1160px ceiling — a form
               under a step rail should align to the rail, not float centred
               in a full-width main. The sticky footers live OUTSIDE this
               column so they back the full main width. */}
-          <div className="max-w-[1160px] px-6 py-6 pb-4">
+          <div className="w-full max-w-[1160px] flex-1 px-6 py-6 pb-4">
             {reviewing ? (
               <>
                 <StepHeading index={STEP_DEFS.length + 1} total={STEP_DEFS.length + 1} title="Review & launch" lede="Here's what Crewline is set up to do. You can jump back to any step to change something." />
