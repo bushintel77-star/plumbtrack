@@ -286,7 +286,7 @@ export const authApi = {
 
 export interface TeamMember {
   userId: string
-  name: string | null
+  name: string
   email: string
   role: string
   skills: string[]

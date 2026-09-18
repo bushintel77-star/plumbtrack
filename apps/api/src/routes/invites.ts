@@ -24,7 +24,6 @@ import { parseBody, sendValidationError } from "../lib/validation";
  *                                  is permanently unassignable to any job
  *                                  that declares a requiredSkill.
  *   POST /api/team/invites        owner/admin creates an invite; delivered
- *   POST /api/team/invites        owner/admin creates an invite; delivered
  *                               by email when a provider is configured,
  *                               otherwise the raw link is returned for the
  *                               inviter to share (the share-link channel that
@@ -89,7 +88,7 @@ function memberShape(membership: {
   role: string;
   skills: string[];
   createdAt: Date;
-  user: { name: string | null; email: string };
+  user: { name: string; email: string };
 }) {
   return {
     userId: membership.userId,

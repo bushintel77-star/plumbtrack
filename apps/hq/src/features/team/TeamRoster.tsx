@@ -6,8 +6,6 @@ import { Plus, X } from "lucide-react"
 
 import { apiErrorMessage, team, type TeamMember } from "@/lib/api"
 import { SKILLS } from "@/types"
-import { cn } from "@/lib/utils"
-
 /**
  * The Crews module: the org roster with per-member skill tags. Skills are
  * what make a technician assignable to a job that declares a
@@ -73,7 +71,9 @@ export function TeamRoster({ role }: { role: string | null }) {
           />
         ))}
         {members.data && members.data.members.length === 0 && (
-          <p className="text-xs text-ink-low">No one on the team yet — invite them from Setup.</p>
+          <p className="text-xs text-ink-low">
+            {canEdit ? "No one on the team yet — invite them from Setup." : "No one on the team yet."}
+          </p>
         )}
       </div>
     </div>
@@ -107,7 +107,7 @@ function MemberRow({
     <section className="panel p-3" data-testid={`team-member-${member.userId}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate text-xs font-semibold">{member.name ?? member.email}</div>
+          <div className="truncate text-xs font-semibold">{member.name}</div>
           <div className="truncate text-2xs text-ink-low">{member.email}</div>
         </div>
         <span className="label-mono text-2xs text-chrome-400">{member.role.toUpperCase()}</span>
@@ -120,7 +120,7 @@ function MemberRow({
             {canEdit && (
               <button
                 type="button"
-                aria-label={`Remove ${skill} from ${member.name ?? member.email}`}
+                aria-label={`Remove ${skill} from ${member.name}`}
                 className="ml-1 align-middle opacity-60 hover:opacity-100"
                 disabled={saving}
                 onClick={() => onRemove(skill)}
@@ -146,7 +146,7 @@ function MemberRow({
                 }
               }}
               placeholder="Add a skill — free text"
-              aria-label={`Add a skill for ${member.name ?? member.email}`}
+              aria-label={`Add a skill for ${member.name}`}
               className="h-7 flex-1 rounded-md bg-recess px-2.5 text-xs text-ink outline-none placeholder:text-ink-low"
               disabled={saving}
             />
@@ -166,7 +166,7 @@ function MemberRow({
                 <button
                   key={skill}
                   type="button"
-                  className={cn("fl-linkbtn")}
+                  className="fl-linkbtn"
                   disabled={saving}
                   onClick={() => add(skill)}
                 >
