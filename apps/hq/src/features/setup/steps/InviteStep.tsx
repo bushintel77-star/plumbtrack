@@ -73,12 +73,14 @@ export function InviteStep({
             value={email}
             onChange={setEmail}
             placeholder="name@business.com.au"
+            width="medium"
           />
           <TextField
             label="Name"
             value={name}
             onChange={setName}
             placeholder="Optional — they can set it themselves"
+            width="medium"
           />
           <ChipChoice label="Role" options={ROLE_OPTIONS} value={role} onChange={setRole} />
           {error && (
