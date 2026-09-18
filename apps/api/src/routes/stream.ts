@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify"
 import websocket from "@fastify/websocket"
 
 import { verifyAuthToken } from "../lib/auth"
+import { loadActiveSession } from "../lib/sessions"
 import { subscribeOrg, type LiveFrame } from "../lib/liveBus"
 
 /**
@@ -20,7 +21,7 @@ const HEARTBEAT_MS = 30_000
 export async function streamRoutes(app: FastifyInstance): Promise<void> {
   await app.register(websocket)
 
-  app.get("/api/stream", { websocket: true }, (socket, request) => {
+  app.get("/api/stream", { websocket: true }, async (socket, request) => {
     const url = new URL(request.url, "http://internal")
     const token = url.searchParams.get("token")
     const claims = token ? verifyAuthToken(token) : null
@@ -28,6 +29,17 @@ export async function streamRoutes(app: FastifyInstance): Promise<void> {
       socket.send(JSON.stringify({ topic: "topic/stream/error", reason: "unauthorized" }))
       socket.close()
       return
+    }
+
+    // A session-bound token must still map to a live session row — a revoked
+    // session cannot open a feed that would then stream forever.
+    if (claims.sid) {
+      const session = await loadActiveSession(claims.sid).catch(() => null)
+      if (!session || session.userId !== claims.userId || session.organizationId !== claims.organizationId) {
+        socket.send(JSON.stringify({ topic: "topic/stream/error", reason: "unauthorized" }))
+        socket.close()
+        return
+      }
     }
 
     const orgId = claims.organizationId
@@ -44,6 +56,20 @@ export async function streamRoutes(app: FastifyInstance): Promise<void> {
         socket.send(JSON.stringify({ topic: "topic/stream/ping" }))
       } catch {
         socket.close()
+        return
+      }
+      // Sessions are revocable, so an open feed is not: re-check the row on
+      // the existing heartbeat and close a revoked session's stream rather
+      // than letting it receive org frames until the token expires.
+      if (claims.sid) {
+        void loadActiveSession(claims.sid).then(session => {
+          if (!session) {
+            try {
+              socket.send(JSON.stringify({ topic: "topic/stream/error", reason: "revoked" }))
+            } catch { /* already dead — close() still cleans up */ }
+            socket.close()
+          }
+        }).catch(() => undefined)
       }
     }, HEARTBEAT_MS)
 

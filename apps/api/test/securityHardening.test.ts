@@ -1,12 +1,14 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { findFirst, findMany, prismaCreate, transaction, createDomainEvent } = vi.hoisted(() => ({
+const { findFirst, findMany, prismaCreate, transaction, createDomainEvent, sessionFindUnique, sessionUpdateMany } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   findMany: vi.fn(),
   prismaCreate: vi.fn(),
   transaction: vi.fn(),
   createDomainEvent: vi.fn(),
+  sessionFindUnique: vi.fn(),
+  sessionUpdateMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -15,6 +17,7 @@ vi.mock("@plumbtrack/database", () => ({
     notification: { findFirst: vi.fn(), create: prismaCreate },
     timeEntry: { findFirst: vi.fn(), create: vi.fn().mockResolvedValue({ id: "t-1" }) },
     jobPhoto: { findFirst: vi.fn(), create: vi.fn().mockResolvedValue({ id: "p-1" }) },
+    session: { findUnique: sessionFindUnique, updateMany: sessionUpdateMany },
     domainEventOutbox: { create: createDomainEvent },
     $transaction: transaction,
   },
@@ -25,8 +28,22 @@ import { buildApp } from "../src/server";
 
 const ORG = "org-caulfield";
 
+const sessionRows = new Map<string, Record<string, unknown>>();
+
 function token(role: OrganizationRole): string {
-  return issueAuthToken({ userId: "user-1", organizationId: ORG, role });
+  const sid = `sess-${role}`;
+  sessionRows.set(sid, {
+    id: sid,
+    userId: "user-1",
+    organizationId: ORG,
+    role,
+    issuedAt: new Date(),
+    expiresAt: new Date(Date.now() + 3600_000),
+    lastSeenAt: new Date(),
+    revokedAt: null,
+    revokedReason: null,
+  });
+  return issueAuthToken({ userId: "user-1", organizationId: ORG, role, sessionId: sid });
 }
 
 /**
@@ -128,6 +145,8 @@ describe("field operations require an authorized role", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => sessionRows.get(where.id) ?? null);
+    sessionUpdateMany.mockResolvedValue({ count: 0 });
     findFirst.mockResolvedValue({ id: "J-1", orgId: ORG });
     findMany.mockResolvedValue([]);
     prismaCreate.mockResolvedValue({ id: "n-1", orgId: ORG, channel: "general", author: "tim", text: "hello" });

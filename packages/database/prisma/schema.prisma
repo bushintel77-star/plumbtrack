@@ -101,8 +101,36 @@ model User {
 
   memberships         OrganizationMembership[]
   passwordResetTokens PasswordResetToken[]
+  sessions            Session[]
 
   @@map("users")
+}
+
+/// Per-device sign-in. The bearer token carries this row's id as `sid` and
+/// every authenticated request re-checks it, so revocation (sign-out,
+/// member removal) takes effect on the next request rather than waiting out
+/// the token's TTL. `role` is authoritative at request time — a role change
+/// applies without a re-login.
+model Session {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrganizationRole @default(technician)
+  issuedAt       DateTime         @default(now())
+  expiresAt      DateTime
+  lastSeenAt     DateTime         @default(now())
+  revokedAt      DateTime?
+  revokedReason  String?
+  /// For the "who is signed in" surface — the operator's device list.
+  userAgent      String?
+  ip             String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 /// Single-use, time-limited password reset. The raw token only ever exists

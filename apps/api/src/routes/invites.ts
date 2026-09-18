@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
 import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, issueAuthToken, ORGANIZATION_ROLES, requireRole } from "../lib/auth";
+import { createSession } from "../lib/sessions";
 import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem } from "../lib/passwords";
@@ -347,14 +348,23 @@ export async function inviteRoutes(app: FastifyInstance): Promise<void> {
     // as a field device (30 days); office roles keep the 12h shift session.
     const sessionSeconds = invite.role === "technician" ? DEVICE_SESSION_SECONDS : HQ_SESSION_SECONDS;
     const expiresAt = Math.floor(Date.now() / 1000) + sessionSeconds;
+    const sessionRow = await createSession({
+      userId: accepted.id,
+      organizationId: invite.orgId,
+      role: invite.role,
+      expiresInSeconds: sessionSeconds,
+      userAgent: request.headers["user-agent"] ?? null,
+      ip: request.ip,
+    });
     const sessionToken = issueAuthToken({
       userId: accepted.id,
       organizationId: invite.orgId,
       role: invite.role,
       expiresInSeconds: sessionSeconds,
+      sessionId: sessionRow.id,
     });
     reply.setCookie(SESSION_COOKIE, sessionToken, { ...COOKIE_OPTIONS, maxAge: sessionSeconds });
-    request.auth = { userId: accepted.id, organizationId: invite.orgId, role: invite.role, expiresAt };
+    request.auth = { userId: accepted.id, organizationId: invite.orgId, role: invite.role, expiresAt, sid: sessionRow.id };
     request.organizationId = invite.orgId;
     recordAuditEvent(request, {
       action: "team.invite_accepted",

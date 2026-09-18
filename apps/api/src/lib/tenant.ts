@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { getBearerToken, isLegacyTenantFallbackAllowed, sendUnauthorized, verifyAuthToken, type AuthClaims } from "./auth";
+import { loadActiveSession, touchSession } from "./sessions";
 
 const SESSION_COOKIE = "plumbtrack_hq_session";
 
@@ -124,6 +125,26 @@ export const tenantPlugin = fp(
             error: "Forbidden",
             message: "The requested organization does not match the authenticated session",
           });
+        }
+        if (claims.sid) {
+          // Revocable sessions: every request re-reads the row — no cache,
+          // because a TTL'd cache is the revocation lag this removes. The
+          // row's role wins over the token's, so a role change applies on
+          // the next request, not the next login.
+          const session = await loadActiveSession(claims.sid);
+          if (!session || session.userId !== claims.userId || session.organizationId !== claims.organizationId) {
+            return sendUnauthorized(reply);
+          }
+          void touchSession(claims.sid).catch(() => undefined);
+          request.auth = { ...claims, role: session.role };
+          request.organizationId = claims.organizationId;
+          return;
+        }
+        // Tokens minted before sessions existed carry no sid. Dev/test may
+        // still present them (fixtures, legacy rehearsals); production
+        // rejects them outright — this is the intended one-time cutover.
+        if (!isLegacyTenantFallbackAllowed()) {
+          return sendUnauthorized(reply);
         }
         request.auth = claims;
         request.organizationId = claims.organizationId;

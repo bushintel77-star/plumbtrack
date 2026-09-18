@@ -28,6 +28,9 @@ const {
   inviteUpdateMany,
   transaction,
   auditCreate,
+  sessionCreate,
+  sessionFindUnique,
+  sessionUpdateMany,
 } = vi.hoisted(() => ({
   userFindUnique: vi.fn(),
   userCreate: vi.fn(),
@@ -48,6 +51,9 @@ const {
   inviteUpdateMany: vi.fn(),
   transaction: vi.fn(),
   auditCreate: vi.fn(),
+  sessionCreate: vi.fn(),
+  sessionFindUnique: vi.fn(),
+  sessionUpdateMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -73,6 +79,7 @@ vi.mock("@plumbtrack/database", () => ({
       updateMany: inviteUpdateMany,
     },
     auditEvent: { create: auditCreate },
+    session: { create: sessionCreate, findUnique: sessionFindUnique, updateMany: sessionUpdateMany },
     $transaction: transaction,
   },
 }));
@@ -84,8 +91,32 @@ import * as passwords from "../src/lib/passwords";
 
 const ORG = "org-new-co";
 
+/** Production rehearsal rejects sid-less tokens, so sign-ins and minted
+ *  bearers land in this in-memory session store the prisma mock reads. */
+const sessionRows = new Map<string, Record<string, unknown>>();
+let sessionSeq = 0;
+
+function addSessionRow(input: { id?: string; userId?: string; organizationId?: string; role: string; expiresAt?: Date }): string {
+  const id = input.id ?? `sess-${++sessionSeq}`;
+  sessionRows.set(id, {
+    id,
+    userId: input.userId ?? "user-1",
+    organizationId: input.organizationId ?? ORG,
+    role: input.role,
+    issuedAt: new Date(),
+    expiresAt: input.expiresAt ?? new Date(Date.now() + 3600_000),
+    lastSeenAt: new Date(),
+    revokedAt: null,
+    revokedReason: null,
+    userAgent: null,
+    ip: null,
+  });
+  return id;
+}
+
 function bearer(role: "technician" | "dispatcher" | "admin" | "owner", org = ORG): string {
-  return `Bearer ${issueAuthToken({ userId: "user-1", organizationId: org, role })}`;
+  const sid = addSessionRow({ role, organizationId: org });
+  return `Bearer ${issueAuthToken({ userId: "user-1", organizationId: org, role, sessionId: sid })}`;
 }
 
 function sha256(value: string): string {
@@ -137,6 +168,36 @@ describe("account auth", () => {
     userUpdate.mockResolvedValue({});
     resetTokenCreate.mockResolvedValue({ id: "prt-1" });
     orgFindUnique.mockResolvedValue({ name: "Mallee Plumbing" });
+    sessionRows.clear();
+    sessionCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      const id = `sess-${++sessionSeq}`;
+      sessionRows.set(id, {
+        id,
+        issuedAt: new Date(),
+        lastSeenAt: new Date(),
+        revokedAt: null,
+        revokedReason: null,
+        userAgent: null,
+        ip: null,
+        ...data,
+      });
+      return { id };
+    });
+    sessionFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => sessionRows.get(where.id) ?? null);
+    sessionUpdateMany.mockImplementation(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+      let count = 0;
+      for (const row of sessionRows.values()) {
+        if (where.id !== undefined && row.id !== where.id) continue;
+        if (where.userId !== undefined && row.userId !== where.userId) continue;
+        if (where.organizationId !== undefined && row.organizationId !== where.organizationId) continue;
+        if (where.revokedAt === null && row.revokedAt !== null) continue;
+        const floor = where.lastSeenAt as { lt?: Date } | undefined;
+        if (floor?.lt && (row.lastSeenAt as Date) >= floor.lt) continue;
+        Object.assign(row, data);
+        count++;
+      }
+      return { count };
+    });
   });
 
   describe("POST /api/auth/sign-up", () => {

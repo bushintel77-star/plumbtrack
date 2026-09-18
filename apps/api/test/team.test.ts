@@ -20,6 +20,8 @@ const {
   appointmentUpdateMany,
   txQueryRaw,
   auditCreate,
+  sessionFindUnique,
+  sessionUpdateMany,
 } = vi.hoisted(() => ({
   membershipFindMany: vi.fn(),
   membershipFindUnique: vi.fn(),
@@ -30,6 +32,8 @@ const {
   appointmentUpdateMany: vi.fn(),
   txQueryRaw: vi.fn(),
   auditCreate: vi.fn(),
+  sessionFindUnique: vi.fn(),
+  sessionUpdateMany: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -42,6 +46,7 @@ vi.mock("@plumbtrack/database", () => ({
     job: { findFirst: jobFindFirst },
     user: { findFirst: userFindFirst },
     appointment: { findFirst: appointmentFindFirst, updateMany: appointmentUpdateMany },
+    session: { findUnique: sessionFindUnique, updateMany: sessionUpdateMany },
     auditEvent: { create: auditCreate },
     // The assignment route runs conflict-check + update inside an
     // interactive transaction (per-technician advisory lock).
@@ -58,8 +63,22 @@ import { issueAuthToken, type OrganizationRole } from "../src/lib/auth";
 
 const ORG = "org-team-test";
 
+const sessionRows = new Map<string, Record<string, unknown>>();
+
 function bearer(role: OrganizationRole, org = ORG): string {
-  return `Bearer ${issueAuthToken({ userId: "user-caller", organizationId: org, role })}`;
+  const sid = `sess-${role}-${org}`;
+  sessionRows.set(sid, {
+    id: sid,
+    userId: "user-caller",
+    organizationId: org,
+    role,
+    issuedAt: new Date(),
+    expiresAt: new Date(Date.now() + 3600_000),
+    lastSeenAt: new Date(),
+    revokedAt: null,
+    revokedReason: null,
+  });
+  return `Bearer ${issueAuthToken({ userId: "user-caller", organizationId: org, role, sessionId: sid })}`;
 }
 
 function member(overrides: Record<string, unknown> = {}) {
@@ -94,6 +113,9 @@ describe("team roster and member skills", () => {
     vi.clearAllMocks();
     auditCreate.mockResolvedValue({});
     txQueryRaw.mockResolvedValue([]);
+    sessionRows.clear();
+    sessionFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => sessionRows.get(where.id) ?? null);
+    sessionUpdateMany.mockResolvedValue({ count: 0 });
   });
 
   describe("GET /api/team/members", () => {
