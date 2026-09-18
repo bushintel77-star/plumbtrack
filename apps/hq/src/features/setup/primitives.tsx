@@ -49,13 +49,17 @@ export function Question({
   optional?: boolean
 }) {
   return (
-    <section className="grid gap-3 border-t border-line py-5 md:grid-cols-[minmax(0,1fr)_280px] md:gap-8">
-      <div className="min-w-0 order-2 md:order-1">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold text-ink">{label}</h2>
-          {optional && <span className="label-mono text-2xs text-ink-low">OPTIONAL</span>}
-        </div>
-        <div className="mt-3">{children}</div>
+    /* Desk settings-row: label column, control column, hint column at lg.
+       Below lg it's the same stacked order as before — hint first, then
+       label, then control. DOM order does the column placement at lg, so
+       no explicit col-start is needed. */
+    <section className="grid gap-3 border-t border-line py-4 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_280px] lg:gap-x-8">
+      <div className="order-2 flex items-baseline gap-2 lg:order-none lg:pt-2">
+        <h2 className="text-sm font-semibold text-ink">{label}</h2>
+        {optional && <span className="label-mono text-2xs text-ink-low">OPTIONAL</span>}
+      </div>
+      <div className="order-3 min-w-0 lg:order-none">
+        {children}
         {error && (
           <p className="mt-2.5 text-xs font-semibold text-urgent" role="alert">
             {error}
@@ -63,7 +67,7 @@ export function Question({
         )}
       </div>
       {hint && (
-        <aside className="order-1 flex gap-2 rounded-lg border border-line bg-recess p-3 text-xs leading-relaxed text-ink-mid md:order-2 md:self-start">
+        <aside className="order-1 flex gap-2 rounded-lg border border-line bg-recess p-3 text-xs leading-relaxed text-ink-mid lg:order-none lg:self-start">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-chrome-400" aria-hidden="true" />
           <span>{hint}</span>
         </aside>
@@ -250,7 +254,8 @@ export function TextField({
   inputMode,
   maxLength,
   right,
-  reveal
+  reveal,
+  width = "full"
 }: {
   label: string
   value: string
@@ -263,6 +268,10 @@ export function TextField({
   autoComplete?: string
   inputMode?: "text" | "numeric" | "tel" | "email"
   maxLength?: number
+  /** Sized to the data it holds: short for bounded codes (ABN, postcode,
+   *  phone), medium for names, full for addresses and free text. Below sm
+   *  every field is full-width regardless. */
+  width?: "short" | "medium" | "full"
   /** A button that sits with the input, e.g. Look up or Test connection. */
   right?: ReactNode
   /** Password fields get a reveal toggle by default; pass false to suppress
@@ -285,7 +294,7 @@ export function TextField({
         {label.toUpperCase()}
       </label>
       <div className="mt-1.5 flex gap-2">
-        <div className="relative w-full">
+        <div className={cn("relative w-full min-w-0", width === "short" && "sm:max-w-56", width === "medium" && "sm:max-w-96")}>
           <input
             id={id}
             type={isPassword && revealed ? "text" : type}
@@ -355,35 +364,40 @@ export function StepFooter({
   canGoBack: boolean
   skipLabel?: string
 }) {
+  /* Rendered as a sibling of the content column, not inside it, so the bar
+     backs the full main width — page content can never sit beside it. The
+     inner row shares the content column's padding and upper bound. */
   return (
-    <div className="sticky bottom-0 mt-8 flex flex-wrap items-center gap-3 border-t border-line bg-card py-4">
-      <button
-        type="button"
-        onClick={onBack}
-        disabled={!canGoBack || busy}
-        className="min-h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink-mid hover:border-chrome-400 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        Back
-      </button>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={busy}
-        className="min-h-11 rounded-lg bg-[image:var(--btn-primary-bg)] px-5 text-sm font-bold text-on-accent shadow-hardware transition-all hover:brightness-110 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-      >
-        {busy ? "Saving…" : nextLabel}
-      </button>
-      {onSkip && (
+    <div className="sticky bottom-0 mt-8 border-t border-line bg-card px-6 py-4">
+      <div className="flex w-full max-w-[1160px] flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={onSkip}
-          disabled={busy}
-          className="min-h-11 px-2 text-sm text-ink-low underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          onClick={onBack}
+          disabled={!canGoBack || busy}
+          className="min-h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink-mid hover:border-chrome-400 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
-          {skipLabel ?? "Skip for now"}
+          Back
         </button>
-      )}
-      <span className="label-mono ml-auto text-2xs text-ink-low">SAVED AS YOU GO</span>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={busy}
+          className="min-h-11 rounded-lg bg-[image:var(--btn-primary-bg)] px-5 text-sm font-bold text-on-accent shadow-hardware transition-all hover:brightness-110 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        >
+          {busy ? "Saving…" : nextLabel}
+        </button>
+        {onSkip && (
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={busy}
+            className="min-h-11 px-2 text-sm text-ink-low underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            {skipLabel ?? "Skip for now"}
+          </button>
+        )}
+        <span className="label-mono ml-auto text-2xs text-ink-low">SAVED AS YOU GO</span>
+      </div>
     </div>
   )
 }

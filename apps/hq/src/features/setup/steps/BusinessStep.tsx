@@ -74,6 +74,7 @@ export function BusinessStep({
           placeholder="11 digits, e.g. 51 824 753 556"
           inputMode="numeric"
           maxLength={14}
+          width="short"
           error={lookupError}
           right={
             <button
@@ -100,6 +101,7 @@ export function BusinessStep({
           value={value.legalName ?? ""}
           onChange={next => onChange({ legalName: next })}
           placeholder="Caulfield South Plumbing Pty Ltd"
+          width="medium"
         />
       </Question>
 
@@ -109,6 +111,7 @@ export function BusinessStep({
           value={value.tradingName ?? ""}
           onChange={next => onChange({ tradingName: next })}
           placeholder="Caulfield South Plumbing"
+          width="medium"
         />
       </Question>
 

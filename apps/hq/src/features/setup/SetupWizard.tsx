@@ -242,6 +242,19 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
           <p className="text-sm font-semibold text-ink">
             {data.progress.done} of {data.progress.total} steps done
           </p>
+          <div
+            className="mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-recess"
+            role="progressbar"
+            aria-valuenow={data.progress.done}
+            aria-valuemin={0}
+            aria-valuemax={data.progress.total}
+            aria-label="Setup progress"
+          >
+            <div
+              className="h-full bg-chrome-600 transition-all"
+              style={{ width: `${data.progress.total > 0 ? Math.round((data.progress.done / data.progress.total) * 100) : 0}%` }}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -281,8 +294,12 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
           </button>
         </nav>
 
-        <main className="min-w-0 flex-1 overflow-y-auto px-8 py-8">
-          <div className="mx-auto max-w-3xl pb-24">
+        <main className="min-w-0 flex-1 overflow-y-auto">
+          {/* Content left-aligns to the rail with a 1160px ceiling — a form
+              under a step rail should align to the rail, not float centred
+              in a full-width main. The sticky footers live OUTSIDE this
+              column so they back the full main width. */}
+          <div className="max-w-[1160px] px-6 py-6 pb-24">
             {reviewing ? (
               <>
                 <StepHeading index={STEP_DEFS.length + 1} total={STEP_DEFS.length + 1} title="Review & launch" lede="Here's what Crewline is set up to do. You can jump back to any step to change something." />
@@ -316,40 +333,46 @@ export function SetupWizard({ onExit }: { onExit: () => void }) {
                   </p>
                 )}
 
-                <div className="sticky bottom-0 mt-8 flex items-center gap-3 border-t border-line bg-card py-4">
-                  <button
-                    type="button"
-                    onClick={back}
-                    className="min-h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink-mid hover:border-chrome-400"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void launch()}
-                    disabled={launching || missingRequired.length > 0}
-                    className="flex min-h-11 items-center gap-2 rounded-lg bg-[image:var(--btn-primary-bg)] px-5 text-sm font-bold text-on-accent shadow-hardware hover:brightness-110 disabled:opacity-50"
-                  >
-                    <PartyPopper className="h-4 w-4" />
-                    {launching ? "Launching…" : "Launch Crewline"}
-                  </button>
-                </div>
               </>
             ) : (
               <>
                 <StepHeading index={currentIndex + 1} total={STEP_DEFS.length} title={currentDef.title} lede={currentDef.lede} />
                 <div className="mt-2">{stepBody(activeStep, currentAnswers, updateAnswers, errors)}</div>
-                <StepFooter
-                  onBack={back}
-                  onNext={() => void next()}
-                  onSkip={currentDef.required ? undefined : () => void skip()}
-                  nextLabel={currentIndex === STEP_DEFS.length - 1 ? "Review & launch" : `Next: ${STEP_DEFS[currentIndex + 1].title}`}
-                  busy={saving}
-                  canGoBack={currentIndex > 0}
-                />
               </>
             )}
           </div>
+
+          {reviewing ? (
+            <div className="sticky bottom-0 mt-8 border-t border-line bg-card px-6 py-4">
+              <div className="flex w-full max-w-[1160px] items-center gap-3">
+                <button
+                  type="button"
+                  onClick={back}
+                  className="min-h-11 rounded-lg border border-line px-4 text-sm font-semibold text-ink-mid hover:border-chrome-400"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void launch()}
+                  disabled={launching || missingRequired.length > 0}
+                  className="flex min-h-11 items-center gap-2 rounded-lg bg-[image:var(--btn-primary-bg)] px-5 text-sm font-bold text-on-accent shadow-hardware hover:brightness-110 disabled:opacity-50"
+                >
+                  <PartyPopper className="h-4 w-4" />
+                  {launching ? "Launching…" : "Launch Crewline"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <StepFooter
+              onBack={back}
+              onNext={() => void next()}
+              onSkip={currentDef.required ? undefined : () => void skip()}
+              nextLabel={currentIndex === STEP_DEFS.length - 1 ? "Review & launch" : `Next: ${STEP_DEFS[currentIndex + 1].title}`}
+              busy={saving}
+              canGoBack={currentIndex > 0}
+            />
+          )}
         </main>
       </div>
     </div>

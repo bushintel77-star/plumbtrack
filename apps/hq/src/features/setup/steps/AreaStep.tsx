@@ -42,6 +42,7 @@ export function AreaStep({
               value={value.customHours ?? ""}
               onChange={next => onChange({ customHours: next })}
               placeholder="e.g. Tue–Sat, 6am–2pm"
+              width="medium"
             />
           </div>
         )}
