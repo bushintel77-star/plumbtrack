@@ -1,4 +1,4 @@
-/* PlumbTrack HQ service worker — offline-first groundwork (Phase 4).
+/* Crewline HQ service worker — offline-first groundwork (Phase 4).
  * Static asset caching for the app shell + a Background Sync listener that
  * nudges open clients to drain their IndexedDB SyncQueue on reconnect. */
 

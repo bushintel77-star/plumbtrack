@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 import { LiveTimer } from "@/features/landing/LiveTimer"
 
 export const metadata: Metadata = {
-  title: "PlumbTrack — field service for Melbourne plumbers",
+  title: "Crewline — field service for Melbourne plumbers",
   description:
     "The technician captures the job, the office gets the records, and the customer signs off on the spot. Field service management for a small plumbing business."
 }
@@ -49,9 +49,9 @@ export default function LandingPage() {
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-6 px-5">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-xs font-black text-on-accent">
-              PT
+              CL
             </span>
-            <span className="font-display text-lg font-bold tracking-[0.07em]">PLUMBTRACK</span>
+            <span className="font-display text-lg font-bold tracking-[0.07em]">CREWLINE</span>
           </Link>
           <nav className="ml-auto hidden items-center gap-5 sm:flex" aria-label="Landing sections">
             <a className="label-mono text-2xs text-ink-mid transition-colors hover:text-ink" href="#field">
@@ -85,7 +85,7 @@ export default function LandingPage() {
                 From the van to the invoice, in one hand.
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-ink-mid">
-                PlumbTrack is the field service layer for a small plumbing business. The technician finishes a
+                Crewline is the field service layer for a small plumbing business. The technician finishes a
                 call-out with the fewest taps; the office gets the time, the evidence and a signed job; the
                 accountant gets a clean record.
               </p>
@@ -119,7 +119,7 @@ export default function LandingPage() {
               <div className="overflow-hidden rounded-[28px] border border-line bg-recess p-2 shadow-chassis">
                 <img
                   src="/landing/on-shift.png"
-                  alt="A technician on shift in the PlumbTrack field app"
+                  alt="A technician on shift in the Crewline field app"
                   className="w-full rounded-[20px]"
                 />
               </div>
@@ -152,7 +152,7 @@ export default function LandingPage() {
                   <div className="overflow-hidden rounded-xl border border-line bg-recess shadow-chassis">
                     <img
                       src={screen.src}
-                      alt={`${screen.label} — PlumbTrack field app`}
+                      alt={`${screen.label} — Crewline field app`}
                       loading="lazy"
                       className="aspect-[420/860] w-full object-cover"
                     />
@@ -224,7 +224,7 @@ export default function LandingPage() {
       <footer className="border-t border-line">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6">
           <span className="label-mono text-2xs text-ink-low">
-            PLUMBTRACK · FIELD SERVICE RECORDS FOR A PLUMBING BUSINESS
+            CREWLINE · FIELD SERVICE RECORDS FOR A PLUMBING BUSINESS
           </span>
           <a className="label-mono text-2xs text-ink-mid transition-colors hover:text-ink" href="#">
             TOP ↑

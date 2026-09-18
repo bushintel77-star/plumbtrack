@@ -1,4 +1,4 @@
-// Prisma schema for PlumbTrack — PostgreSQL persistence layer.
+// Prisma schema for Crewline — PostgreSQL persistence layer.
 
 generator client {
   provider = "prisma-client-js"

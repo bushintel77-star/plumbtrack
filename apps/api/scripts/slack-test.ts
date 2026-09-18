@@ -11,7 +11,7 @@ import { isSlackConfigured, relayToSlack, slackChannelFor } from "../src/lib/sla
 
 async function main(): Promise<void> {
   const configured = isSlackConfigured();
-  console.log("── PlumbTrack Slack relay test ─────────────────────────────");
+  console.log("── Crewline Slack relay test ─────────────────────────────");
   console.log(`Webhook configured : ${configured ? "yes" : "NO"}`);
 
   if (!configured) {
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const channel = slackChannelFor("field-updates");
   const now = new Date().toLocaleString("en-AU", { timeZone: "Australia/Melbourne" });
   const blocks = [
-    { type: "header", text: { type: "plain_text", text: "🔧 PlumbTrack relay test" } },
+    { type: "header", text: { type: "plain_text", text: "🔧 Crewline relay test" } },
     {
       type: "section",
       text: {
@@ -37,12 +37,12 @@ async function main(): Promise<void> {
       },
     },
     { type: "divider" },
-    { type: "context", elements: [{ type: "mrkdwn", text: "PlumbTrack · field operations → HQ" }] },
+    { type: "context", elements: [{ type: "mrkdwn", text: "Crewline · field operations → HQ" }] },
   ];
 
   console.log(`Channel mapping    : ${channel ?? "(webhook default channel)"}`);
   console.log("Posting test message…");
-  const result = await relayToSlack("🔧 PlumbTrack relay test — see the formatted card above.", "field-updates", blocks);
+  const result = await relayToSlack("🔧 Crewline relay test — see the formatted card above.", "field-updates", blocks);
 
   if (result.delivered) {
     console.log("");
