@@ -4,6 +4,7 @@ import { requireRole } from "../lib/auth";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { publishToOrg } from "../lib/liveBus";
 import { parseBody, sendValidationError } from "../lib/validation";
+import { recordAuditEvent } from "../lib/audit";
 
 /**
  * Fleet telemetry ingest — the mobile field app's shift-gated position feed.
@@ -29,6 +30,13 @@ const telemetrySchema = z.object({
   heading: z.number().finite().gte(0).lt(360).nullable().optional(),
   speed: z.number().finite().gte(0).nullable().optional(),
   presence: z.enum(["on_job", "on_break", "off_shift"]).default("on_job"),
+});
+
+const consentSchema = z.object({
+  mode: z.enum(["shift", "points"]),
+  chosenAt: z.string().datetime(),
+  // The outbox op id, doubling as the client's idempotency key.
+  opId: z.string().min(1).max(128),
 });
 
 export async function fleetRoutes(app: FastifyInstance): Promise<void> {
@@ -60,5 +68,36 @@ export async function fleetRoutes(app: FastifyInstance): Promise<void> {
     });
 
     return reply.code(202).send({ ok: true, timestamp });
+  });
+
+  /**
+   * POST /location-consent — the technician's tracking-mode choice, made in
+   * the field app's first-shift setup (and re-sent whenever they change it
+   * in Profile). Durable record of consent lives in the audit trail; the
+   * telemetry stream itself stays ephemeral. Scoped to the authenticated
+   * technician — the body never carries a userId to trust.
+   */
+  app.post("/location-consent", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    // Any authenticated org member — deliberately broader than /telemetry.
+    // The endpoint records the caller's OWN consent about their own tracking,
+    // so there is no cross-user authority to gate, and a consent op parked
+    // permanently in a manager's sync sheet is worse than a wider gate.
+    if (!request.auth) {
+      return reply.code(401).send({ message: "Sign in to continue." });
+    }
+
+    const parsed = parseBody(consentSchema, request.body);
+    if (!parsed.ok) return sendValidationError(reply, parsed.error);
+
+    const { mode, chosenAt, opId } = parsed.data;
+    recordAuditEvent(request, {
+      action: "fleet.location_consent",
+      entityType: "user",
+      entityId: request.auth?.userId,
+      metadata: { mode, chosenAt, opId },
+    });
+    return reply.code(204).send();
   });
 }
