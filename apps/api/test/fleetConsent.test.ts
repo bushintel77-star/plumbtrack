@@ -89,15 +89,29 @@ describe("POST /api/fleet/location-consent", () => {
     expect(auditCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects a non-technician role", async () => {
+  it("accepts a non-technician org member — consent is self-attributed, so a working manager can consent too", async () => {
+    const chosenAt = new Date().toISOString();
     const response = await app.inject({
       method: "POST",
       url: "/api/fleet/location-consent",
-      headers: { authorization: bearer("dispatcher") },
+      headers: { authorization: `Bearer ${issueAuthToken({ userId: "user-mgr", organizationId: ORG, role: "manager" })}` },
+      payload: { mode: "points", chosenAt, opId: "location-consent-mgr1" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ orgId: ORG, actorUserId: "user-mgr", entityId: "user-mgr" }),
+    });
+  });
+
+  it("requires a signed-in member", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/fleet/location-consent",
       payload: { mode: "points", chosenAt: new Date().toISOString(), opId: "x" },
     });
 
-    expect(response.statusCode).toBe(403);
+    expect([400, 401]).toContain(response.statusCode);
     expect(auditCreate).not.toHaveBeenCalled();
   });
 });

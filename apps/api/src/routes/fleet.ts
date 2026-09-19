@@ -80,8 +80,13 @@ export async function fleetRoutes(app: FastifyInstance): Promise<void> {
   app.post("/location-consent", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
-    const roleFailure = requireRole(request, reply, ["technician"]);
-    if (roleFailure) return roleFailure;
+    // Any authenticated org member — deliberately broader than /telemetry.
+    // The endpoint records the caller's OWN consent about their own tracking,
+    // so there is no cross-user authority to gate, and a consent op parked
+    // permanently in a manager's sync sheet is worse than a wider gate.
+    if (!request.auth) {
+      return reply.code(401).send({ message: "Sign in to continue." });
+    }
 
     const parsed = parseBody(consentSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
