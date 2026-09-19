@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
+import { recordAuditEvent } from "../lib/audit";
 
 function verifySignature(payload: string, header: string, secret: string): boolean {
   const timestamp = header.split(",").find(part => part.startsWith("t="))?.slice(2);
@@ -39,10 +40,32 @@ export async function paymentWebhookRoutes(app: FastifyInstance): Promise<void> 
     const object = event.data?.object;
     const jobId = object?.metadata?.job_id;
     if (!jobId || !event.id) return reply.send({ received: true });
-    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-      await prisma.job.updateMany({ where: { id: jobId, stripeSessionId: object.id }, data: { paymentStatus: object.payment_status === "paid" ? "paid" : "processing" } });
-    } else if (event.type === "checkout.session.async_payment_failed") {
-      await prisma.job.updateMany({ where: { id: jobId, stripeSessionId: object.id }, data: { paymentStatus: "failed" } });
+    const paymentStatus =
+      event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded"
+        ? object.payment_status === "paid" ? "paid" : "processing"
+        : event.type === "checkout.session.async_payment_failed"
+          ? "failed"
+          : null;
+    if (paymentStatus !== null) {
+      // The tenant hook exempts this webhook — resolve the job's org so the
+      // audit row lands in the right tenant scope (no session exists here).
+      const job = await prisma.job.findFirst({
+        where: { id: jobId, stripeSessionId: object.id },
+        select: { id: true, orgId: true },
+      });
+      const updated = await prisma.job.updateMany({
+        where: { id: jobId, stripeSessionId: object.id },
+        data: { paymentStatus },
+      });
+      if (job && updated.count > 0) {
+        request.organizationId = job.orgId;
+        recordAuditEvent(request, {
+          action: "payment.status_changed",
+          entityType: "job",
+          entityId: job.id,
+          metadata: { paymentStatus, eventId: event.id, eventType: event.type, stripeSessionId: object.id },
+        });
+      }
     }
     return reply.send({ received: true, eventId: event.id });
   });

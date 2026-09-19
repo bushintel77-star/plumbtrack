@@ -114,7 +114,11 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, orgId } });
     if (!asset) return reply.code(404).send({ message: "Media asset not found" });
     if (asset.status === "uploaded" && asset.publicUrl) {
-      return { assetId: asset.id, photoUrl: asset.publicUrl, fileUrl: asset.publicUrl };
+      // Replay of a completed upload: return the SAME photo id the first
+      // call minted. Omitting it forced the client to generate a fresh
+      // random photo id and broke id stability across retries.
+      const photo = await prisma.jobPhoto.findFirst({ where: { assetId: asset.id, jobId: asset.jobId } });
+      return { assetId: asset.id, photoId: photo?.id ?? null, photoUrl: asset.publicUrl, fileUrl: asset.publicUrl };
     }
     if (asset.status !== "pending") return reply.code(409).send({ message: "Media asset cannot be completed" });
     if (asset.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });

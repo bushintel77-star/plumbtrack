@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify"
 import websocket from "@fastify/websocket"
 
-import { verifyAuthToken } from "../lib/auth"
+import { isLegacyTenantFallbackAllowed, verifyAuthToken } from "../lib/auth"
 import { loadActiveSession } from "../lib/sessions"
 import { subscribeOrg, type LiveFrame } from "../lib/liveBus"
 
@@ -26,6 +26,16 @@ export async function streamRoutes(app: FastifyInstance): Promise<void> {
     const token = url.searchParams.get("token")
     const claims = token ? verifyAuthToken(token) : null
     if (!claims) {
+      socket.send(JSON.stringify({ topic: "topic/stream/error", reason: "unauthorized" }))
+      socket.close()
+      return
+    }
+
+    // Same cutover rule as the tenant hook: tokens minted before revocable
+    // sessions existed carry no sid. Dev/test may still present them;
+    // production rejects them outright — a legacy 30-day token must not open
+    // an org feed that HTTP requests can no longer use.
+    if (!claims.sid && !isLegacyTenantFallbackAllowed()) {
       socket.send(JSON.stringify({ topic: "topic/stream/error", reason: "unauthorized" }))
       socket.close()
       return

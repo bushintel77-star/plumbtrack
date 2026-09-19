@@ -289,6 +289,14 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
     const result = await orsMatrix(deduped, apiKey)
     if (!result) return reply.code(502).send({ message: "Routing provider unavailable" })
     cacheSet(matrixCache, key, result)
+    // Billable upstream call — audit the spend on cache miss only, same as
+    // /shape; a served-from-cache response costs nothing.
+    recordAuditEvent(request, {
+      action: "routing.matrix",
+      entityType: "routing",
+      entityId: key.slice(0, 120),
+      metadata: { source: result.source, points: deduped.length },
+    })
     return reply.send(result)
   })
 
@@ -331,6 +339,12 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
     const body = await peliasGet("/pelias/v1/search", query)
     if (!body) return reply.code(502).send({ message: "Geocoding provider unavailable" })
     const features = body.features ?? []
+    // Billable upstream call — audit the spend.
+    recordAuditEvent(request, {
+      action: "routing.geocode",
+      entityType: "routing",
+      metadata: { text: parsed.data.text, results: features.length },
+    })
     return reply.send({
       results: features.slice(0, 5).map(f => ({
         label: (f.properties?.label as string) ?? (f.properties?.name as string) ?? "Unknown",
@@ -358,6 +372,12 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
     })
     const body = await peliasGet("/pelias/v1/reverse", query)
     const first = body?.features?.[0]
+    // Billable upstream call — audit the spend.
+    recordAuditEvent(request, {
+      action: "routing.reverse_geocode",
+      entityType: "routing",
+      metadata: { lat: parsed.data.lat, lng: parsed.data.lng },
+    })
     return reply.send({
       label: (first?.properties?.label as string) ?? null,
     })
@@ -410,6 +430,13 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
       const geojson = await res.json()
       const payload = { geojson }
       cacheSet(isochroneCache, key, payload)
+      // Billable upstream call — audit the spend on cache miss only.
+      recordAuditEvent(request, {
+        action: "routing.isochrones",
+        entityType: "routing",
+        entityId: key.slice(0, 120),
+        metadata: { ranges: ranges.length },
+      })
       return reply.send(payload)
     } catch {
       return reply.code(502).send({ message: "Routing provider unavailable" })
@@ -462,6 +489,13 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
         .filter((l): l is [number, number] => Array.isArray(l) && l.length === 2)
       const payload = { snapped }
       cacheSet(snapCache, key, payload)
+      // Billable upstream call — audit the spend on cache miss only.
+      recordAuditEvent(request, {
+        action: "routing.snap",
+        entityType: "routing",
+        entityId: key.slice(0, 120),
+        metadata: { points: points.length },
+      })
       return reply.send(payload)
     } catch {
       return reply.code(502).send({ message: "Routing provider unavailable" })
@@ -514,7 +548,14 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
         signal: AbortSignal.timeout(30_000),
       })
       if (!res.ok) return reply.code(502).send({ message: "Optimization provider unavailable" })
-      return reply.send(await res.json())
+      const solution = await res.json()
+      // Billable upstream call (no cache on VROOM) — audit the spend.
+      recordAuditEvent(request, {
+        action: "routing.optimize",
+        entityType: "routing",
+        metadata: { jobs: parsed.data.jobs.length, vehicles: parsed.data.vehicles.length },
+      })
+      return reply.send(solution)
     } catch {
       return reply.code(502).send({ message: "Optimization provider unavailable" })
     }

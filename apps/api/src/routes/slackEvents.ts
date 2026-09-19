@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
+import { recordAuditEvent } from "../lib/audit";
 import { bridgeSlackThreadReply } from "../lib/slackJobThreads";
 
 /**
@@ -264,6 +265,16 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
             text: `⚠️ Could not accept ${jobId} — job not found or no longer claimable.`,
           });
         }
+        // The tenant hook exempts this webhook — scope the audit row to the
+        // org resolved from the verified team, with the Slack user as the
+        // actor in metadata (no User.id exists for them).
+        request.organizationId = interactivityOrgScope;
+        recordAuditEvent(request, {
+          action: "job.status_changed",
+          entityType: "job",
+          entityId: jobId,
+          metadata: { status: "in_progress", via: "slack_action", slackUser: claimedBy },
+        });
         // The response body rewrites the dispatch card in place (Slack
         // block-action protocol) — claim visible to the whole channel.
         return reply.code(200).send({
@@ -303,6 +314,13 @@ export async function slackEventRoutes(app: FastifyInstance): Promise<void> {
         if (updated.count === 0) {
           return ephemeral(`No job found with id “${jobId}”.`);
         }
+        request.organizationId = orgScope;
+        recordAuditEvent(request, {
+          action: "job.status_changed",
+          entityType: "job",
+          entityId: jobId,
+          metadata: { status, via: "slack_command", slackUser: body.user_name ?? null },
+        });
         return { response_type: "in_channel", text: `✓ Job ${jobId} → ${status}` };
       }
 

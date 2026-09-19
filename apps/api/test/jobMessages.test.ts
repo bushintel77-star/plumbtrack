@@ -6,6 +6,7 @@ const prismaMock = vi.hoisted(() => {
     job: { findFirst: vi.fn() },
     jobMessage: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), groupBy: vi.fn() },
     domainEventOutbox: { create: vi.fn() },
+    auditEvent: { create: vi.fn().mockResolvedValue({}) },
     slackWorkspace: { findFirst: vi.fn() },
     $transaction: vi.fn(),
   };
@@ -74,6 +75,16 @@ describe("job-scoped messages", () => {
     expect(publishToOrg).toHaveBeenCalledWith(
       expect.objectContaining({ topic: "topic/jobs/message", jobId: "job-1", message: expect.objectContaining({ source: "fieldloop" }) })
     );
+    // The post is audited in the caller's tenant scope.
+    expect(prismaMock.auditEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: ORG,
+        actorUserId: "u-1",
+        action: "job.message_posted",
+        entityType: "job_message",
+        entityId: "m-1",
+      }),
+    });
     // Slack isn't connected: nothing is queued for the bridge.
     expect(prismaMock.domainEventOutbox.create).not.toHaveBeenCalled();
     expect(response.json().slack).toEqual({ connected: false, linked: false });

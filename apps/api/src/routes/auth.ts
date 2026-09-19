@@ -164,6 +164,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       where: { id: request.auth.organizationId },
       select: { name: true },
     });
+    recordAuditEvent(request, {
+      action: "auth.session_renewed",
+      entityType: "session",
+      entityId: request.auth.sid,
+      metadata: { role: request.auth.role, expiresAt },
+    });
     return { authenticated: true, organizationId: request.auth.organizationId, organizationName: org?.name ?? null, role: request.auth.role, expiresAt };
   });
 

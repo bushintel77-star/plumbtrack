@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * dev:clean — boot exactly one fresh PlumbTrack dev server.
+ * dev:clean — boot exactly one fresh PlumbTrack HQ dev server.
  *
  * Stops any lingering `next dev` processes for THIS workspace, wipes the
- * web app's `.next` build cache, and starts a single clean dev server.
+ * HQ app's `.next` build cache, and starts a single clean dev server.
  *
- * Why this exists: `next dev` writes to `apps/web/.next`, and running a
+ * Why this exists: `next dev` writes to `apps/hq/.next`, and running a
  * second dev server or `next build` against the same folder corrupts the
  * running server's chunk manifest (classic "Cannot find module
  * './vendor-chunks/next@…'" boot errors). This script guarantees a
  * deterministic single-server state.
  *
  * Usage:
- *   pnpm dev:clean            # port 3000
+ *   pnpm dev:clean            # port 3001 (the HQ dev default)
  *   pnpm dev:clean -- 3003    # custom port
  */
 import { spawn } from "node:child_process";
@@ -21,11 +21,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const WEB_DIR = resolve(ROOT, "apps", "web");
-const NEXT_DIR = resolve(WEB_DIR, ".next");
+const HQ_DIR = resolve(ROOT, "apps", "hq");
+const NEXT_DIR = resolve(HQ_DIR, ".next");
 // pnpm forwards args with a `--` separator: `pnpm dev:clean -- 3003`.
-// Take the LAST non-flag argument (node, script-path, [--], port).
-const PORT = Number([...process.argv].reverse().find((arg) => !arg.startsWith("-")) ?? 3000);
+// Take the first purely-numeric argument after the script path; default to
+// the HQ dev port.
+const PORT = Number(process.argv.slice(2).find((arg) => /^\d+$/.test(arg)) ?? 3001);
 const IS_WINDOWS = process.platform === "win32";
 
 function log(message) {
@@ -43,8 +44,8 @@ function findNextDevProcesses() {
         "-NoProfile",
         "-Command",
         `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ` +
-          `Where-Object { $_.CommandLine -like '*${escRoot}*' -and $_.CommandLine -like '*next*' } | ` +
-          `ForEach-Object { "$($_.ProcessId)|$($_.CommandLine)" }`,
+        `Where-Object { $_.CommandLine -like '*${escRoot}*' -and $_.CommandLine -like '*next*' } | ` +
+        `ForEach-Object { "$($_.ProcessId)|$($_.CommandLine)" }`,
       ], { windowsHide: true });
       let out = "";
       ps.stdout.on("data", (d) => { out += d; });
@@ -85,7 +86,7 @@ async function stopProcess(pid) {
 
 async function main() {
   log(`workspace ${ROOT}`);
-  log(`web dir  ${WEB_DIR}`);
+  log(`hq dir   ${HQ_DIR}`);
   log(`port     ${PORT}`);
 
   // 1. Stop lingering dev servers for this workspace.
@@ -103,14 +104,14 @@ async function main() {
 
   // 2. Wipe the build cache so no stale chunks survive.
   if (existsSync(NEXT_DIR)) {
-    log("Removing apps/web/.next …");
+    log("Removing apps/hq/.next …");
     rmSync(NEXT_DIR, { recursive: true, force: true });
   }
 
   // 3. Boot exactly one fresh dev server.
   log(`Starting next dev on :${PORT} …`);
   const child = spawn("pnpm", ["next", "dev", "-p", String(PORT)], {
-    cwd: WEB_DIR,
+    cwd: HQ_DIR,
     stdio: "inherit",
     detached: false,
     shell: IS_WINDOWS, // pnpm is a .cmd shim on Windows

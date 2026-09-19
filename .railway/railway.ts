@@ -92,6 +92,22 @@ export default defineRailway(() => {
       SLACK_CLIENT_SECRET: preserve(),
       SLACK_SIGNING_SECRET: preserve(),
       SLACK_WEBHOOK_URL: preserve(),
+      // Slack inbound org/team env-pin fallback (slackEvents.ts
+      // resolveOrgForTeam) and the completions channel SlackAdapter reads —
+      // dashboard-set, so an apply would otherwise delete them.
+      SLACK_TEAM_ID: preserve(),
+      SLACK_ORG_ID: preserve(),
+      SLACK_COMPLETIONS_CHANNEL: preserve(),
+      // Deprecated-by-Slack inbound token — still accepted as the legacy
+      // fallback when SLACK_SIGNING_SECRET is unset. preserve() is a no-op
+      // when unset, so this is safe to include either way.
+      SLACK_VERIFICATION_TOKEN: preserve(),
+      // Signs the upload-intent URLs (falls back to AUTH_SECRET when unset —
+      // preserved anyway so an explicit dashboard value is never dropped).
+      MEDIA_SIGNING_SECRET: preserve(),
+      // ABN-lookup GUID (routes/setup.ts) — the ABN verify path 503s without
+      // it; dashboard-set, so preserve it from deletion on apply.
+      ABR_GUID: preserve(),
       // Media upload completion upstream (signed PUT target base) — set with
       // the bucket credentials when object storage is provisioned.
       MEDIA_UPLOAD_BASE_URL: preserve(),

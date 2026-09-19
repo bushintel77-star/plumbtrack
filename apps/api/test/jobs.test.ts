@@ -178,6 +178,28 @@ describe("time-entry sync (opId idempotency)", () => {
     expect(eventRows[0]).toEqual(expect.objectContaining({ data: expect.objectContaining({ eventId: "job.completed:org_caulfield_south:J-1", type: "job.completed" }) }));
   });
 
+  it("attributes the entry to the session user when the body omits staffId", async () => {
+    // The field app never sends staffId — without the backfill the entry was
+    // stored unattributed (null). The verified session is the source of truth.
+    findFirst.mockResolvedValueOnce(JOB); // job lookup
+    findFirst.mockResolvedValueOnce(null); // no existing op
+    create.mockResolvedValue(ENTRY);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/jobs/J-1/time-entries",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { opId: "op-new", start: "2024-01-01T08:00:00.000Z" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ staffId: "user-tech" }),
+      }),
+    );
+  });
+
   it("rejects time-entry creation on a missing job", async () => {
     findFirst.mockResolvedValueOnce(null); // job not found
     const response = await app.inject({
@@ -245,6 +267,48 @@ describe("field write path (deployed field agent)", () => {
     });
 
     expect(response.statusCode).toBe(403);
+    expect(updateManyTimeEntry).not.toHaveBeenCalled();
+  });
+
+  it("resolves the literal 'open' entryId to the caller's open entry on the job", async () => {
+    // The field app enqueues clock-out with entryId null when it has no local
+    // open entry — "open" lets that op still close the server-side row
+    // instead of silently consuming itself.
+    findFirst.mockResolvedValueOnce(JOB); // job lookup
+    findFirst.mockResolvedValueOnce({ ...ENTRY, staffId: "user-tech", end: null }); // open-entry lookup
+    updateManyTimeEntry.mockResolvedValueOnce({ count: 1 });
+    findFirst.mockResolvedValueOnce({ ...ENTRY, end: "2024-01-01T17:00:00.000Z" }); // return row
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1/time-entries/open",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { end: "2024-01-01T17:00:00.000Z" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { jobId: "J-1", staffId: "user-tech", end: null },
+      }),
+    );
+    expect(updateManyTimeEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "cuid-1", jobId: "J-1" } }),
+    );
+  });
+
+  it("404s an 'open' clock-out when the caller has no open entry — the client learns definitively", async () => {
+    findFirst.mockResolvedValueOnce(JOB);
+    findFirst.mockResolvedValueOnce(null); // no open entry for this user
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/jobs/J-1/time-entries/open",
+      headers: { "x-organization-id": ORG, authorization: bearer("technician") },
+      payload: { end: "2024-01-01T17:00:00.000Z" },
+    });
+
+    expect(response.statusCode).toBe(404);
     expect(updateManyTimeEntry).not.toHaveBeenCalled();
   });
 

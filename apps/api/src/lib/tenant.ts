@@ -108,7 +108,23 @@ export const tenantPlugin = fp(
       // here with ?code=…&state=… — no tenant session can exist yet. The
       // callback validates the signed state (timing-safe) and exchanges the
       // code itself; it never touches tenant data before that.
-      if (request.method === "GET" && (url === "/api/slack/oauth/callback" || url === "/api/slack/oauth/redirect")) {
+      if (request.method === "GET" && url === "/api/slack/oauth/callback") {
+        return;
+      }
+
+      // The generic integration OAuth callback: the provider's redirect
+      // lands the operator's browser here with ?code=…&state=…. Its real
+      // authorization is the single-use signed state row the route
+      // validates — gating it on a tenant session cookie adds a failure
+      // mode (an expired cookie mid-round-trip silently fails the
+      // connection) with zero security gain.
+      if (request.method === "GET" && /^\/api\/integrations\/oauth\/callback\/[^/]+$/.test(url)) {
+        return;
+      }
+
+      // Root liveness returns only {service, status} — the same class of
+      // information as /api/health, never tenant data.
+      if (request.method === "GET" && url === "/") {
         return;
       }
 
