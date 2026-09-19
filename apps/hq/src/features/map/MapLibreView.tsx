@@ -84,6 +84,8 @@ function MapJobPopup({ job }: { job: Job }) {
 
 interface MapLibreViewProps {
   visible: Job[]
+  /** ISO board day — the camera re-frames the day's pins when it changes. */
+  day: string
   vanId: string
   onSelectJob: (jobId: string) => void
   /** Visit order for the selected crew member's route (Route plan panel).
@@ -104,7 +106,7 @@ interface MapLibreViewProps {
   reach?: unknown
 }
 
-export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {}, reach = null, selectedJobId }: MapLibreViewProps) {
+export default function MapLibreView({ visible, day, vanId, onSelectJob, orderedStopIds = [], onsiteByTech = {}, reach = null, selectedJobId }: MapLibreViewProps) {
   const theme = useBoardStore(s => s.theme)
   const styleCandidates = MAP_STYLE_CANDIDATES[theme]
   const [styleIndex, setStyleIndex] = useState(0)
@@ -229,11 +231,11 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           // follows board time.
           const stops = (tech.id === vanId && orderedStopIds.length >= 2
             ? orderedStopIds
-                .map(id => visible.find(j => j.id === id))
-                .filter((j): j is (typeof visible)[number] => Boolean(j?.location))
+              .map(id => visible.find(j => j.id === id))
+              .filter((j): j is (typeof visible)[number] => Boolean(j?.location))
             : visible
-                .filter(j => j.techId === tech.id && j.location)
-                .sort((a, b) => a.startBlock - b.startBlock)
+              .filter(j => j.techId === tech.id && j.location)
+              .sort((a, b) => a.startBlock - b.startBlock)
           ).map((j): LngLat => [j.location!.lng, j.location!.lat])
           // Anchor the line at the assigned tech's own position — the path
           // belongs to the van, not floating between stops.
@@ -405,6 +407,34 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
     )
   }, [vanId, styleLoaded, renderChains])
 
+  // Frame the day's work: on first load and whenever the board day changes,
+  // fit the camera to that day's pins. The hardcoded Melbourne view is only
+  // the empty-day fallback now — a dispatcher opening the map should see
+  // their actual work, not a region. Crew-selection and job-selection
+  // framing outrank this, so it yields while either is active.
+  const lastFittedDayRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!styleLoaded || !mapRef.current || vanId || activeSelectedJobId) return
+    if (lastFittedDayRef.current === day) return
+    lastFittedDayRef.current = day
+    const points = visible.filter(job => job.location).map(job => job.location!)
+    if (points.length === 0) return
+    if (points.length === 1) {
+      mapRef.current.easeTo({
+        center: [points[0].lng, points[0].lat],
+        zoom: Math.max(mapRef.current.getZoom() ?? 10.5, 12),
+        duration: 600
+      })
+      return
+    }
+    const lngs = points.map(p => p.lng)
+    const lats = points.map(p => p.lat)
+    mapRef.current.fitBounds(
+      [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+      { padding: { top: 90, bottom: 90, left: 90, right: 90 }, duration: 700, maxZoom: 12.5 }
+    )
+  }, [day, visible, styleLoaded, vanId, activeSelectedJobId])
+
   useEffect(() => {
     if (!activeSelectedJobId) {
       // Allow re-selecting the same job later to pan again.
@@ -556,9 +586,13 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
         </Marker>
       ))}
 
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
-        Route lines: solid = road-routed · dashed = straight-line fallback · faint dashed = recent van path
-      </div>
+      {/* The legend decodes lines — on an empty board it describes nothing,
+          so it only renders once a route or trail exists to decode. */}
+      {(renderChains.length > 0 || trail) && (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-line bg-void-95/90 px-2 py-1 label-mono text-[10px] text-ink-mid">
+          Route lines: solid = road-routed · dashed = straight-line fallback · faint dashed = recent van path
+        </div>
+      )}
       <Source id="job-routes" type="geojson" data={routes}>
         {/* Selected-van route casing: a wider, softer underlay so the active
             route reads clearly over the basemap without raising a new color
@@ -684,14 +718,12 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
           )
         })}
 
-      {/* Vehicle markers: DISABLED by product decision — technician position
-          is captured point-in-time only and never tracked continuously, so
-          the symbol layer stays switched off. The data plumbing (vehicleMarks,
-          liveLocations) stays intact; re-enable by un-commenting the Source
-          block below. (The prose comment that preceded this block was never
-          terminated, which silently swallowed the entire Source element at
-          compile time — the layers vanished without any type error.) */}
-      {/* <Source id="vehicles" type="geojson" data={vehicleMarks}>
+      {/* Vehicle markers: live positions come only from shift-gated telemetry —
+          the field app streams solely while a technician is clocked on AND has
+          chosen "shift tracking"; everyone else renders at their last captured
+          clock-in fix, labelled stale by the `live` flag below. Breaks dim the
+          dot; off-shift clears it upstream so nothing off-shift is rendered. */}
+      <Source id="vehicles" type="geojson" data={vehicleMarks}>
         <Layer
           id="vehicle-onsite-halo"
           type="circle"
@@ -712,7 +744,14 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
             "circle-color": ["get", "color"],
             "circle-stroke-width": 2.5,
             "circle-stroke-color": palette.pinStroke,
-            "circle-opacity": ["case", ["==", ["get", "presence"], "on_break"], 0.35, 1],
+            /* Live pings render solid; a last-known clock-in fix renders
+               faded — a position from this morning must not read as "where
+               the van is now". On break dims further still. */
+            "circle-opacity": ["case",
+              ["==", ["get", "presence"], "on_break"], 0.3,
+              ["!", ["get", "live"]], 0.5,
+              1
+            ],
             "circle-pitch-alignment": "map"
           }}
         />
@@ -742,9 +781,14 @@ export default function MapLibreView({ visible, vanId, onSelectJob, orderedStopI
             "text-offset": [0, 1.2],
             "text-font": ["Open Sans Semibold"]
           }}
-          paint={{ "text-color": palette.vehicle, "text-halo-color": palette.pinStroke, "text-halo-width": 1.2 }}
+          paint={{
+            "text-color": palette.vehicle,
+            "text-halo-color": palette.pinStroke,
+            "text-halo-width": 1.2,
+            "text-opacity": ["case", ["!", ["get", "live"]], 0.6, 1]
+          }}
         />
-      </Source> */}
+      </Source>
 
       {/* Recent path of the selected van: exactly the shift-gated pings the
           store has seen (last 20), faint and dashed. */}

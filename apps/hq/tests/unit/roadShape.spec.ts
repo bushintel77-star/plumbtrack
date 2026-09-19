@@ -22,7 +22,8 @@ function chain(): LngLat[] {
 
 const proxyResponse = (coords: LngLat[]) => ({
   ok: true,
-  json: async () => ({ coordinates: coords, source: "osrm" })
+  json: async () => ({ coordinates: coords, source: "osrm" }),
+  text: async () => JSON.stringify({ coordinates: coords, source: "osrm" })
 })
 
 afterEach(() => {
@@ -67,13 +68,13 @@ describe("fetchRoadShape (authenticated routing proxy)", () => {
     vi.stubGlobal("fetch", fetchMock)
 
     await expect(fetchRoadShape(stops)).resolves.toBeNull()
-    expect(fetchRoadShape(stops)).resolves.toBeNull() // fresh attempt cycle — nothing cached
+    await expect(fetchRoadShape(stops)).resolves.toBeNull() // fresh attempt cycle — nothing cached
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3)
   }, 20_000)
 
   it("resolves null when the proxy answers without usable coordinates", async () => {
     const stops = chain()
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ coordinates: [] }) })
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ coordinates: [] }), text: async () => JSON.stringify({ coordinates: [] }) })
     vi.stubGlobal("fetch", fetchMock)
 
     await expect(fetchRoadShape(stops)).resolves.toBeNull()

@@ -107,7 +107,21 @@ export function CrewlineWorkspace({ moduleSurface = "dispatch" }: { moduleSurfac
           <kbd>⌘K</kbd>
         </button>
         <div className="fl-top-right">
-          <span className="fl-date">{dayLabel(day)}</span>
+          {/* The date drives every surface via ?date= — when it drifts off
+              today it becomes a one-click way back, so a stale link can
+              never strand the board on some other day. */}
+          {day === todayIsoDay() ? (
+            <span className="fl-date">{dayLabel(day)}</span>
+          ) : (
+            <button
+              type="button"
+              className="fl-date fl-date-btn"
+              title="The board is showing a different day — return to today"
+              onClick={() => void setDay(todayIsoDay())}
+            >
+              {dayLabel(day)} · back to today
+            </button>
+          )}
           <button
             type="button"
             className="fl-linkbtn"
@@ -220,6 +234,7 @@ export function CrewlineWorkspace({ moduleSurface = "dispatch" }: { moduleSurfac
         {surface === "map" && (
           <MapSurface
             day={day}
+            onDayChange={next => void setDay(next)}
             selectedJobId={selectedJobId}
             onSelectJob={next => void setSelectedJobId(next || null)}
           />

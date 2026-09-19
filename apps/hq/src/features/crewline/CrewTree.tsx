@@ -91,58 +91,60 @@ export function CrewTree({
         const presence = livePresenceFor(tech, jobs, day, live)
         const arrived = live ? arrivedJobFor(tech.id, jobs, day, live) : null
         return (
-          <button
-            type="button"
-            key={tech.id}
-            aria-pressed={selectedTechId === tech.id}
-            className={cn("fl-crew", selectedTechId === tech.id && "selected")}
-            onClick={() => onSelectTech(selectedTechId === tech.id ? "" : tech.id)}
-          >
-            <Avatar name={tech.name} />
-            <div>
-              <strong>{tech.name}</strong>
-              <span>
-                {tech.role} · {tech.van} · {row.length} job{row.length === 1 ? "" : "s"}
-              </span>
-              <span className={cn("fl-presence", PRESENCE_CLASS[presence])}>
-                <i />
-                {PRESENCE_LABEL[presence]}
-              </span>
-              {arrived && presence !== "on_break" && (
-                <span className={cn("fl-presence", "on-job")} data-testid={`crew-arrived-${tech.id}`}>
+          // A card, not one giant button: the tech header and each job chip
+          // are separate real controls. The previous shape nested role=button
+          // children inside a <button>, which is invalid interactive content
+          // — screen readers could not announce the jobs at all.
+          <div key={tech.id} className={cn("fl-crew", selectedTechId === tech.id && "selected")}>
+            <button
+              type="button"
+              className="fl-crew-head"
+              aria-pressed={selectedTechId === tech.id}
+              onClick={() => onSelectTech(selectedTechId === tech.id ? "" : tech.id)}
+            >
+              <Avatar name={tech.name} />
+              <div>
+                <strong>{tech.name}</strong>
+                <span>
+                  {tech.role} · {tech.van} · {row.length} job{row.length === 1 ? "" : "s"}
+                </span>
+                <span className={cn("fl-presence", PRESENCE_CLASS[presence])}>
                   <i />
-                  On site · {arrived.title}
+                  {PRESENCE_LABEL[presence]}
                 </span>
-              )}
-              {row.slice(0, 3).map(job => (
-                <span
-                  key={job.id}
-                  role="button"
-                  tabIndex={0}
-                  data-testid={`crew-job-${job.id}`}
-                  className={cn("fl-crew-job", dispatchStatus(job))}
-                  onClick={event => {
-                    event.stopPropagation()
-                    // Opening a job from a crew row also makes that crew
-                    // member the route-plan subject — the stopPropagation
-                    // used to swallow the row's tech selection, so the Route
-                    // plan panel fell back to "Pick a crew member".
-                    onSelectTech(tech.id)
-                    onSelectJob(job)
-                  }}
-                  onKeyDown={event => {
-                    if (event.key !== "Enter" && event.key !== " ") return
-                    event.stopPropagation()
-                    event.preventDefault()
-                    onSelectTech(tech.id)
-                    onSelectJob(job)
-                  }}
-                >
-                  {blockLabel(job.startBlock)} · {job.title}
-                </span>
-              ))}
-            </div>
-          </button>
+                {arrived && presence !== "on_break" && (
+                  <span className={cn("fl-presence", "on-job")} data-testid={`crew-arrived-${tech.id}`}>
+                    <i />
+                    On site · {arrived.title}
+                  </span>
+                )}
+              </div>
+            </button>
+            {row.length > 0 && (
+              <div className="fl-crew-jobs">
+                {row.slice(0, 3).map(job => (
+                  <button
+                    type="button"
+                    key={job.id}
+                    data-testid={`crew-job-${job.id}`}
+                    className={cn("fl-crew-job", dispatchStatus(job))}
+                    onClick={() => {
+                      // Opening a job from a crew row also makes that crew
+                      // member the route-plan subject, or the Route plan
+                      // panel falls back to "Pick a crew member".
+                      onSelectTech(tech.id)
+                      onSelectJob(job)
+                    }}
+                  >
+                    {blockLabel(job.startBlock)} · {job.title}
+                  </button>
+                ))}
+                {row.length > 3 && (
+                  <span className="fl-crew-more">+{row.length - 3} more on the board</span>
+                )}
+              </div>
+            )}
+          </div>
         )
       })}
       {visible.length === 0 && <div className="fl-muted">No crew matches “{query}”.</div>}

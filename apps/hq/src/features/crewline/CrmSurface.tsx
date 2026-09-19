@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Mail, MapPin, Phone, Search } from "lucide-react"
 
-import { apiGet } from "@/lib/api"
+import { apiGetList } from "@/lib/api"
 import { formatDate, formatMoney } from "@/lib/format"
 import { dispatchStatus, jobRevenue } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
@@ -44,7 +44,7 @@ export function CrmSurface() {
   // Live customer directory — /api/customers (customers + properties).
   const customersQuery = useQuery({
     queryKey: ["crm-customers"],
-    queryFn: () => apiGet<CrmCustomer[]>("/api/customers"),
+    queryFn: () => apiGetList<CrmCustomer>("/api/customers"),
     refetchInterval: 30000
   })
 
@@ -70,7 +70,7 @@ export function CrmSurface() {
   // Agreements for the selected customer — fetched on selection.
   const agreementsQuery = useQuery({
     queryKey: ["crm-agreements", selectedId],
-    queryFn: () => apiGet<CrmAgreement[]>(`/api/customers/${selectedId}/agreements`),
+    queryFn: () => apiGetList<CrmAgreement>(`/api/customers/${selectedId}/agreements`),
     enabled: Boolean(selectedId)
   })
   const agreements = agreementsQuery.data ?? []

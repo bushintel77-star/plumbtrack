@@ -34,10 +34,10 @@ export function JobMessageThread({ jobId }: { jobId: string }) {
         .listMessages(jobId)
         .then(res => {
           if (!alive) return
-          setMessages(res.messages)
-          setSlack(res.slack ?? null)
+          setMessages(Array.isArray(res?.messages) ? res.messages : [])
+          setSlack(res?.slack ?? null)
         })
-        .catch(() => {})
+        .catch(() => { })
     void load()
     const timer = setInterval(() => { void load() }, REFRESH_MS)
     return () => {

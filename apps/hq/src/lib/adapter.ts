@@ -190,6 +190,8 @@ export function adaptApiBoard(
   technicians: Technician[]
 ): { jobs: Record<string, Job> } {
   const jobs: Job[] = payload.jobs.map((apiJob, index) => {
+    // Per-row guards: one malformed job must not take the whole board down.
+    const timeEntries = Array.isArray(apiJob.timeEntries) ? apiJob.timeEntries : []
     const tech = techForJob(apiJob, technicians)
     const slot = slotFromAppointment(apiJob.appointment) ?? { ...slotForIndex(index), scheduledDate: isoDay(0) }
     // The server-linked quote wins; the client-name match is a legacy
@@ -197,7 +199,7 @@ export function adaptApiBoard(
     const apiQuote =
       (apiJob.quoteId ? payload.quotes.find(q => q.id === apiJob.quoteId) : undefined) ??
       payload.quotes.find(q => q.client === apiJob.client)
-    const running = hasOpenEntry(apiJob.timeEntries)
+    const running = hasOpenEntry(timeEntries)
     const mappedStatus = STATUS_MAP[apiJob.status]
     const quote: Quote = apiQuote
       ? {
@@ -231,9 +233,9 @@ export function adaptApiBoard(
       // status is secondary to that fact (completed stays completed so a
       // deleted staff record can't resurrect finished work into the queue).
       status: tech ? mappedStatus : mappedStatus === "complete" ? "complete" : "unassigned",
-      elapsedSeconds: Math.floor(elapsedFromEntries(apiJob.timeEntries)),
+      elapsedSeconds: Math.floor(elapsedFromEntries(timeEntries)),
       timerRunning: running,
-      clockOnCount: apiJob.timeEntries.length,
+      clockOnCount: timeEntries.length,
       quote,
       documents: [],
       paymentStatus: apiJob.paymentStatus ?? "unpaid",
@@ -279,7 +281,17 @@ export function adaptStaffRoster(
  *  to demo mode. */
 export async function fetchBoardPayload(): Promise<ApiBoardPayload> {
   const { apiGet } = await import("@/lib/api")
-  return apiGet<ApiBoardPayload>("/api/board")
+  const raw = await apiGet<ApiBoardPayload>("/api/board")
+  // A 200 with a malformed body (proxy error page parsed as JSON, truncated
+  // response) used to crash the whole console on payload.jobs.map — coerce
+  // the arrays so a bad body degrades to an empty live board, not a blank
+  // screen.
+  return {
+    jobs: Array.isArray(raw?.jobs) ? raw.jobs : [],
+    quotes: Array.isArray(raw?.quotes) ? raw.quotes : [],
+    ...(Array.isArray(raw?.staff) ? { staff: raw.staff } : {}),
+    ...(Array.isArray(raw?.needsAttention) ? { needsAttention: raw.needsAttention } : {})
+  }
 }
 
 /** Server-computed needs-attention flags → the client AttentionFlag shape.
