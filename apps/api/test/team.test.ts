@@ -49,11 +49,15 @@ vi.mock("@plumbtrack/database", () => ({
     session: { findUnique: sessionFindUnique, updateMany: sessionUpdateMany },
     auditEvent: { create: auditCreate },
     // The assignment route runs conflict-check + update inside an
-    // interactive transaction (per-technician advisory lock).
+    // interactive transaction (per-technician advisory lock). The member
+    // PATCH also writes membership + session role inside a transaction —
+    // same delegates, same mocks.
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
         $queryRaw: txQueryRaw,
         appointment: { findFirst: appointmentFindFirst, updateMany: appointmentUpdateMany },
+        organizationMembership: { update: membershipUpdate, delete: vi.fn() },
+        session: { updateMany: sessionUpdateMany },
       }),
   },
 }));

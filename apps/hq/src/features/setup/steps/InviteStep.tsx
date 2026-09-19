@@ -4,17 +4,9 @@ import { useState } from "react"
 import { Check, Copy, MailCheck } from "lucide-react"
 
 import { apiErrorMessage, authApi, HttpError } from "@/lib/api"
+import { ROLE_OPTIONS } from "@/lib/roles"
 import { ChipChoice, Question, TextField } from "../primitives"
 import type { InviteAnswers } from "../types"
-
-const ROLE_OPTIONS = [
-  { value: "technician", label: "Technician" },
-  { value: "dispatcher", label: "Dispatcher" },
-  { value: "manager", label: "Manager" },
-  { value: "accountant", label: "Accountant" },
-  { value: "admin", label: "Admin" },
-  { value: "owner", label: "Owner" }
-] as const
 
 /** Real invite send — POST /api/team/invites. When this deployment has an
  *  email provider the invite goes by email; otherwise the API returns the

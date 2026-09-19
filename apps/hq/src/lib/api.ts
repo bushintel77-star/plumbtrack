@@ -281,7 +281,14 @@ export const authApi = {
     }>("/api/team/invites", {
       method: "POST",
       body: JSON.stringify(input)
-    })
+    }),
+  /** The caller's own live sessions in this org — the "Your devices" list.
+   *  Strictly self-scoped server-side; `current` marks this browser. */
+  sessions: () => apiGet<{ sessions: DeviceSession[] }>("/api/auth/sessions"),
+  /** Revoke ONE of the caller's own sessions — a lost device. Presenting a
+   *  session id that isn't yours is a 404, never a cross-user revoke. */
+  revokeSession: (sessionId: string) =>
+    apiRequest<void>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" })
 }
 
 export interface TeamMember {
@@ -293,16 +300,59 @@ export interface TeamMember {
   joinedAt: string
 }
 
-/** Team roster (Crews module). Reads are open to office roles; the skills
- *  write is owner/admin and free-form — `requiredSkill` on jobs accepts any
- *  string, so there is no enum to validate against. */
+/** A pending team invite — people emailed but not yet joined. The API never
+ *  returns tokenHash; the raw link is unrecoverable by design. */
+export interface TeamInviteSummary {
+  id: string
+  email: string
+  name: string | null
+  role: string
+  createdAt: string
+  expiresAt: string
+}
+
+/** One live session row — the caller's own devices. `current` marks the
+ *  session this browser is presenting right now. */
+export interface DeviceSession {
+  id: string
+  userAgent: string | null
+  ip: string | null
+  issuedAt: string
+  lastSeenAt: string
+  expiresAt: string
+  current: boolean
+}
+
+/** Team roster (Crews module). Reads are open to office roles; every write
+ *  is owner/admin. Skills are free-form — `requiredSkill` on jobs accepts
+ *  any string, so there is no enum to validate against. A role change
+ *  re-stamps the member's live sessions server-side, so it applies on
+ *  their next request rather than their next login. */
 export const team = {
   members: () => apiGet<{ members: TeamMember[] }>("/api/team/members"),
   setSkills: (userId: string, skills: string[]) =>
     apiRequest<TeamMember>(`/api/team/members/${encodeURIComponent(userId)}`, {
       method: "PATCH",
       body: JSON.stringify({ skills })
-    })
+    }),
+  setRole: (userId: string, role: string) =>
+    apiRequest<TeamMember>(`/api/team/members/${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role })
+    }),
+  /** Removes the membership and revokes their sessions in this org — never
+   *  deletes the global User row. */
+  removeMember: (userId: string) =>
+    apiRequest<void>(`/api/team/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+  /** The lost/stolen-phone button: revokes every live session the member
+   *  holds in this org. Membership stays. */
+  signOutMember: (userId: string) =>
+    apiRequest<{ revoked: number }>(`/api/team/members/${encodeURIComponent(userId)}/sign-out`, {
+      method: "POST"
+    }),
+  listInvites: () => apiGet<{ invites: TeamInviteSummary[] }>("/api/team/invites"),
+  revokeInvite: (inviteId: string) =>
+    apiRequest<void>(`/api/team/invites/${encodeURIComponent(inviteId)}/revoke`, { method: "POST" })
 }
 
 /** Pull the server's `{message}` out of an HttpError body when present —
