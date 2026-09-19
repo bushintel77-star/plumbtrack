@@ -64,9 +64,6 @@ interface BoardState {
    *  high-frequency telemetry mutations (research §State Management). */
   jobs: Record<string, Job>
   selectedJobId: string | null
-  paletteOpen: boolean
-  /** Details overlay (researched topology: selection opens an overlay). */
-  detailsOpen: boolean
   /** Colourway — hardware chassis (dark) default, Soft White toggle. */
   theme: "light" | "dark"
   dataMode: DataMode
@@ -76,21 +73,12 @@ interface BoardState {
   /** Live fleet positions from topic/fleet/telemetry (WebSocket). */
   liveLocations: Record<string, LiveLocation>
   liveLocationHistory: Record<string, LiveLocation[]>
-  /** Test bridges: force the server-persist failure / offline paths. */
-  simulateFailure: boolean
-  offline: boolean
 
   /** Route Optimizer slide-over (research §Efficient Route). */
   optimizerOpen: boolean
 
-  selectJob: (jobId: string | null) => void
-  openDetails: (jobId: string) => void
-  closeDetails: () => void
-  setPaletteOpen: (open: boolean) => void
   setTheme: (theme: "light" | "dark") => void
   setDataMode: (mode: DataMode) => void
-  setSimulateFailure: (value: boolean) => void
-  setOffline: (value: boolean) => void
 
   /** Merge a batch of telemetry pings into the live map state. */
   mergeLiveLocations: (pings: LiveLocation[]) => void
@@ -175,24 +163,12 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   vehicles: seedVehicles,
   jobs: seedJobsById,
   selectedJobId: DEMO_SEED ? "j-1001" : "",
-  paletteOpen: false,
-  detailsOpen: false,
   theme: "dark",
   dataMode: "connecting",
   needsAttention: [],
   liveLocations: {},
   liveLocationHistory: {},
-  simulateFailure: false,
-  offline: false,
   optimizerOpen: false,
-
-  selectJob: jobId => set({ selectedJobId: jobId }),
-
-  openDetails: jobId => set({ selectedJobId: jobId, detailsOpen: true }),
-
-  closeDetails: () => set({ detailsOpen: false }),
-
-  setPaletteOpen: open => set({ paletteOpen: open }),
 
   setTheme: theme => {
     set({ theme })
@@ -204,8 +180,6 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
   },
 
   setDataMode: mode => set({ dataMode: mode }),
-  setSimulateFailure: value => set({ simulateFailure: value }),
-  setOffline: value => set({ offline: value }),
 
   mergeLiveLocations: pings => {
     if (pings.length === 0) return

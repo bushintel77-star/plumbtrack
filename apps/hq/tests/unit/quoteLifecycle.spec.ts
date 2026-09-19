@@ -130,7 +130,7 @@ describe("quote lifecycle actions — real API persistence", () => {
   beforeEach(() => {
     apiRequestSpy.mockReset()
     toastSpy.mockReset()
-    useBoardStore.setState({ jobs: { "j-1": boardJob() }, dataMode: "live", offline: false })
+    useBoardStore.setState({ jobs: { "j-1": boardJob() }, dataMode: "live" })
   })
 
   it("mark sent PATCHes /api/quotes/:id with status sent", async () => {

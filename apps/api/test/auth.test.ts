@@ -94,7 +94,27 @@ describe("authenticated tenancy and role authorization", () => {
     orgFindUnique.mockResolvedValue(null);
     sessionRows.clear();
     sessionFindUnique.mockImplementation(async ({ where }: { where: { id: string } }) => sessionRows.get(where.id) ?? null);
-    sessionCreate.mockResolvedValue({ id: "sess-new" });
+    // Rows created by sign-in routes must be loadable — the tenant hook
+    // re-reads the row behind a token's sid on every request.
+    sessionCreate.mockImplementation(async ({ data }: {
+      data: { userId: string; organizationId: string; role: string; expiresAt: Date; userAgent?: string | null; ip?: string | null };
+    }) => {
+      const id = `sess-created-${sessionRows.size + 1}`;
+      sessionRows.set(id, {
+        id,
+        userId: data.userId,
+        organizationId: data.organizationId,
+        role: data.role,
+        issuedAt: new Date(),
+        expiresAt: data.expiresAt,
+        lastSeenAt: new Date(),
+        revokedAt: null,
+        revokedReason: null,
+        userAgent: data.userAgent ?? null,
+        ip: data.ip ?? null,
+      });
+      return { id };
+    });
     sessionUpdateMany.mockResolvedValue({ count: 0 });
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       job: { findFirst, findUnique, updateMany },

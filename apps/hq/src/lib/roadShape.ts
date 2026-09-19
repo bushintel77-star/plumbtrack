@@ -21,10 +21,6 @@ export function routeSignature(points: LngLat[]): string {
 const shapeCache = new Map<string, LngLat[]>()
 const inflight = new Map<string, Promise<LngLat[] | null>>()
 
-export function cachedRoadShape(points: LngLat[]): LngLat[] | null {
-  return shapeCache.get(routeSignature(points)) ?? null
-}
-
 /** Never throws: resolves the road path for the stop chain, or null when the
  *  chain is degenerate or the routing proxy is unreachable. On a stable board
  *  the debounce never refires, so transient proxy/ORS hiccups are retried in-

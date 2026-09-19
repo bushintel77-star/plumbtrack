@@ -520,6 +520,9 @@ export async function routingRoutes(app: FastifyInstance): Promise<void> {
       id: z.union([z.string(), z.number()]),
       start: coordSchema,
       skills: z.array(z.number()).max(8).optional(),
+      /** Per-route task cap (VROOM capacity semantics — one entry per
+       *  capacity dimension; the client sends a single maxTasksPerRoute). */
+      capacity: z.array(z.coerce.number().int().min(1).max(60)).min(1).max(4).optional(),
       /** Shift window in seconds from midnight, e.g. [28800, 64800]. */
       time_window: z.tuple([z.coerce.number().int().min(0), z.coerce.number().int().max(86400)]).optional(),
     })).min(1).max(12),

@@ -49,6 +49,8 @@ describe("GET /api/board", () => {
         scope: "Fix leak",
         status: "scheduled",
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        paymentStatus: "paid",
+        stripeSessionId: "cs_test_123",
         timeEntries: [
           { id: "te-1", jobId: "job-1", staffId: "sarah", start: new Date("2026-01-01T08:00:00.000Z"), end: null },
         ],
@@ -94,6 +96,10 @@ describe("GET /api/board", () => {
       scope: "Fix leak",
       status: "scheduled",
       createdAt: "2026-01-01T00:00:00.000Z",
+      // Real Stripe payment state — Reports' "Collect payment" list reads
+      // this; omitting it made paid jobs permanently reappear as collectable.
+      paymentStatus: "paid",
+      stripeSessionId: "cs_test_123",
       location: null,
       timeEntries: [{ id: "te-1", staffId: "sarah", start: "2026-01-01T08:00:00.000Z", end: null }],
       photos: [],

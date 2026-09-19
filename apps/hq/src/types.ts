@@ -203,6 +203,10 @@ export interface AssignCheck {
 /** Board data provenance — live API when reachable, seeded demo otherwise. */
 export type DataMode = "connecting" | "live" | "demo"
 
+/** Crewline workspace modes — the values the `?mode=` param carries when the
+ *  shell maps a legacy module onto the Crewline workspace. */
+export type CrewlineMode = "dispatch" | "map" | "documents" | "crm" | "reports"
+
 /** App shell modules (Arrivy topology — sidebar navigation). */
 export type AppModule =
   | "dashboard"

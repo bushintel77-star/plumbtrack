@@ -21,7 +21,6 @@ export interface SyncOp {
 
 interface HqDbSchema {
   "jobs-cache": { key: string; value: Job }
-  "customers-cache": { key: string; value: { id: string; name: string } }
   "sync-queue": { key: number; value: SyncOp; indexes: { "by-job": string } }
 }
 
@@ -35,7 +34,6 @@ function db(): Promise<IDBPDatabase<HqDbSchema>> {
     dbPromise = openDB<HqDbSchema>("plumbtrack-hq", 1, {
       upgrade(database) {
         database.createObjectStore("jobs-cache")
-        database.createObjectStore("customers-cache")
         const queue = database.createObjectStore("sync-queue", {
           keyPath: "id",
           autoIncrement: true
@@ -58,15 +56,6 @@ export async function cacheJobs(jobs: Job[]): Promise<void> {
   }
 }
 
-export async function readCachedJobs(): Promise<Job[]> {
-  try {
-    const database = await db()
-    return database.getAll("jobs-cache")
-  } catch {
-    return []
-  }
-}
-
 export async function enqueueSync(
   op: Omit<SyncOp, "id" | "queuedAt">
 ): Promise<void> {
@@ -80,15 +69,6 @@ export async function enqueueSync(
     await database.add("sync-queue", { ...op, queuedAt: Date.now() })
   } catch {
     // Queue write failed — the in-memory optimistic state still stands.
-  }
-}
-
-export async function pendingSyncCount(): Promise<number> {
-  try {
-    const database = await db()
-    return database.count("sync-queue")
-  } catch {
-    return 0
   }
 }
 

@@ -54,13 +54,55 @@ if (FORCE_DEMO && process.env.NODE_ENV === "production") {
   console.error("[hq] NEXT_PUBLIC_HQ_FORCE_DEMO=1 is baked into this production build: the console is pinned to demo data and the sign-in gate is disabled. Rebuild without it.")
 }
 
+/** GET /api/auth/session — the verified session probe. Display names resolve
+ *  per request (a membership join), never from the signed claims. */
 export interface HqSession {
   authenticated: boolean
   userId: string
   organizationId: string
+  organizationName: string | null
   role: string
   expiresAt: number
   name: string | null
+}
+
+/** POST /api/auth/login + /api/auth/sign-up — a fresh bearer token plus the
+ *  claims minted into it. Callers refetch GET /session for the full record. */
+export interface AccountSession {
+  token: string
+  userId: string
+  organizationId: string
+  organizationName: string | null
+  role: string
+  expiresAt: number
+  name: string | null
+}
+
+/** POST /api/invites/:token/accept — same token, fewer display fields. */
+export interface InviteSession {
+  token: string
+  userId: string
+  organizationId: string
+  role: string
+  expiresAt: number
+}
+
+/** POST /api/auth/hq-session — the dev/test station path: a fixed operator
+ *  identity, org taken from the legacy tenant header. */
+export interface StationSession {
+  token: string
+  organizationId: string
+  role: string
+  expiresAt: number
+}
+
+/** POST /api/auth/renew — the SAME session row extended in place. */
+export interface RenewedSession {
+  authenticated: boolean
+  organizationId: string
+  organizationName: string | null
+  role: string
+  expiresAt: number
 }
 
 export class NetworkError extends Error {
@@ -178,6 +220,7 @@ export const authApi = {
   session: () =>
     apiGet<HqSession>("/api/auth/session").then(session => {
       markSessionEstablished()
+      recordSessionExpiry(session.expiresAt)
       return session
     }),
   streamToken: () => apiGet<{ token: string; organizationId: string; role: string }>("/api/auth/stream-token"),
@@ -186,10 +229,15 @@ export const authApi = {
       method: "PATCH",
       body: JSON.stringify({ technicianId, startBlock })
     }),
-  renew: () => apiRequest<HqSession>("/api/auth/renew", { method: "POST" }),
+  renew: () =>
+    apiRequest<RenewedSession>("/api/auth/renew", { method: "POST" }).then(session => {
+      recordSessionExpiry(session.expiresAt)
+      return session
+    }),
   signOut: () =>
     apiRequest<void>("/api/auth/sign-out", { method: "POST" }).finally(() => {
       sessionEstablished = process.env.NODE_ENV === "production"
+      sessionExpiresAtSeconds = null
     }),
   /**
    * Customer ETA notification — sends the "on our way, ETA ~N min" SMS to the
@@ -215,30 +263,33 @@ export const authApi = {
    * web bundle.
    */
   hqLogin: (bootstrapToken: string) =>
-    apiRequest<HqSession>("/api/auth/hq-session", {
+    apiRequest<StationSession>("/api/auth/hq-session", {
       method: "POST",
       headers: { Authorization: `Bearer ${bootstrapToken}` }
     }).then(session => {
       markSessionEstablished()
+      recordSessionExpiry(session.expiresAt)
       return session
     }),
   /** Real account auth — email + password, mints the same signed session
    *  cookie the station path does, but with the member's actual userId and
    *  OrganizationMembership role. */
   login: (email: string, password: string) =>
-    apiRequest<HqSession>("/api/auth/login", {
+    apiRequest<AccountSession>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password })
     }).then(session => {
       markSessionEstablished()
+      recordSessionExpiry(session.expiresAt)
       return session
     }),
   signUp: (input: { businessName: string; name: string; email: string; password: string }) =>
-    apiRequest<HqSession>("/api/auth/sign-up", {
+    apiRequest<AccountSession>("/api/auth/sign-up", {
       method: "POST",
       body: JSON.stringify(input)
     }).then(session => {
       markSessionEstablished()
+      recordSessionExpiry(session.expiresAt)
       return session
     }),
   /** Always 202 — `delivery` reports whether a provider actually sent the
@@ -260,11 +311,12 @@ export const authApi = {
       `/api/invites/${encodeURIComponent(token)}`
     ),
   acceptInvite: (token: string, input: { name?: string; password: string }) =>
-    apiRequest<HqSession>(`/api/invites/${encodeURIComponent(token)}/accept`, {
+    apiRequest<InviteSession>(`/api/invites/${encodeURIComponent(token)}/accept`, {
       method: "POST",
       body: JSON.stringify(input)
     }).then(session => {
       markSessionEstablished()
+      recordSessionExpiry(session.expiresAt)
       return session
     }),
   /** Office-side: create + deliver a team invite (owner/admin only). When no
@@ -289,6 +341,54 @@ export const authApi = {
    *  session id that isn't yours is a 404, never a cross-user revoke. */
   revokeSession: (sessionId: string) =>
     apiRequest<void>(`/api/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" })
+}
+
+/* ── Sliding session renewal ────────────────────────────────────────────────
+ * Office sessions are 12h. Rather than hard-expiring an open console into
+ * re-login, the session is renewed once it passes the midpoint of its life:
+ * POST /api/auth/renew extends the SAME sessions row (never a new one) and
+ * re-mints the cookie. Callers are the console's existing heartbeats — the
+ * 5s board poll and the tab-visible event — so renewal adds no timer of its
+ * own. A 401 means the row hard-expired; the session-expired flow takes over.
+ */
+
+/** Expiry the last session probe, mint or renewal reported (epoch seconds).
+ *  Null before the first probe and after sign-out. */
+let sessionExpiresAtSeconds: number | null = null
+let renewalInFlight: Promise<void> | null = null
+
+/** Renew once less than half the session's life remains. */
+const RENEWAL_LEAD_SECONDS = 6 * 60 * 60
+
+function recordSessionExpiry(expiresAt: number | null | undefined): void {
+  sessionExpiresAtSeconds = typeof expiresAt === "number" ? expiresAt : null
+}
+
+/** True when the live session is past the midpoint of its remaining life. */
+export function sessionRenewalDue(nowSeconds = Math.floor(Date.now() / 1000)): boolean {
+  return sessionExpiresAtSeconds !== null && sessionExpiresAtSeconds - nowSeconds < RENEWAL_LEAD_SECONDS
+}
+
+/** Extend the current session row if it is due. Concurrent triggers share
+ *  one in-flight renewal; transient failures just retry on the next beat. */
+export function renewSessionIfDue(nowSeconds?: number): Promise<void> {
+  if (!sessionRenewalDue(nowSeconds)) return Promise.resolve()
+  renewalInFlight ??= authApi
+    .renew()
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      if (error instanceof HttpError && error.status === 401) {
+        sessionExpiresAtSeconds = null
+        // Hard-expired — AppShell routes the console to /login on this event.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("plumbtrack:session-expired"))
+        }
+      }
+    })
+    .finally(() => {
+      renewalInFlight = null
+    })
+  return renewalInFlight
 }
 
 export interface TeamMember {
@@ -414,11 +514,6 @@ export const slackApi = {
    *  configures SLACK_CLIENT_ID/SLACK_CLIENT_SECRET — the honest disconnected
    *  state the surface renders. */
   oauthUrl: () => apiRequest<{ url: string }>("/api/slack/oauth/url"),
-  connect: (input: { teamId: string; accessToken: string; teamName?: string }) =>
-    apiRequest<{ connected: boolean; teamId: string }>("/api/slack/workspace", {
-      method: "POST",
-      body: JSON.stringify(input)
-    }),
   disconnect: () => apiRequest<void>("/api/slack/workspace", { method: "DELETE" }),
   routes: () =>
     apiRequest<{ eventTypes: string[]; routes: SlackRouteBinding[] }>("/api/slack/routes"),
