@@ -167,6 +167,65 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return { authenticated: true, organizationId: request.auth.organizationId, organizationName: org?.name ?? null, role: request.auth.role, expiresAt };
   });
 
+  /**
+   * The caller's own live sessions in this org — the "your devices" list.
+   * Strictly self-scoped: there is no way to read another person's rows.
+   */
+  app.get("/sessions", async (request, reply) => {
+    if (!request.auth) return sendUnauthorized(reply);
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: request.auth.userId,
+        organizationId: orgId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { lastSeenAt: "desc" },
+    });
+    return {
+      sessions: sessions.map(session => ({
+        id: session.id,
+        userAgent: session.userAgent,
+        ip: session.ip,
+        issuedAt: session.issuedAt.toISOString(),
+        lastSeenAt: session.lastSeenAt.toISOString(),
+        expiresAt: session.expiresAt.toISOString(),
+        current: session.id === request.auth?.sid,
+      })),
+    };
+  });
+
+  /**
+   * Revoke ONE of the caller's own sessions — a lost device. The update is
+   * scoped by user + org, so presenting someone else's session id is a 404,
+   * never a cross-user revoke. Revoking the current session is allowed:
+   * it's just signing out this device.
+   */
+  app.delete("/sessions/:id", async (request, reply) => {
+    if (!request.auth) return sendUnauthorized(reply);
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+
+    const { id } = request.params as { id: string };
+    const result = await prisma.session.updateMany({
+      where: { id, userId: request.auth.userId, organizationId: orgId, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: "device_revoked" },
+    });
+    if (result.count === 0) {
+      return reply.code(404).send({ message: "That session isn't yours or is already gone." });
+    }
+    recordAuditEvent(request, {
+      action: "auth.session_revoked",
+      entityType: "session",
+      entityId: id,
+      metadata: { organizationId: orgId },
+    });
+    return reply.code(204).send();
+  });
+
   app.post("/sign-out", async (request, reply) => {
     // Actually end the session — clearing only the cookie left the bearer
     // token valid until expiry, which made logging out cosmetic.

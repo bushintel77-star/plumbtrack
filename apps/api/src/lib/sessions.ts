@@ -71,11 +71,36 @@ export async function revokeSession(id: string, reason: string): Promise<void> {
 
 /** Every active session for a person inside one org — never their sessions
  *  in other orgs, and never rows already revoked (they keep their first
- *  reason). Returns the count revoked. */
-export async function revokeUserSessions(userId: string, organizationId: string, reason: string): Promise<number> {
-  const result = await prisma.session.updateMany({
+ *  reason). Returns the count revoked. The optional `client` lets a caller
+ *  join an interactive `$transaction`. */
+export async function revokeUserSessions(
+  userId: string,
+  organizationId: string,
+  reason: string,
+  client: Pick<typeof prisma, "session"> = prisma,
+): Promise<number> {
+  const result = await client.session.updateMany({
     where: { userId, organizationId, revokedAt: null },
     data: { revokedAt: new Date(), revokedReason: reason },
+  });
+  return result.count;
+}
+
+/** Re-stamp the role on every active session a person holds in one org.
+ *  The row's role is authoritative at request time (tenant.ts sets
+ *  `request.auth.role = session.role`), so updating only the membership
+ *  would leave a demoted admin exercising their old powers until re-login.
+ *  Call this inside the same transaction as the membership write.
+ *  The optional `client` is the transaction client. */
+export async function setUserSessionsRole(
+  userId: string,
+  organizationId: string,
+  role: OrganizationRole,
+  client: Pick<typeof prisma, "session"> = prisma,
+): Promise<number> {
+  const result = await client.session.updateMany({
+    where: { userId, organizationId, revokedAt: null },
+    data: { role },
   });
   return result.count;
 }

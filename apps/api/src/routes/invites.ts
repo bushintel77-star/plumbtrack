@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@plumbtrack/database";
 import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, issueAuthToken, ORGANIZATION_ROLES, requireRole } from "../lib/auth";
-import { createSession } from "../lib/sessions";
+import { createSession, revokeUserSessions, setUserSessionsRole } from "../lib/sessions";
 import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem } from "../lib/passwords";
@@ -16,14 +16,34 @@ import { parseBody, sendValidationError } from "../lib/validation";
  *
  *   GET   /api/team/members        office roles list the roster (skills
  *                                  included — assignment depends on them)
- *   PATCH /api/team/members/:userId  owner/admin edit a member's skills.
- *                                  Free-form on purpose: `requiredSkill` on
- *                                  jobs accepts any string, so there is no
- *                                  enum to validate against. This is the
- *                                  only write path for membership skills —
- *                                  without it an invited junior technician
- *                                  is permanently unassignable to any job
- *                                  that declares a requiredSkill.
+ *   PATCH /api/team/members/:userId  owner/admin edits a member's skills
+ *                                  and/or role. Skills are free-form on
+ *                                  purpose: `requiredSkill` on jobs accepts
+ *                                  any string, so there is no enum to
+ *                                  validate against. This is the only write
+ *                                  path for membership skills — without it
+ *                                  an invited junior technician is
+ *                                  permanently unassignable to any job that
+ *                                  declares a requiredSkill. A role change
+ *                                  also re-stamps the member's live session
+ *                                  rows in the same transaction — the
+ *                                  session row's role is authoritative at
+ *                                  request time (tenant.ts), so a
+ *                                  membership-only update would leave a
+ *                                  demoted member exercising their old
+ *                                  powers until they next sign in.
+ *   DELETE /api/team/members/:userId  owner/admin removes a member: deletes
+ *                                  the membership (never the global User
+ *                                  row) and revokes their sessions in this
+ *                                  org — the lost-people path, not just
+ *                                  offboarding.
+ *   POST /api/team/members/:userId/sign-out  owner/admin revokes every live
+ *                                  session a member holds in this org —
+ *                                  the lost/stolen-phone button.
+ *   GET  /api/team/invites        owner/admin lists pending invites —
+ *                               emails-in-waiting are a management surface,
+ *                               never the wider read set.
+ *   POST /api/team/invites/:id/revoke  owner/admin kills a pending invite.
  *   POST /api/team/invites        owner/admin creates an invite; delivered
  *                               by email when a provider is configured,
  *                               otherwise the raw link is returned for the
@@ -64,9 +84,15 @@ const TEAM_WRITE_ROLES = ["admin", "owner"] as const;
 
 // No min(1): empty/whitespace entries are normalized away rather than
 // rejected — the form sends what the operator typed, the server decides.
-const memberSkillsSchema = z.object({
-  skills: z.array(z.string().trim().max(40)).max(20),
-});
+const memberPatchSchema = z
+  .object({
+    skills: z.array(z.string().trim().max(40)).max(20).optional(),
+    role: z.enum(ORGANIZATION_ROLES).optional(),
+  })
+  .refine(body => body.skills !== undefined || body.role !== undefined, {
+    message: "Send skills, a role, or both.",
+    path: ["role"],
+  });
 
 /** Trim, drop empties, dedupe case-insensitively keeping the first
  *  occurrence, preserve the given order. */
@@ -135,19 +161,23 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
     return { members: memberships.map(memberShape) };
   });
 
-  /** Edit one member's skills. Scoped by the composite org+user key, so a
-   *  userId from another org is simply not found — same 404 as a stranger,
-   *  never a hint that the person exists elsewhere. */
+  /** Edit one member's skills and/or role. Scoped by the composite
+   *  org+user key, so a userId from another org is simply not found — same
+   *  404 as a stranger, never a hint that the person exists elsewhere.
+   *  A role change must also re-stamp that person's live session rows: the
+   *  tenant hook reads `session.role` per request, so a membership-only
+   *  write would leave the old powers in force until re-login. */
   app.patch("/members/:userId", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
     const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
     if (roleFailure) return roleFailure;
 
-    const parsed = parseBody(memberSkillsSchema, request.body);
+    const parsed = parseBody(memberPatchSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
-    const skills = normalizeSkills(parsed.data.skills);
     const { userId } = request.params as { userId: string };
+    const skills = parsed.data.skills === undefined ? undefined : normalizeSkills(parsed.data.skills);
+    const nextRole = parsed.data.role;
 
     const membership = await prisma.organizationMembership.findUnique({
       where: { organizationId_userId: { organizationId: orgId, userId } },
@@ -157,18 +187,197 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ message: "That person isn't on your team." });
     }
 
-    const updated = await prisma.organizationMembership.update({
+    if (nextRole !== undefined && nextRole !== membership.role) {
+      // Self-role edits are refused outright — an admin promoting itself
+      // to owner would otherwise be a one-request privilege escalation.
+      if (userId === request.auth?.userId) {
+        return reply.code(403).send({ message: "You can't change your own role — ask another owner." });
+      }
+      // The owner boundary mirrors the invite rule: only an owner may
+      // grant ownership or take it away.
+      if ((nextRole === "owner" || membership.role === "owner") && request.auth?.role !== "owner") {
+        return reply.code(403).send({ message: "Only an owner can grant or remove the owner role." });
+      }
+      if (membership.role === "owner") {
+        const owners = await prisma.organizationMembership.count({
+          where: { organizationId: orgId, role: "owner" },
+        });
+        if (owners <= 1) {
+          return reply.code(409).send({ message: "Your organisation needs at least one owner." });
+        }
+      }
+    }
+
+    const updated = await prisma.$transaction(async tx => {
+      const row = await tx.organizationMembership.update({
+        where: { organizationId_userId: { organizationId: orgId, userId } },
+        data: {
+          ...(skills === undefined ? {} : { skills }),
+          ...(nextRole === undefined || nextRole === membership.role ? {} : { role: nextRole }),
+        },
+        include: { user: { select: { name: true, email: true } } },
+      });
+      if (nextRole !== undefined && nextRole !== membership.role) {
+        // Same transaction: the session rows' role copy is what the tenant
+        // hook enforces, so it must move with the membership.
+        await setUserSessionsRole(userId, orgId, nextRole, tx);
+      }
+      return row;
+    });
+
+    if (skills !== undefined) {
+      recordAuditEvent(request, {
+        action: "team.member_skills_updated",
+        entityType: "organization_membership",
+        entityId: membership.id,
+        metadata: { skills },
+      });
+    }
+    if (nextRole !== undefined && nextRole !== membership.role) {
+      recordAuditEvent(request, {
+        action: "team.member_role_changed",
+        entityType: "organization_membership",
+        entityId: membership.id,
+        metadata: { from: membership.role, to: nextRole },
+      });
+    }
+    return memberShape(updated);
+  });
+
+  /** Remove a member. The membership goes; the User row never does — it is
+   *  global and may hold memberships in other orgs, so deleting it would
+   *  wipe a person's account inside someone else's company. Their sessions
+   *  in THIS org are revoked in the same transaction. */
+  app.delete("/members/:userId", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const { userId } = request.params as { userId: string };
+    const membership = await prisma.organizationMembership.findUnique({
       where: { organizationId_userId: { organizationId: orgId, userId } },
-      data: { skills },
-      include: { user: { select: { name: true, email: true } } },
+    });
+    if (!membership) {
+      return reply.code(404).send({ message: "That person isn't on your team." });
+    }
+    if (userId === request.auth?.userId) {
+      return reply.code(409).send({ message: "You can't remove your own account — ask another owner." });
+    }
+    if (membership.role === "owner" && request.auth?.role !== "owner") {
+      return reply.code(403).send({ message: "Only an owner can remove an owner." });
+    }
+    if (membership.role === "owner") {
+      const owners = await prisma.organizationMembership.count({
+        where: { organizationId: orgId, role: "owner" },
+      });
+      if (owners <= 1) {
+        return reply.code(409).send({ message: "Your organisation needs at least one owner." });
+      }
+    }
+
+    await prisma.$transaction(async tx => {
+      await tx.organizationMembership.delete({
+        where: { organizationId_userId: { organizationId: orgId, userId } },
+      });
+      await revokeUserSessions(userId, orgId, "member_removed", tx);
     });
     recordAuditEvent(request, {
-      action: "team.member_skills_updated",
+      action: "team.member_removed",
       entityType: "organization_membership",
       entityId: membership.id,
-      metadata: { skills },
+      metadata: { userId },
     });
-    return memberShape(updated);
+    return reply.code(204).send();
+  });
+
+  /** Sign a member out of every device — the lost/stolen-phone button.
+   *  Membership stays; only their sessions in this org are revoked. */
+  app.post("/members/:userId/sign-out", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const { userId } = request.params as { userId: string };
+    const membership = await prisma.organizationMembership.findUnique({
+      where: { organizationId_userId: { organizationId: orgId, userId } },
+    });
+    if (!membership) {
+      return reply.code(404).send({ message: "That person isn't on your team." });
+    }
+    if (membership.role === "owner" && request.auth?.role !== "owner") {
+      return reply.code(403).send({ message: "Only an owner can sign out an owner." });
+    }
+
+    const revoked = await revokeUserSessions(userId, orgId, "signed_out_by_admin");
+    recordAuditEvent(request, {
+      action: "team.member_signed_out",
+      entityType: "organization_membership",
+      entityId: membership.id,
+      metadata: { userId, revoked },
+    });
+    return { revoked };
+  });
+
+  /** Pending invites only — people who haven't joined yet. Owner/admin:
+   *  this lists email addresses before the person exists, so it does not
+   *  share the roster's wider read set. Never returns tokenHash — the raw
+   *  token is unrecoverable by design and the hash must not leak. */
+  app.get("/invites", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const invites = await prisma.teamInvite.findMany({
+      where: { orgId, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, email: true, name: true, role: true, createdAt: true, expiresAt: true },
+    });
+    return {
+      invites: invites.map(invite => ({
+        id: invite.id,
+        email: invite.email,
+        name: invite.name,
+        role: invite.role,
+        createdAt: invite.createdAt.toISOString(),
+        expiresAt: invite.expiresAt.toISOString(),
+      })),
+    };
+  });
+
+  /** Kill a pending invite. Org-scoped in the lookup, so an invite id from
+   *  another org is simply not found — same 404 as a made-up id. */
+  app.post("/invites/:id/revoke", async (request, reply) => {
+    const orgId = getOrgId(request);
+    if (!orgId) return sendMissingOrg(reply);
+    const roleFailure = requireRole(request, reply, TEAM_WRITE_ROLES);
+    if (roleFailure) return roleFailure;
+
+    const { id } = request.params as { id: string };
+    const invite = await prisma.teamInvite.findFirst({
+      where: { id, orgId, acceptedAt: null, revokedAt: null },
+    });
+    if (!invite) {
+      return reply.code(404).send({ message: "That invite isn't outstanding — it may already be used, revoked or expired." });
+    }
+    // Mirror the create rule: only an owner may kill an owner's invite.
+    if (invite.role === "owner" && request.auth?.role !== "owner") {
+      return reply.code(403).send({ message: "Only an owner can revoke an owner invite." });
+    }
+
+    await prisma.teamInvite.updateMany({
+      where: { id: invite.id, orgId, acceptedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    recordAuditEvent(request, {
+      action: "team.invite_revoked",
+      entityType: "team_invite",
+      entityId: invite.id,
+      metadata: { role: invite.role },
+    });
+    return reply.code(204).send();
   });
 
   /** Create + deliver an invite. Owner/admin; inviting a new owner requires
