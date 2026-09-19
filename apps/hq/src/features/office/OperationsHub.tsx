@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { apiGet } from "@/lib/api"
+import { apiGet, apiGetList } from "@/lib/api"
 
 interface Customer { id: string; name: string; email?: string | null; phone?: string | null }
 interface Quote { id: string; client: string; status: string; lines?: Array<{ id: string; description: string; quantity?: number; unitPrice?: number }> }
@@ -19,9 +19,9 @@ function QueryState({ loading, error }: { loading: boolean; error: unknown }) {
 }
 
 export function OperationsHub() {
-  const customers = useQuery({ queryKey: ["hq-customers"], queryFn: () => apiGet<Customer[]>("/api/customers"), refetchInterval: 30000 })
-  const quotes = useQuery({ queryKey: ["hq-quotes"], queryFn: () => apiGet<Quote[]>("/api/quotes"), refetchInterval: 30000 })
-  const documents = useQuery({ queryKey: ["hq-documents"], queryFn: () => apiGet<Document[]>("/api/documents"), refetchInterval: 30000 })
+  const customers = useQuery({ queryKey: ["hq-customers"], queryFn: () => apiGetList<Customer>("/api/customers"), refetchInterval: 30000 })
+  const quotes = useQuery({ queryKey: ["hq-quotes"], queryFn: () => apiGetList<Quote>("/api/quotes"), refetchInterval: 30000 })
+  const documents = useQuery({ queryKey: ["hq-documents"], queryFn: () => apiGetList<Document>("/api/documents"), refetchInterval: 30000 })
   const health = useQuery({ queryKey: ["hq-integrations"], queryFn: () => apiGet<Health>("/api/integrations/health"), refetchInterval: 15000 })
   const draftQuotes = quotes.data?.filter(quote => quote.status === "draft").length ?? 0
   const expiringDocs = documents.data?.filter(document => document.expiresOn && new Date(document.expiresOn).getTime() - Date.now() < 30 * 86400000).length ?? 0

@@ -127,6 +127,14 @@ function newRequestId(): string {
   return crypto.randomUUID().slice(0, 8)
 }
 
+/** List-shaped GET: a malformed 200 body (proxy error page parsed as JSON,
+ *  truncated response) coerces to [] so one bad response degrades to an
+ *  honest empty list instead of crashing the surface on `.map`. */
+export async function apiGetList<T>(path: string): Promise<T[]> {
+  const body = await apiGet<T[]>(path)
+  return Array.isArray(body) ? body : []
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
@@ -146,7 +154,8 @@ export async function apiGet<T>(path: string): Promise<T> {
       }
       throw new HttpError(response.status, `API ${path} failed (${response.status}): ${body}`)
     }
-    return (await response.json()) as T
+    const text = await response.text()
+    return (text ? JSON.parse(text) : undefined) as T
   } catch (error) {
     if (error instanceof HttpError) throw error
     if (error instanceof NetworkError) throw error

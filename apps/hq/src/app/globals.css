@@ -178,6 +178,7 @@
 }
 
 @layer components {
+
   /* ═══════════════════════════════════════════════════════════════════════
      Crewline — light blueprint dispatch chrome.
      Structure is deep blue and neutral; red / amber / green are reserved for
@@ -188,223 +189,1574 @@
      ═══════════════════════════════════════════════════════════════════════ */
   /* Framed instrument presentation (design reference: app inset on the
      Blueprint canvas with a soft edge, not full-bleed). */
-  .fl-window { display:flex; flex-direction:column; height:calc(100% - 20px); margin:10px; border:1px solid var(--reference-border); border-radius:14px; overflow:hidden; background:var(--reference-canvas); color:var(--app-text); font-family:var(--font-ui); box-shadow:0 10px 30px -14px rgba(20,24,28,.18); }
-  .fl-topbar { position:sticky; top:0; z-index:30; display:flex; flex-shrink:0; align-items:center; gap:9px; height:54px; padding:0 16px 0 14px; background:var(--reference-panel); border-bottom:1px solid var(--reference-border); }
-  .fl-brand { font-family:var(--font-display); font-size:17px; font-weight:700; letter-spacing:.07em; }
-  .fl-divider { width:1px; height:15px; background:#c7cfd4; }
-  .fl-section { font-size:13px; color:var(--app-muted); font-weight:500; }
-  .fl-search { display:flex; align-items:center; gap:8px; margin-left:10px; width:360px; padding:7px 10px; border:1px solid var(--reference-border); border-radius:8px; background:var(--reference-panel-2); color:var(--app-subtle); cursor:text; }
-  .fl-search:hover { border-color:var(--reference-blue-bright); }
-  .fl-search span { flex:1; text-align:left; font-size:13px; }
-  .fl-search kbd { border:1px solid #c7cfd4; border-radius:4px; padding:1px 5px; font:11px var(--font-mono); }
-  .fl-top-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
-  .fl-top-right button { border:1px solid #c7cfd4; border-radius:999px; background:var(--reference-panel-2); padding:6px 10px; color:var(--app-muted); font:12px var(--font-mono); cursor:pointer; }
-  .fl-top-right button:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue-bright); }
-  .fl-date { margin-right:7px; font:12px var(--font-mono); color:var(--app-muted); }
+  .fl-window {
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 20px);
+    margin: 10px;
+    border: 1px solid var(--reference-border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--reference-canvas);
+    color: var(--app-text);
+    font-family: var(--font-ui);
+    box-shadow: 0 10px 30px -14px rgba(20, 24, 28, .18);
+  }
+
+  .fl-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 9px;
+    height: 54px;
+    padding: 0 16px 0 14px;
+    background: var(--reference-panel);
+    border-bottom: 1px solid var(--reference-border);
+  }
+
+  .fl-brand {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .07em;
+  }
+
+  .fl-divider {
+    width: 1px;
+    height: 15px;
+    background: #c7cfd4;
+  }
+
+  .fl-section {
+    font-size: 13px;
+    color: var(--app-muted);
+    font-weight: 500;
+  }
+
+  .fl-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 10px;
+    width: 360px;
+    padding: 7px 10px;
+    border: 1px solid var(--reference-border);
+    border-radius: 8px;
+    background: var(--reference-panel-2);
+    color: var(--app-subtle);
+    cursor: text;
+  }
+
+  .fl-search:hover {
+    border-color: var(--reference-blue-bright);
+  }
+
+  .fl-search span {
+    flex: 1;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .fl-search kbd {
+    border: 1px solid #c7cfd4;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font: 11px var(--font-mono);
+  }
+
+  .fl-top-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .fl-top-right button {
+    border: 1px solid #c7cfd4;
+    border-radius: 999px;
+    background: var(--reference-panel-2);
+    padding: 6px 10px;
+    color: var(--app-muted);
+    font: 12px var(--font-mono);
+    cursor: pointer;
+  }
+
+  .fl-top-right button:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-date {
+    margin-right: 7px;
+    font: 12px var(--font-mono);
+    color: var(--app-muted);
+  }
+
+  /* When ?date= drifts off today the header date becomes the way back —
+     styled as a control so it never reads as plain text. */
+  .fl-date-btn {
+    border: 1px solid var(--reference-border);
+    border-radius: 7px;
+    background: var(--reference-panel);
+    padding: 3px 8px;
+    color: var(--reference-blue-bright);
+    cursor: pointer;
+  }
+
+  .fl-date-btn:hover {
+    border-color: var(--reference-blue-bright);
+  }
+
   /* Connection is structural, not a job status — deep blue when live, neutral
      when reconnecting, hatched when demo data is standing in. */
-  .fl-conn { display:flex; gap:6px; align-items:center; border:1px solid #c7cfd4; border-radius:999px; padding:5px 10px; font:12px var(--font-mono); color:var(--app-muted); }
-  .fl-conn i { width:7px; height:7px; border-radius:50%; background:var(--app-subtle); }
-  .fl-conn.live { border-color:var(--reference-blue-bright); color:var(--reference-blue); } .fl-conn.live i { background:var(--reference-blue-bright); }
-  .fl-conn.demo { border-style:dashed; }
-  .fl-conn-btn { background:transparent; cursor:pointer; }
-  .fl-conn-btn:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue); }
-  .fl-conn-btn:hover i { background:var(--reference-blue-bright); }
-  .fl-linkbtn, .fl-ops { display:flex; gap:6px; align-items:center; border:1px solid #c7cfd4; border-radius:999px; padding:5px 10px; background:transparent; color:var(--app-muted); font:12px var(--font-mono); cursor:pointer; }
-  .fl-linkbtn:hover, .fl-ops:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue); }
-  .fl-ops.active { border-color:var(--reference-blue-bright); background:var(--wash-chrome); color:var(--reference-blue); }
+  .fl-conn {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid #c7cfd4;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font: 12px var(--font-mono);
+    color: var(--app-muted);
+  }
 
-  .fl-op { margin-bottom:10px; border:1px solid var(--reference-border); border-radius:10px; padding:10px; background:#fff; }
-  .fl-op strong { display:block; font-size:13px; }
-  .fl-op > span { display:block; margin-top:2px; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-op p { margin:6px 0 0; color:var(--app-muted); font-size:12px; }
-  .fl-op-actions { display:flex; gap:6px; margin-top:8px; }
-  .fl-op-actions button { display:flex; gap:5px; align-items:center; border:1px solid #c7cfd4; border-radius:7px; padding:5px 9px; background:transparent; color:var(--app-muted); font-size:12px; cursor:pointer; }
-  .fl-op-actions button:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue); }
+  .fl-conn i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--app-subtle);
+  }
 
-  .fl-shell { display:flex; flex:1; min-height:0; overflow:hidden; background:var(--reference-canvas); }
-  .fl-rail { position:sticky; top:0; align-self:flex-start; height:100%; width:52px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 0; background:rgba(255,255,255,.85); border-right:1px solid var(--reference-border); }
-  .fl-rail button { width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:10px; background:transparent; color:var(--app-subtle); cursor:pointer; }
-  .fl-rail button:hover { background:var(--reference-panel-2); color:var(--reference-blue); }
-  .fl-rail button.active { background:var(--reference-blue-bright); color:#fff; }
+  .fl-conn.live {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue);
+  }
 
-  .fl-panel { background:rgba(255,255,255,.92); border:1px solid var(--reference-border); border-radius:14px; box-shadow:0 10px 30px -14px rgba(20,24,28,.2); }
+  .fl-conn.live i {
+    background: var(--reference-blue-bright);
+  }
+
+  .fl-conn.demo {
+    border-style: dashed;
+  }
+
+  .fl-conn-btn {
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .fl-conn-btn:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue);
+  }
+
+  .fl-conn-btn:hover i {
+    background: var(--reference-blue-bright);
+  }
+
+  .fl-linkbtn,
+  .fl-ops {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid #c7cfd4;
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: transparent;
+    color: var(--app-muted);
+    font: 12px var(--font-mono);
+    cursor: pointer;
+  }
+
+  .fl-linkbtn:hover,
+  .fl-ops:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue);
+  }
+
+  .fl-ops.active {
+    border-color: var(--reference-blue-bright);
+    background: var(--wash-chrome);
+    color: var(--reference-blue);
+  }
+
+  .fl-op {
+    margin-bottom: 10px;
+    border: 1px solid var(--reference-border);
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+  }
+
+  .fl-op strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  .fl-op>span {
+    display: block;
+    margin-top: 2px;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-op p {
+    margin: 6px 0 0;
+    color: var(--app-muted);
+    font-size: 12px;
+  }
+
+  .fl-op-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .fl-op-actions button {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    border: 1px solid #c7cfd4;
+    border-radius: 7px;
+    padding: 5px 9px;
+    background: transparent;
+    color: var(--app-muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .fl-op-actions button:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue);
+  }
+
+  .fl-shell {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--reference-canvas);
+  }
+
+  .fl-rail {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100%;
+    width: 52px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 0;
+    background: rgba(255, 255, 255, .85);
+    border-right: 1px solid var(--reference-border);
+  }
+
+  .fl-rail button {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--app-subtle);
+    cursor: pointer;
+  }
+
+  .fl-rail button:hover {
+    background: var(--reference-panel-2);
+    color: var(--reference-blue);
+  }
+
+  .fl-rail button.active {
+    background: var(--reference-blue-bright);
+    color: #fff;
+  }
+
+  .fl-panel {
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid var(--reference-border);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px -14px rgba(20, 24, 28, .2);
+  }
+
   /* Sticky tree + inspector: the canvas scrolls, the flanks do not. */
-  .fl-tree { position:sticky; top:0; width:236px; flex-shrink:0; align-self:flex-start; max-height:100%; margin:12px 0 12px 12px; padding:12px; overflow:auto; }
-  .fl-inspector { position:sticky; top:0; width:300px; flex-shrink:0; align-self:flex-start; max-height:100%; margin:12px; padding:14px; overflow:auto; }
-  .fl-inspector h2 { margin:8px 0 12px; font:700 20px/1.15 var(--font-display); }
-  .fl-inspector p { display:flex; align-items:center; gap:8px; margin:0 0 10px; color:var(--app-muted); font-size:13px; }
-  .fl-inspector p a { margin-left:auto; display:flex; gap:4px; color:var(--reference-blue-bright); font-weight:600; }
-  .fl-back { display:flex; align-items:center; gap:4px; margin-bottom:12px; border:0; background:transparent; color:var(--reference-blue-bright); font:11px var(--font-mono); cursor:pointer; }
-  .fl-assignee { display:flex; align-items:center; gap:9px; padding:9px; border:1px solid var(--reference-border); border-radius:9px; background:var(--reference-panel-2); font-size:13px; }
-  .fl-assignee span { display:block; color:var(--app-subtle); font-size:11px; }
+  .fl-tree {
+    position: sticky;
+    top: 0;
+    width: 236px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    max-height: 100%;
+    margin: 12px 0 12px 12px;
+    padding: 12px;
+    overflow: auto;
+  }
 
-  .fl-input { display:flex; gap:6px; align-items:center; padding:7px 8px; border:1px solid var(--reference-border); border-radius:7px; background:var(--reference-panel-2); color:var(--app-subtle); }
-  .fl-input input { min-width:0; flex:1; border:0; outline:0; background:transparent; color:var(--app-text); font:inherit; font-size:13px; }
-  .fl-kicker { display:flex; align-items:center; justify-content:space-between; margin:12px 0 8px; color:var(--app-subtle); font:11px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
-  .fl-kicker button { border:0; background:transparent; color:var(--reference-blue-bright); font:inherit; cursor:pointer; }
+  .fl-inspector {
+    position: sticky;
+    top: 0;
+    width: 300px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    max-height: 100%;
+    margin: 12px;
+    padding: 14px;
+    overflow: auto;
+  }
+
+  .fl-inspector h2 {
+    margin: 8px 0 12px;
+    font: 700 20px/1.15 var(--font-display);
+  }
+
+  .fl-inspector p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    color: var(--app-muted);
+    font-size: 13px;
+  }
+
+  .fl-inspector p a {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+    color: var(--reference-blue-bright);
+    font-weight: 600;
+  }
+
+  .fl-back {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--reference-blue-bright);
+    font: 11px var(--font-mono);
+    cursor: pointer;
+  }
+
+  .fl-assignee {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px;
+    border: 1px solid var(--reference-border);
+    border-radius: 9px;
+    background: var(--reference-panel-2);
+    font-size: 13px;
+  }
+
+  .fl-assignee span {
+    display: block;
+    color: var(--app-subtle);
+    font-size: 11px;
+  }
+
+  .fl-input {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 7px 8px;
+    border: 1px solid var(--reference-border);
+    border-radius: 7px;
+    background: var(--reference-panel-2);
+    color: var(--app-subtle);
+  }
+
+  .fl-input input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 13px;
+  }
+
+  .fl-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 12px 0 8px;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .fl-kicker button {
+    border: 0;
+    background: transparent;
+    color: var(--reference-blue-bright);
+    font: inherit;
+    cursor: pointer;
+  }
+
   /* Collapsed side panel: a slim vertical tab where the panel was, so the
      map can run full-width without losing the way back. */
-  .fl-rail-tab { display:flex; flex-direction:column; align-items:center; gap:8px; flex-shrink:0; align-self:flex-start; margin:12px 0 12px 12px; padding:12px 7px; border:1px solid var(--reference-border); border-radius:10px; background:var(--reference-panel); color:var(--app-muted); font:11px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; cursor:pointer; }
-  .fl-rail-tab span { writing-mode:vertical-rl; }
-  .fl-rail-tab:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue-bright); }
-  .fl-rail-tab.right { margin:12px; }
-  .fl-collapse-btn { display:flex; align-items:center; justify-content:center; width:22px; height:22px; padding:0; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--app-subtle); cursor:pointer; }
-  .fl-collapse-btn:hover { border-color:var(--reference-border); color:var(--reference-blue-bright); }
-  .fl-kicker-actions { display:flex; align-items:center; gap:6px; }
-  .fl-inspector-head { display:flex; align-items:center; justify-content:space-between; }
-  .fl-inspector-head .fl-back { margin-bottom:0; }
-  .fl-muted { padding:8px 2px; color:var(--app-subtle); font-size:12px; }
+  .fl-rail-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin: 12px 0 12px 12px;
+    padding: 12px 7px;
+    border: 1px solid var(--reference-border);
+    border-radius: 10px;
+    background: var(--reference-panel);
+    color: var(--app-muted);
+    font: 11px var(--font-mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .fl-rail-tab span {
+    writing-mode: vertical-rl;
+  }
+
+  .fl-rail-tab:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-rail-tab.right {
+    margin: 12px;
+  }
+
+  .fl-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--app-subtle);
+    cursor: pointer;
+  }
+
+  .fl-collapse-btn:hover {
+    border-color: var(--reference-border);
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-kicker-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .fl-inspector-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .fl-inspector-head .fl-back {
+    margin-bottom: 0;
+  }
+
+  .fl-muted {
+    padding: 8px 2px;
+    color: var(--app-subtle);
+    font-size: 12px;
+  }
 
   /* Crew rows: three presence states, each with its own shape as well as its
      own colour, so on-leave can never be mistaken for merely idle. */
   /* Crew rows read as cards: bordered, elevated on hover, accent-bordered
      when selected — unselected cards must not melt into the panel. */
-  .fl-crew { display:flex; gap:9px; width:100%; margin-bottom:6px; padding:8px 7px; border:1px solid var(--reference-border); border-radius:9px; background:var(--reference-panel); text-align:left; cursor:pointer; }
-  .fl-crew:hover { border-color:var(--reference-blue-bright); background:var(--reference-panel-2); }
-  .fl-crew.selected { border-color:var(--reference-blue-bright); background:var(--wash-chrome); box-shadow:inset 3px 0 0 var(--reference-blue-bright); }
-  .fl-crew strong { display:block; font-size:13px; } .fl-crew > div > span { display:block; color:var(--app-subtle); font-size:11px; }
-  .fl-crew-job { position:relative; display:block; width:100%; border:0; background:transparent; padding:4px 0 4px 14px; color:var(--app-muted); font:11px var(--font-mono); text-align:left; cursor:pointer; }
+  .fl-crew {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 8px 7px;
+    border: 1px solid var(--reference-border);
+    border-radius: 9px;
+    background: var(--reference-panel);
+  }
+
+  .fl-crew.selected {
+    border-color: var(--reference-blue-bright);
+    background: var(--wash-chrome);
+    box-shadow: inset 3px 0 0 var(--reference-blue-bright);
+  }
+
+  .fl-crew-head {
+    display: flex;
+    gap: 9px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-crew-head:hover strong {
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-crew strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  .fl-crew-head>div>span {
+    display: block;
+    color: var(--app-subtle);
+    font-size: 11px;
+  }
+
+  .fl-crew-jobs {
+    margin-top: 2px;
+  }
+
+  .fl-crew-job {
+    position: relative;
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 4px 0 4px 14px;
+    color: var(--app-muted);
+    font: 11px var(--font-mono);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-crew-job:hover {
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-crew-more {
+    display: block;
+    padding: 2px 0 2px 14px;
+    color: var(--app-subtle);
+    font: 10px var(--font-mono);
+  }
+
   /* Status dot per design spec — colour always paired with the time+label text. */
-  .fl-crew-job::before { content:""; position:absolute; left:2px; top:8px; width:7px; height:7px; border-radius:50%; background:var(--app-subtle); }
-  .fl-crew-job.complete::before { background:var(--status-complete); }
-  .fl-crew-job.unassigned::before { background:var(--status-pending); }
-  .fl-crew-job.urgent::before { background:var(--status-urgent); }
-  .fl-crew-job.scheduled::before { background:transparent; border:1.5px solid var(--app-subtle); }
-  .fl-presence { display:inline-flex; align-items:center; gap:5px; margin-top:3px; font:10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; }
-  .fl-presence i { width:8px; height:8px; border-radius:50%; }
-  .fl-presence.on-job { color:var(--reference-blue); } .fl-presence.on-job i { background:var(--reference-blue); }
-  .fl-presence.on-break { color:var(--status-pending); } .fl-presence.on-break i { background:var(--status-pending); }
-  .fl-presence.available { color:var(--app-muted); } .fl-presence.available i { border:1.5px solid var(--app-subtle); }
-  .fl-presence.on-leave { color:var(--app-subtle); } .fl-presence.on-leave i { border-radius:2px; background:repeating-linear-gradient(45deg,var(--app-subtle) 0 2px,transparent 2px 4px); }
+  .fl-crew-job::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--app-subtle);
+  }
 
-  .fl-avatar { width:30px; height:30px; flex-shrink:0; display:grid; place-items:center; border:1.5px solid var(--reference-blue); border-radius:50%; color:var(--reference-blue); font:600 11px var(--font-mono); }
-  .fl-avatar.small { display:inline-grid; width:26px; height:26px; margin-right:7px; vertical-align:middle; }
-  .fl-avatar.large { width:44px; height:44px; font-size:15px; }
+  .fl-crew-job.complete::before {
+    background: var(--status-complete);
+  }
 
-  .fl-canvas { min-width:0; flex:1; overflow:auto; padding:12px 10px; }
-  .fl-canvas-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:0 4px 10px; font-size:13px; }
-  .fl-canvas-toolbar span { color:var(--app-subtle); font-size:12px; }
-  .fl-count { margin-right:10px; font:800 42px/1 var(--font-display); color:var(--app-subtle); }
-  .fl-count.red { color:var(--status-urgent); } .fl-count.amber { color:var(--status-pending); } .fl-count.blue { color:var(--reference-blue-bright); } .fl-count.green { color:var(--status-complete); }
-  .fl-segment { display:flex; align-items:center; gap:2px; border:1px solid var(--reference-border); border-radius:7px; background:var(--reference-panel-2); padding:2px; }
-  .fl-segment button { border:0; background:transparent; padding:5px 9px; border-radius:5px; color:var(--app-subtle); cursor:pointer; }
-  .fl-segment button.active { background:#fff; color:var(--app-text); }
-  .fl-nav { display:flex; align-items:center; gap:4px; font:12px var(--font-mono); color:var(--app-muted); }
-  .fl-nav button { display:grid; place-items:center; width:26px; height:26px; border:1px solid var(--reference-border); border-radius:6px; background:#fff; color:var(--app-muted); cursor:pointer; }
+  .fl-crew-job.unassigned::before {
+    background: var(--status-pending);
+  }
 
-  .fl-queue { display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:0 4px 12px; padding:9px 11px; border:1px dashed var(--reference-blue-bright); border-radius:10px; background:#eaf1fa; }
-  .fl-queue > span { color:var(--reference-blue); font:11px var(--font-mono); }
-  .fl-queue-job { display:flex; gap:7px; align-items:center; border:1px solid #c7cfd4; border-radius:7px; background:#fff; padding:6px 10px; color:var(--app-muted); font-size:12px; cursor:grab; }
-  .fl-queue-job:active { cursor:grabbing; }
+  .fl-crew-job.urgent::before {
+    background: var(--status-urgent);
+  }
 
-  .fl-board { overflow:hidden; border:1px solid var(--reference-border); border-radius:12px; background:#fff; }
-  .fl-hours { display:grid; padding:6px 0 5px 176px; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-hours span { text-align:left; }
-  .fl-row { display:grid; grid-template-columns:176px 1fr; min-height:74px; border-top:1px solid var(--reference-border); }
-  .fl-row-head { display:flex; flex-direction:column; justify-content:center; gap:2px; padding:10px 12px; border-right:1px solid var(--reference-border); font-size:13px; }
-  .fl-row-head small { color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-lane { position:relative; background:repeating-linear-gradient(to right,var(--reference-border) 0,var(--reference-border) 1px,transparent 1px,transparent 10%); }
-  .fl-lane.over { background-color:var(--wash-chrome); }
-  .fl-lane.blocked { background-color:var(--wash-urgent); }
-  .fl-lane.leave { background-image:repeating-linear-gradient(45deg,var(--reference-border) 0 6px,transparent 6px 12px); }
-  .fl-job { position:absolute; top:8px; bottom:8px; overflow:hidden; border:0; border-left:3px solid var(--app-subtle); border-radius:7px; padding:5px 8px; background:var(--reference-panel-2); color:var(--app-muted); text-align:left; font:11px var(--font-mono); white-space:nowrap; cursor:grab; }
-  .fl-job:active { cursor:grabbing; }
-  .fl-job.urgent { border-left-color:var(--status-urgent); background:var(--wash-urgent); color:var(--status-urgent); }
-  .fl-job.scheduled { border-left-color:var(--reference-blue); background:var(--wash-active); color:var(--reference-blue); }
-  .fl-job.complete { border-left-color:var(--status-complete); background:var(--wash-complete); color:var(--status-complete); }
-  .fl-job.unassigned { border-left-color:var(--reference-blue-bright); background:var(--wash-chrome); color:var(--reference-blue); }
-  .fl-job.dragging { opacity:.4; }
-  .fl-row.dim { opacity:.38; }
+  .fl-crew-job.scheduled::before {
+    background: transparent;
+    border: 1.5px solid var(--app-subtle);
+  }
+
+  .fl-presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    font: 10px var(--font-mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .fl-presence i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .fl-presence.on-job {
+    color: var(--reference-blue);
+  }
+
+  .fl-presence.on-job i {
+    background: var(--reference-blue);
+  }
+
+  .fl-presence.on-break {
+    color: var(--status-pending);
+  }
+
+  .fl-presence.on-break i {
+    background: var(--status-pending);
+  }
+
+  .fl-presence.available {
+    color: var(--app-muted);
+  }
+
+  .fl-presence.available i {
+    border: 1.5px solid var(--app-subtle);
+  }
+
+  .fl-presence.on-leave {
+    color: var(--app-subtle);
+  }
+
+  .fl-presence.on-leave i {
+    border-radius: 2px;
+    background: repeating-linear-gradient(45deg, var(--app-subtle) 0 2px, transparent 2px 4px);
+  }
+
+  .fl-avatar {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--reference-blue);
+    border-radius: 50%;
+    color: var(--reference-blue);
+    font: 600 11px var(--font-mono);
+  }
+
+  .fl-avatar.small {
+    display: inline-grid;
+    width: 26px;
+    height: 26px;
+    margin-right: 7px;
+    vertical-align: middle;
+  }
+
+  .fl-avatar.large {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+  }
+
+  .fl-canvas {
+    min-width: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 12px 10px;
+  }
+
+  .fl-canvas-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 0 4px 10px;
+    font-size: 13px;
+  }
+
+  .fl-canvas-toolbar span {
+    color: var(--app-subtle);
+    font-size: 12px;
+  }
+
+  .fl-count {
+    margin-right: 10px;
+    font: 800 42px/1 var(--font-display);
+    color: var(--app-subtle);
+  }
+
+  .fl-count.red {
+    color: var(--status-urgent);
+  }
+
+  .fl-count.amber {
+    color: var(--status-pending);
+  }
+
+  .fl-count.blue {
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-count.green {
+    color: var(--status-complete);
+  }
+
+  .fl-segment {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--reference-border);
+    border-radius: 7px;
+    background: var(--reference-panel-2);
+    padding: 2px;
+  }
+
+  .fl-segment button {
+    border: 0;
+    background: transparent;
+    padding: 5px 9px;
+    border-radius: 5px;
+    color: var(--app-subtle);
+    cursor: pointer;
+  }
+
+  .fl-segment button.active {
+    background: #fff;
+    color: var(--app-text);
+  }
+
+  .fl-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font: 12px var(--font-mono);
+    color: var(--app-muted);
+  }
+
+  .fl-nav button {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--reference-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--app-muted);
+    cursor: pointer;
+  }
+
+  .fl-queue {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+    margin: 0 4px 12px;
+    padding: 9px 11px;
+    border: 1px dashed var(--reference-blue-bright);
+    border-radius: 10px;
+    background: #eaf1fa;
+  }
+
+  .fl-queue>span {
+    color: var(--reference-blue);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-queue-job {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    border: 1px solid #c7cfd4;
+    border-radius: 7px;
+    background: #fff;
+    padding: 6px 10px;
+    color: var(--app-muted);
+    font-size: 12px;
+    cursor: grab;
+  }
+
+  .fl-queue-job:active {
+    cursor: grabbing;
+  }
+
+  .fl-board {
+    overflow: hidden;
+    border: 1px solid var(--reference-border);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .fl-hours {
+    display: grid;
+    padding: 6px 0 5px 176px;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-hours span {
+    text-align: left;
+  }
+
+  .fl-row {
+    display: grid;
+    grid-template-columns: 176px 1fr;
+    min-height: 74px;
+    border-top: 1px solid var(--reference-border);
+  }
+
+  .fl-row-head {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 12px;
+    border-right: 1px solid var(--reference-border);
+    font-size: 13px;
+  }
+
+  .fl-row-head small {
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-lane {
+    position: relative;
+    background: repeating-linear-gradient(to right, var(--reference-border) 0, var(--reference-border) 1px, transparent 1px, transparent 10%);
+  }
+
+  .fl-lane.over {
+    background-color: var(--wash-chrome);
+  }
+
+  .fl-lane.blocked {
+    background-color: var(--wash-urgent);
+  }
+
+  .fl-lane.leave {
+    background-image: repeating-linear-gradient(45deg, var(--reference-border) 0 6px, transparent 6px 12px);
+  }
+
+  .fl-job {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    overflow: hidden;
+    border: 0;
+    border-left: 3px solid var(--app-subtle);
+    border-radius: 7px;
+    padding: 5px 8px;
+    background: var(--reference-panel-2);
+    color: var(--app-muted);
+    text-align: left;
+    font: 11px var(--font-mono);
+    white-space: nowrap;
+    cursor: grab;
+  }
+
+  .fl-job:active {
+    cursor: grabbing;
+  }
+
+  .fl-job.urgent {
+    border-left-color: var(--status-urgent);
+    background: var(--wash-urgent);
+    color: var(--status-urgent);
+  }
+
+  .fl-job.scheduled {
+    border-left-color: var(--reference-blue);
+    background: var(--wash-active);
+    color: var(--reference-blue);
+  }
+
+  .fl-job.complete {
+    border-left-color: var(--status-complete);
+    background: var(--wash-complete);
+    color: var(--status-complete);
+  }
+
+  .fl-job.unassigned {
+    border-left-color: var(--reference-blue-bright);
+    background: var(--wash-chrome);
+    color: var(--reference-blue);
+  }
+
+  .fl-job.dragging {
+    opacity: .4;
+  }
+
+  .fl-row.dim {
+    opacity: .38;
+  }
+
   /* Now-line: structural blue, never a status colour. */
-  .fl-now { position:absolute; top:0; bottom:0; z-index:2; width:1px; background:var(--reference-blue-bright); pointer-events:none; }
-  .fl-now span { position:absolute; top:-1px; left:3px; color:var(--reference-blue-bright); font:10px var(--font-mono); }
+  .fl-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 1px;
+    background: var(--reference-blue-bright);
+    pointer-events: none;
+  }
 
-  .fl-week { display:flex; flex-direction:column; gap:6px; }
-  .fl-week-head, .fl-week-row { display:grid; grid-template-columns:150px repeat(7,1fr); gap:6px; align-items:stretch; }
-  .fl-week-head span { padding:0 4px; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-week-head span.today { color:var(--reference-blue-bright); }
-  .fl-week-row.dim { opacity:.38; }
-  .fl-week-name { display:flex; align-items:center; font-size:13px; }
-  .fl-week-cell { display:flex; flex-direction:column; gap:3px; min-height:52px; border:1px solid var(--reference-border); border-radius:8px; padding:5px; background:#fff; }
+  .fl-now span {
+    position: absolute;
+    top: -1px;
+    left: 3px;
+    color: var(--reference-blue-bright);
+    font: 10px var(--font-mono);
+  }
 
-  .fl-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
-  .fl-cell { min-height:104px; padding:8px; border:1px solid var(--reference-border); border-radius:10px; background:#fff; }
-  .fl-cell.empty { background:var(--reference-panel-2); border-style:dashed; }
-  .fl-cell.today { border-color:var(--reference-blue-bright); }
-  .fl-cell > header { display:flex; justify-content:space-between; margin-bottom:6px; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-cell-empty { color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-chip { display:block; width:100%; margin-bottom:4px; overflow:hidden; border:0; border-left:3px solid var(--app-subtle); border-radius:5px; padding:3px 6px; background:var(--reference-panel-2); color:var(--app-muted); font-size:11px; text-align:left; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
-  .fl-chip.urgent { border-left-color:var(--status-urgent); background:var(--wash-urgent); color:var(--status-urgent); }
-  .fl-chip.scheduled { border-left-color:var(--reference-blue); background:var(--wash-active); color:var(--reference-blue); }
-  .fl-chip.complete { border-left-color:var(--status-complete); background:var(--wash-complete); color:var(--status-complete); }
-  .fl-chip.unassigned { border-left-color:var(--reference-blue-bright); background:var(--wash-chrome); color:var(--reference-blue); }
+  .fl-week {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
 
-  .fl-status { display:inline-flex; gap:5px; align-items:center; margin-bottom:8px; border-radius:6px; padding:4px 8px; background:var(--reference-panel-2); color:var(--app-muted); font-size:11px; font-weight:600; }
-  .fl-status.urgent { background:var(--wash-urgent); color:var(--status-urgent); }
-  .fl-status.pending { background:var(--wash-pending); color:var(--status-pending); }
-  .fl-status.complete { background:var(--wash-complete); color:var(--status-complete); }
-  .fl-status.scheduled { background:var(--wash-active); color:var(--reference-blue); }
-  .fl-status.unassigned { background:var(--wash-chrome); color:var(--reference-blue); }
+  .fl-week-head,
+  .fl-week-row {
+    display: grid;
+    grid-template-columns: 150px repeat(7, 1fr);
+    gap: 6px;
+    align-items: stretch;
+  }
 
-  .fl-flag { display:flex; gap:9px; align-items:flex-start; width:100%; margin-bottom:7px; padding:9px 10px; border:1px solid var(--reference-border); border-left-width:3px; border-radius:9px; background:#fff; text-align:left; cursor:pointer; }
-  .fl-flag strong { display:block; font-size:12px; } .fl-flag span { display:block; color:var(--app-subtle); font-size:11px; }
-  .fl-flag.red { border-left-color:var(--status-urgent); color:var(--status-urgent); }
-  .fl-flag.amber { border-left-color:var(--status-pending); color:var(--status-pending); }
-  .fl-flag.blue { border-left-color:var(--reference-blue-bright); color:var(--reference-blue); }
+  .fl-week-head span {
+    padding: 0 4px;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-week-head span.today {
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-week-row.dim {
+    opacity: .38;
+  }
+
+  .fl-week-name {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  .fl-week-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-height: 52px;
+    border: 1px solid var(--reference-border);
+    border-radius: 8px;
+    padding: 5px;
+    background: #fff;
+  }
+
+  .fl-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+
+  .fl-cell {
+    min-height: 104px;
+    padding: 8px;
+    border: 1px solid var(--reference-border);
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .fl-cell.empty {
+    background: var(--reference-panel-2);
+    border-style: dashed;
+  }
+
+  .fl-cell.today {
+    border-color: var(--reference-blue-bright);
+  }
+
+  .fl-cell>header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-cell-empty {
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-chip {
+    display: block;
+    width: 100%;
+    margin-bottom: 4px;
+    overflow: hidden;
+    border: 0;
+    border-left: 3px solid var(--app-subtle);
+    border-radius: 5px;
+    padding: 3px 6px;
+    background: var(--reference-panel-2);
+    color: var(--app-muted);
+    font-size: 11px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .fl-chip.urgent {
+    border-left-color: var(--status-urgent);
+    background: var(--wash-urgent);
+    color: var(--status-urgent);
+  }
+
+  .fl-chip.scheduled {
+    border-left-color: var(--reference-blue);
+    background: var(--wash-active);
+    color: var(--reference-blue);
+  }
+
+  .fl-chip.complete {
+    border-left-color: var(--status-complete);
+    background: var(--wash-complete);
+    color: var(--status-complete);
+  }
+
+  .fl-chip.unassigned {
+    border-left-color: var(--reference-blue-bright);
+    background: var(--wash-chrome);
+    color: var(--reference-blue);
+  }
+
+  .fl-status {
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: var(--reference-panel-2);
+    color: var(--app-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .fl-status.urgent {
+    background: var(--wash-urgent);
+    color: var(--status-urgent);
+  }
+
+  .fl-status.pending {
+    background: var(--wash-pending);
+    color: var(--status-pending);
+  }
+
+  .fl-status.complete {
+    background: var(--wash-complete);
+    color: var(--status-complete);
+  }
+
+  .fl-status.scheduled {
+    background: var(--wash-active);
+    color: var(--reference-blue);
+  }
+
+  .fl-status.unassigned {
+    background: var(--wash-chrome);
+    color: var(--reference-blue);
+  }
+
+  .fl-flag {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 7px;
+    padding: 9px 10px;
+    border: 1px solid var(--reference-border);
+    border-left-width: 3px;
+    border-radius: 9px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-flag strong {
+    display: block;
+    font-size: 12px;
+  }
+
+  .fl-flag span {
+    display: block;
+    color: var(--app-subtle);
+    font-size: 11px;
+  }
+
+  .fl-flag.red {
+    border-left-color: var(--status-urgent);
+    color: var(--status-urgent);
+  }
+
+  .fl-flag.amber {
+    border-left-color: var(--status-pending);
+    color: var(--status-pending);
+  }
+
+  .fl-flag.blue {
+    border-left-color: var(--reference-blue-bright);
+    color: var(--reference-blue);
+  }
 
   /* Honest action: visually responsive, states plainly that it is not wired
      to a production service instead of faking a success toast. */
-  .fl-honest { display:flex; gap:7px; align-items:center; width:100%; margin-top:10px; padding:8px 10px; border:1px dashed #c7cfd4; border-radius:8px; background:var(--reference-panel-2); color:var(--app-muted); font-size:12px; text-align:left; cursor:pointer; }
-  .fl-honest:hover { border-color:var(--reference-blue-bright); color:var(--reference-blue-bright); }
-  .fl-notice { margin-top:8px; color:var(--app-muted); font:11px var(--font-mono); }
-  .fl-assign { margin-top:14px; display:flex; flex-direction:column; gap:7px; }
-  .fl-assign select { flex:1; border:0; outline:0; background:transparent; color:var(--app-text); font:inherit; font-size:13px; }
-  .fl-assign-go { padding:8px 10px; border:1px solid var(--reference-blue-bright); border-radius:8px; background:var(--reference-blue-bright); color:#fff; font-size:12px; font-weight:600; cursor:pointer; }
-  .fl-assign-go:disabled { border-color:#c7cfd4; background:var(--reference-panel-2); color:var(--app-subtle); cursor:not-allowed; }
+  .fl-honest {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px 10px;
+    border: 1px dashed #c7cfd4;
+    border-radius: 8px;
+    background: var(--reference-panel-2);
+    color: var(--app-muted);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-honest:hover {
+    border-color: var(--reference-blue-bright);
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-notice {
+    margin-top: 8px;
+    color: var(--app-muted);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-assign {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .fl-assign select {
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 13px;
+  }
+
+  .fl-assign-go {
+    padding: 8px 10px;
+    border: 1px solid var(--reference-blue-bright);
+    border-radius: 8px;
+    background: var(--reference-blue-bright);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .fl-assign-go:disabled {
+    border-color: #c7cfd4;
+    background: var(--reference-panel-2);
+    color: var(--app-subtle);
+    cursor: not-allowed;
+  }
 
   /* The map is the primary stage: framed darker than the floating side
      panels, with a shadow, so the pale tile canvas separates from the UI
      instead of blending into it. position:relative anchors the in-map
      overlays (REACH control) to the map, not the viewport. */
-  .fl-map { position:relative; min-width:0; flex:1; margin:12px 0; overflow:hidden; border:1px solid var(--edge-highlight); border-radius:14px; background:var(--chassis-recess); box-shadow:var(--chassis-shadow); }
-  .fl-map > .maplibregl-map { height:100%; }
+  .fl-map {
+    position: relative;
+    min-width: 0;
+    flex: 1;
+    margin: 12px 0;
+    overflow: hidden;
+    border: 1px solid var(--edge-highlight);
+    border-radius: 14px;
+    background: var(--chassis-recess);
+    box-shadow: var(--chassis-shadow);
+  }
 
-  .fl-doc, .fl-history { display:flex; align-items:center; gap:12px; width:100%; max-width:720px; margin-bottom:7px; padding:11px 13px; border:1px solid var(--reference-border); border-radius:9px; background:#fff; font-size:13px; text-align:left; cursor:pointer; }
-  .fl-doc div, .fl-history strong { flex:1; }
-  .fl-doc strong { display:block; font-size:13px; } .fl-doc div span { display:block; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-doc .fl-status, .fl-history .fl-status { margin-bottom:0; }
-  .fl-category { display:flex; width:100%; gap:8px; align-items:center; padding:9px 8px; border:0; background:transparent; color:var(--app-muted); font-size:13px; text-align:left; cursor:pointer; }
-  .fl-category.selected { color:var(--reference-blue); font-weight:600; }
-  .fl-category b { margin-left:auto; color:var(--app-subtle); font:11px var(--font-mono); font-weight:400; }
-  .fl-money { margin-left:auto; font:12px var(--font-mono); }
+  .fl-map>.maplibregl-map {
+    height: 100%;
+  }
 
-  .fl-customer { display:flex; align-items:center; gap:14px; max-width:780px; margin-bottom:20px; padding:16px; border:1px solid var(--reference-border); border-radius:12px; background:#fff; }
-  .fl-customer h2 { margin:0; font:700 20px var(--font-display); }
-  .fl-customer p { display:flex; gap:6px; margin:3px 0 0; color:var(--app-muted); font-size:13px; }
-  .fl-agreement { display:flex; flex-direction:column; gap:6px; max-width:780px; margin-bottom:20px; padding:14px; border:1px solid var(--reference-border); border-radius:12px; background:#fff; }
-  .fl-agreement strong { font-size:15px; } .fl-agreement > span:last-child { color:var(--app-muted); font:12px var(--font-mono); }
+  /* Day chip floats over the map top-left: which board day this is, plus
+     the only day navigation this surface has — ?date= drives the board but
+     was unreachable from the map before this control existed. */
+  .fl-map-day {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border: 1px solid var(--reference-border);
+    border-radius: 8px;
+    background: var(--reference-panel);
+    padding: 2px;
+    box-shadow: 0 8px 24px -12px rgba(20, 24, 28, .25);
+  }
 
-  .fl-stat-row { display:flex; flex-wrap:wrap; gap:12px; max-width:860px; margin:12px 0 20px; }
-  .fl-stat { flex:1; min-width:150px; padding:18px 12px; border:1px solid var(--reference-border); border-radius:12px; background:#fff; text-align:center; }
-  .fl-stat strong { display:block; font:800 30px/1 var(--font-display); }
-  .fl-stat span { color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-stat.unknown strong { color:var(--app-subtle); }
-  .fl-table { width:100%; max-width:980px; border-collapse:collapse; }
-  .fl-table th { padding:8px 10px; border-bottom:1px solid var(--reference-border); color:var(--app-subtle); text-align:left; font:11px var(--font-mono); }
-  .fl-table td { padding:10px; border-bottom:1px solid var(--reference-border); font-size:13px; }
-  .fl-table td.num { font-family:var(--font-mono); font-variant-numeric:tabular-nums; text-align:right; }
-  .fl-table em { color:var(--app-subtle); font:11px var(--font-mono); font-style:normal; }
+  .fl-map-day>span {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0 6px;
+    font: 600 12px var(--font-mono);
+    color: var(--app-text);
+  }
+
+  .fl-map-day>span b {
+    font: 10px var(--font-mono);
+    font-weight: 400;
+    color: var(--app-subtle);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .fl-map-day>button {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--app-muted);
+    cursor: pointer;
+  }
+
+  .fl-map-day>button:hover {
+    background: var(--reference-panel-2);
+    color: var(--reference-blue-bright);
+  }
+
+  .fl-map-day .fl-map-today {
+    width: auto;
+    padding: 0 9px;
+    border: 1px solid var(--reference-border);
+    font: 600 10px var(--font-mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--reference-blue-bright);
+  }
+
+  /* An empty board day gets an honest card, not a silent basemap. */
+  .fl-map-empty {
+    position: absolute;
+    top: 56px;
+    left: 10px;
+    z-index: 11;
+    max-width: 300px;
+    border: 1px solid var(--reference-border);
+    border-radius: 10px;
+    background: var(--reference-panel);
+    padding: 12px 14px;
+    box-shadow: 0 10px 30px -14px rgba(20, 24, 28, .3);
+  }
+
+  .fl-map-empty strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  .fl-map-empty span {
+    display: block;
+    margin-top: 4px;
+    color: var(--app-muted);
+    font-size: 12px;
+  }
+
+  .fl-map-empty button {
+    margin-top: 9px;
+    border: 1px solid var(--reference-blue-bright);
+    border-radius: 7px;
+    background: var(--reference-blue-bright);
+    color: #fff;
+    padding: 5px 11px;
+    font: 600 11px var(--font-mono);
+    cursor: pointer;
+  }
+
+  .fl-map-unlocated {
+    position: absolute;
+    bottom: 12px;
+    right: 10px;
+    z-index: 11;
+    max-width: 280px;
+    border: 1px solid var(--reference-border);
+    border-radius: 8px;
+    background: var(--reference-panel);
+    padding: 7px 10px;
+    color: var(--app-muted);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-doc,
+  .fl-history {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 720px;
+    margin-bottom: 7px;
+    padding: 11px 13px;
+    border: 1px solid var(--reference-border);
+    border-radius: 9px;
+    background: #fff;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-doc div,
+  .fl-history strong {
+    flex: 1;
+  }
+
+  .fl-doc strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  .fl-doc div span {
+    display: block;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-doc .fl-status,
+  .fl-history .fl-status {
+    margin-bottom: 0;
+  }
+
+  .fl-category {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 8px;
+    border: 0;
+    background: transparent;
+    color: var(--app-muted);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-category.selected {
+    color: var(--reference-blue);
+    font-weight: 600;
+  }
+
+  .fl-category b {
+    margin-left: auto;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+    font-weight: 400;
+  }
+
+  .fl-money {
+    margin-left: auto;
+    font: 12px var(--font-mono);
+  }
+
+  .fl-customer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 780px;
+    margin-bottom: 20px;
+    padding: 16px;
+    border: 1px solid var(--reference-border);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .fl-customer h2 {
+    margin: 0;
+    font: 700 20px var(--font-display);
+  }
+
+  .fl-customer p {
+    display: flex;
+    gap: 6px;
+    margin: 3px 0 0;
+    color: var(--app-muted);
+    font-size: 13px;
+  }
+
+  .fl-agreement {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 780px;
+    margin-bottom: 20px;
+    padding: 14px;
+    border: 1px solid var(--reference-border);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .fl-agreement strong {
+    font-size: 15px;
+  }
+
+  .fl-agreement>span:last-child {
+    color: var(--app-muted);
+    font: 12px var(--font-mono);
+  }
+
+  .fl-stat-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 860px;
+    margin: 12px 0 20px;
+  }
+
+  .fl-stat {
+    flex: 1;
+    min-width: 150px;
+    padding: 18px 12px;
+    border: 1px solid var(--reference-border);
+    border-radius: 12px;
+    background: #fff;
+    text-align: center;
+  }
+
+  .fl-stat strong {
+    display: block;
+    font: 800 30px/1 var(--font-display);
+  }
+
+  .fl-stat span {
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-stat.unknown strong {
+    color: var(--app-subtle);
+  }
+
+  .fl-table {
+    width: 100%;
+    max-width: 980px;
+    border-collapse: collapse;
+  }
+
+  .fl-table th {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--reference-border);
+    color: var(--app-subtle);
+    text-align: left;
+    font: 11px var(--font-mono);
+  }
+
+  .fl-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--reference-border);
+    font-size: 13px;
+  }
+
+  .fl-table td.num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .fl-table em {
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+    font-style: normal;
+  }
 
   /* Command palette — a real filter over jobs and crew, not a decorative box. */
-  .fl-palette-scrim { position:fixed; inset:0; z-index:60; display:flex; justify-content:center; padding-top:12vh; background:var(--scrim); }
-  .fl-palette { width:min(620px,92vw); max-height:64vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--reference-border); border-radius:14px; background:#fff; box-shadow:0 24px 60px -20px rgba(20,24,28,.45); }
-  .fl-palette > label { display:flex; gap:9px; align-items:center; padding:13px 15px; border-bottom:1px solid var(--reference-border); color:var(--app-subtle); }
-  .fl-palette input { flex:1; border:0; outline:0; background:transparent; color:var(--app-text); font:inherit; font-size:15px; }
-  .fl-palette-list { overflow:auto; padding:6px; }
-  .fl-palette-row { display:flex; gap:10px; align-items:center; width:100%; padding:9px 10px; border:0; border-radius:8px; background:transparent; font-size:13px; text-align:left; cursor:pointer; }
-  .fl-palette-row small { margin-left:auto; color:var(--app-subtle); font:11px var(--font-mono); }
-  .fl-palette-row.active, .fl-palette-row:hover { background:var(--wash-chrome); }
+  .fl-palette-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    justify-content: center;
+    padding-top: 12vh;
+    background: var(--scrim);
+  }
+
+  .fl-palette {
+    width: min(620px, 92vw);
+    max-height: 64vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--reference-border);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 24px 60px -20px rgba(20, 24, 28, .45);
+  }
+
+  .fl-palette>label {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--reference-border);
+    color: var(--app-subtle);
+  }
+
+  .fl-palette input {
+    flex: 1;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--app-text);
+    font: inherit;
+    font-size: 15px;
+  }
+
+  .fl-palette-list {
+    overflow: auto;
+    padding: 6px;
+  }
+
+  .fl-palette-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .fl-palette-row small {
+    margin-left: auto;
+    color: var(--app-subtle);
+    font: 11px var(--font-mono);
+  }
+
+  .fl-palette-row.active,
+  .fl-palette-row:hover {
+    background: var(--wash-chrome);
+  }
 
   /* Elevated surface — light: white card; dark: frosted chassis glass
      (Electron `.glass`: translucent fill + 16px backdrop-blur + inset
@@ -500,14 +1852,17 @@
     transition: transform 0.12s ease;
     transform-origin: bottom center;
   }
+
   .jb-pin:hover,
   .jb-pin:focus-visible {
     transform: scale(1.12);
   }
+
   .jb-pin:focus-visible {
     outline: 2px solid var(--chrome-400);
     outline-offset: 2px;
   }
+
   .jb-pin.is-selected {
     transform: scale(1.2);
   }
@@ -562,9 +1917,44 @@
     background: transparent;
   }
 }
-  /* Drive-time reach shells control (map surface, floats over the map) */
-  .fl-reach { position:absolute; top:10px; right:10px; z-index:12; display:flex; align-items:center; gap:2px; border:1px solid var(--reference-border); border-radius:8px; background:var(--reference-panel); padding:2px; }
-  .fl-reach-label { font:600 10px var(--font-mono); letter-spacing:.06em; color:var(--app-subtle); padding:0 4px 0 6px; }
-  .fl-reach button { border:0; background:transparent; padding:4px 8px; border-radius:6px; color:var(--app-muted); font:600 11px var(--font-mono); cursor:pointer; }
-  .fl-reach button:hover { background:var(--reference-panel-2); }
-  .fl-reach button[aria-pressed="true"] { background:var(--wash-chrome); color:var(--reference-blue); }
+
+/* Drive-time reach shells control (map surface, floats over the map) */
+.fl-reach {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--reference-border);
+  border-radius: 8px;
+  background: var(--reference-panel);
+  padding: 2px;
+}
+
+.fl-reach-label {
+  font: 600 10px var(--font-mono);
+  letter-spacing: .06em;
+  color: var(--app-subtle);
+  padding: 0 4px 0 6px;
+}
+
+.fl-reach button {
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--app-muted);
+  font: 600 11px var(--font-mono);
+  cursor: pointer;
+}
+
+.fl-reach button:hover {
+  background: var(--reference-panel-2);
+}
+
+.fl-reach button[aria-pressed="true"] {
+  background: var(--wash-chrome);
+  color: var(--reference-blue);
+}

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { MapPin, Navigation, PanelLeftOpen, PanelRightOpen } from "lucide-react"
+import { ChevronLeft, ChevronRight, MapPin, Navigation, PanelLeftOpen, PanelRightOpen } from "lucide-react"
 
 import { MapErrorBoundary } from "@/features/map/MapErrorBoundary"
-import { DAY_START_MINUTES, blockLabel, formatDate } from "@/lib/format"
-import { arrivedJobFor, computeRouteOrder, dispatchStatus, jobsOnDay } from "@/lib/crewline"
+import { DAY_START_MINUTES, blockLabel, dayLabel, formatDate, todayIsoDay } from "@/lib/format"
+import { arrivedJobFor, computeRouteOrder, dispatchStatus, jobsOnDay, shiftDay } from "@/lib/crewline"
 import { travelMinutes } from "@/lib/travel"
 import { useBoardStore, useJobsList, type LiveLocation } from "@/stores/boardStore"
 import type { GeoPoint, Job, Technician } from "@/types"
@@ -68,10 +68,12 @@ function etaFor(
 
 export function MapSurface({
   day,
+  onDayChange,
   selectedJobId,
   onSelectJob
 }: {
   day: string
+  onDayChange: (day: string) => void
   /** URL-backed Crewline selection, shared with every other surface. */
   selectedJobId: string
   onSelectJob: (jobId: string) => void
@@ -93,6 +95,11 @@ export function MapSurface({
   // the derived route plan and day slice identity-stable so the map's GeoJSON
   // sources only rebuild when their actual inputs change.
   const visible = useMemo(() => jobsOnDay(jobs, day), [jobs, day])
+  // Jobs with no site address can never be pinned — count them separately so
+  // an "empty" map can say *why* it is empty instead of staying silent.
+  const located = useMemo(() => visible.filter(job => job.location), [visible])
+  const unlocatedCount = visible.length - located.length
+  const isToday = day === todayIsoDay()
   const plan = useMemo(
     () => computeRouteOrder(techId, jobs, technician, day),
     [techId, jobs, technician, day]
@@ -175,8 +182,54 @@ export function MapSurface({
       <div
         className="fl-map"
         role="region"
-        aria-label="Job map. WebGL pins are not keyboard reachable — the Crew list beside the map is the accessible job index, and routed stops carry numbered focusable badges."
+        aria-label="Job map. Pins are focusable buttons; the Crew list beside the map is the keyboard job index, and routed stops carry numbered focusable badges."
       >
+        {/* Day context: the board day comes from the shared ?date= param, so
+            without controls here a dispatcher could be left staring at an
+            empty map of some other day with no way back. */}
+        <div className="fl-map-day">
+          <button type="button" aria-label="Previous day" onClick={() => onDayChange(shiftDay(day, -1))}>
+            <ChevronLeft size={13} />
+          </button>
+          <span aria-live="polite">
+            {dayLabel(day)}
+            <b>
+              {visible.length === 0
+                ? "no jobs"
+                : `${visible.length} job${visible.length === 1 ? "" : "s"}`}
+              {!isToday && " · not today"}
+            </b>
+          </span>
+          <button type="button" aria-label="Next day" onClick={() => onDayChange(shiftDay(day, 1))}>
+            <ChevronRight size={13} />
+          </button>
+          {!isToday && (
+            <button type="button" className="fl-map-today" onClick={() => onDayChange(todayIsoDay())}>
+              Today
+            </button>
+          )}
+        </div>
+        {visible.length === 0 && (
+          <div className="fl-map-empty" role="status">
+            <strong>Nothing on the board for {dayLabel(day)}</strong>
+            <span>
+              {isToday
+                ? "Jobs with a site address pin here once dispatch schedules them."
+                : "This day has no jobs — jump back to today or pick another day."}
+            </span>
+            {!isToday && (
+              <button type="button" onClick={() => onDayChange(todayIsoDay())}>
+                Back to today
+              </button>
+            )}
+          </div>
+        )}
+        {unlocatedCount > 0 && (
+          <div className="fl-map-unlocated" role="status">
+            {unlocatedCount} job{unlocatedCount === 1 ? "" : "s"} on this day
+            {unlocatedCount === 1 ? " has" : " have"} no site address — not pinned.
+          </div>
+        )}
         {selectedJob?.location && (
           <div className="fl-reach" role="group" aria-label="Drive-time reach from this job">
             <span className="fl-reach-label">REACH</span>
@@ -195,6 +248,7 @@ export function MapSurface({
         <MapErrorBoundary>
           <MapLibreView
             visible={visible}
+            day={day}
             vanId={techId}
             onSelectJob={onSelectJob}
             orderedStopIds={orderedStopIds}
@@ -212,62 +266,76 @@ export function MapSurface({
           onCollapse={() => setInspectorOpen(false)}
         >
           {!technician && <div className="fl-muted">Pick a crew member to order their stops.</div>}
-        {technician && (
-          <>
-            <p>
-              {technician.name} · {plan.order.length} stop
-              {plan.order.length === 1 ? "" : "s"}
-            </p>
-            {eta && (
-              <p
-                className={eta.status === "late" ? "fl-flag urgent" : "fl-flag"}
-                data-testid="fl-live-eta"
-              >
-                <Navigation size={13} />
-                {eta.status === "late" && (
-                  <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · running ~{Math.round(eta.byMinutes / 5) * 5} min late</>
-                )}
-                {eta.status === "on_time" && (
-                  <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · on time ({Math.round(eta.byMinutes / 5) * 5} min spare)</>
-                )}
-                {eta.status === "window_started" && (
-                  <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · window started {eta.byMinutes} min ago</>
-                )}
-              </p>
-            )}
-            {technician.lastKnownLocation ? (
+          {technician && (
+            <>
               <p>
-                <MapPin size={13} />
-                Last known position captured{" "}
-                {formatDate(technician.lastKnownLocation.capturedAt.slice(0, 10))}
+                {technician.name} · {plan.order.length} stop
+                {plan.order.length === 1 ? "" : "s"}
               </p>
-            ) : (
-              <p>No position captured for this crew member — the route starts at the first stop.</p>
-            )}
-            {plan.order.map((job, index) => (
-              <button
-                type="button"
-                key={job.id}
-                className="fl-flag blue"
-                aria-pressed={selectedJobId === job.id}
-                onClick={() => selectJob(job)}
-              >
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{job.title}</strong>
-                  <span>
-                    {blockLabel(job.startBlock)} · {job.address}
-                  </span>
-                </div>
-              </button>
-            ))}
-            <p className="fl-notice" data-testid="fl-route-provenance">
-              {plan.label}. Ordering starts from the crew member&apos;s last captured position;
-              the map itself plots jobs only, because technician position is captured at
-              clock-in/clock-out and never tracked continuously.
-            </p>
-          </>
-        )}
+              {eta && (
+                <p
+                  className={eta.status === "late" ? "fl-flag urgent" : "fl-flag"}
+                  data-testid="fl-live-eta"
+                >
+                  <Navigation size={13} />
+                  {eta.status === "late" && (
+                    <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · running ~{Math.round(eta.byMinutes / 5) * 5} min late</>
+                  )}
+                  {eta.status === "on_time" && (
+                    <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · on time ({Math.round(eta.byMinutes / 5) * 5} min spare)</>
+                  )}
+                  {eta.status === "window_started" && (
+                    <>Van → Stop {eta.stopNumber}: ~{eta.driveMinutes} min drive · window started {eta.byMinutes} min ago</>
+                  )}
+                </p>
+              )}
+              {liveLocations[vehicleKeyOf(technician.van)] ? (
+                <p>
+                  <MapPin size={13} />
+                  Live position — streaming while they chose shift tracking on this shift.
+                </p>
+              ) : technician.lastKnownLocation ? (
+                <p>
+                  <MapPin size={13} />
+                  Last known position captured{" "}
+                  {formatDate(technician.lastKnownLocation.capturedAt.slice(0, 10))}
+                </p>
+              ) : (
+                <p>No position captured for this crew member — the route starts at the first stop.</p>
+              )}
+              {plan.order.map((job, index) => (
+                <button
+                  type="button"
+                  key={job.id}
+                  className="fl-flag blue"
+                  aria-pressed={selectedJobId === job.id}
+                  onClick={() => selectJob(job)}
+                >
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{job.title}</strong>
+                    <span>
+                      {blockLabel(job.startBlock)} · {job.address}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {(() => {
+                const unlocated = visible.filter(job => job.techId === techId && !job.location)
+                if (unlocated.length === 0) return null
+                return (
+                  <p className="fl-notice">
+                    {unlocated.length} job{unlocated.length === 1 ? "" : "s"} on this day
+                    {unlocated.length === 1 ? " has" : " have"} no site address — left out of the route order.
+                  </p>
+                )
+              })()}
+              <p className="fl-notice" data-testid="fl-route-provenance">
+                {plan.label}. Ordering starts from the crew member&apos;s last captured position —
+                a live position only exists while they chose shift tracking on a clocked-on shift.
+              </p>
+            </>
+          )}
         </Inspector>
       ) : (
         <button

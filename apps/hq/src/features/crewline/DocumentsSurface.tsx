@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { FileText, Download } from "lucide-react"
 
-import { apiGet } from "@/lib/api"
+import { apiGetList } from "@/lib/api"
 import { formatDate } from "@/lib/format"
 import { documentVerdict } from "@/lib/crewline"
 import { cn } from "@/lib/utils"
@@ -51,7 +51,7 @@ function toComplianceDoc(apiDoc: ApiDocument): ComplianceDoc {
 function useDocuments(): { documents: ComplianceDoc[]; loading: boolean; error: unknown } {
   const documentsQuery = useQuery({
     queryKey: ["documents-surface"],
-    queryFn: () => apiGet<ApiDocument[]>("/api/documents"),
+    queryFn: () => apiGetList<ApiDocument>("/api/documents"),
     refetchInterval: 30000
   })
   const documents = useMemo(
