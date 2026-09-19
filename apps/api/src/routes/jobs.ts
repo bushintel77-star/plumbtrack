@@ -10,7 +10,7 @@ import {
   updateJobSchema,
   updateTimeEntrySchema,
 } from "../schemas/job";
-import { requireRole } from "../lib/auth";
+import { getBearerToken, requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
@@ -403,9 +403,13 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     }
     // The field app never sends staffId — attribute the entry to the
     // verified session instead of storing null. A client-supplied value is
-    // accepted only when the session can't speak (legacy dev callers);
-    // corrections afterwards ride the manager+ PATCH path.
-    const staffId = parsed.data.staffId ?? request.auth?.userId ?? null;
+    // accepted only when the session can't speak: requests with no bearer
+    // (legacy dev callers), whose request.auth is the synthetic
+    // "legacy-development-user", not a real identity. Corrections
+    // afterwards ride the manager+ PATCH path.
+    const staffId = getBearerToken(request)
+      ? request.auth?.userId ?? null
+      : parsed.data.staffId ?? request.auth?.userId ?? null;
     const entry = await prisma.timeEntry.create({
       data: {
         jobId: id,
