@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { DEVICE_SESSION_SECONDS, HQ_SESSION_SECONDS, isLegacyTenantFallbackAllowed, issueAuthToken, sendUnauthorized, type OrganizationRole } from "../lib/auth";
-import { revokeSession } from "../lib/sessions";
+import { createSession, revokeSession } from "../lib/sessions";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { recordAuditEvent } from "../lib/audit";
 
@@ -118,22 +118,35 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!orgId) return sendMissingOrg(reply);
     const role: OrganizationRole = "owner";
 
-    const expiresAt = Math.floor(Date.now() / 1000) + HQ_SESSION_SECONDS;
+    // Same contract as /api/auth/login: one sessions row per sign-in, so the
+    // dev session is revocable, listed by /api/auth/sessions, and extended by
+    // /api/auth/renew — a sid-less token could be none of those.
+    const sessionRow = await createSession({
+      userId: "hq-operator",
+      organizationId: orgId,
+      role,
+      expiresInSeconds: HQ_SESSION_SECONDS,
+      userAgent: request.headers["user-agent"] ?? null,
+      ip: request.ip,
+    });
+    const expiresAt = sessionRow.expiresAt;
     const token = issueAuthToken({
       userId: "hq-operator",
       organizationId: orgId,
       role,
       expiresInSeconds: HQ_SESSION_SECONDS,
+      sessionId: sessionRow.id,
     });
 
     reply.setCookie(SESSION_COOKIE, token, { ...COOKIE_OPTIONS, maxAge: HQ_SESSION_SECONDS });
 
     // The tenant hook deliberately skips this path, so attach the verified
     // claims manually to keep the audit event actor-scoped.
-    request.auth = { userId: "hq-operator", organizationId: orgId, role, expiresAt };
+    request.auth = { userId: "hq-operator", organizationId: orgId, role, expiresAt, sid: sessionRow.id };
     recordAuditEvent(request, {
       action: "auth.hq_sign_in",
       entityType: "session",
+      entityId: sessionRow.id,
       metadata: { role, organizationId: orgId },
     });
 

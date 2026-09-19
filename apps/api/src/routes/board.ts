@@ -95,6 +95,10 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           phone: job.phone,
           customerId: job.customerId,
           createdAt: job.createdAt,
+          // Stripe payment state — Reports' "Collect payment" list filters on
+          // this; omitting it left paid jobs permanently listed as collectable.
+          paymentStatus: job.paymentStatus,
+          stripeSessionId: job.stripeSessionId,
           // The quote this job was created from — HQ's quote lifecycle
           // actions (send/approve) PATCH /api/quotes/:id with this id.
           quoteId: job.quoteId,

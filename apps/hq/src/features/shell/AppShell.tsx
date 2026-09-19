@@ -1,16 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { API_URL_IS_DEFAULT, authApi, FORCE_DEMO, HttpError } from "@/lib/api"
+import { API_URL_IS_DEFAULT, authApi, FORCE_DEMO, HttpError, renewSessionIfDue } from "@/lib/api"
 import { useQueryState, parseAsString } from "nuqs"
 import { FileText } from "lucide-react"
 
 import { useBoardStore } from "@/stores/boardStore"
-import type { AppModule } from "@/types"
-import { type CrewlineMode } from "@/features/crewline/context"
+import type { AppModule, CrewlineMode } from "@/types"
 import { useTelemetrySocket } from "@/lib/telemetry"
 
-import { CommandPalette } from "@/features/board/CommandPalette"
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
 import { CrewlineWorkspace, type Surface } from "@/features/crewline/CrewlineWorkspace"
@@ -158,6 +156,18 @@ export function AppShell() {
     return () => window.removeEventListener("plumbtrack:session-expired", onSessionExpired)
   }, [])
 
+  // Sliding session renewal for surfaces without the board poll (Setup,
+  // Crews, Operations — the Crewline heartbeat lives in useBoardLifecycle).
+  // Returning to a visible tab renews a session past half its life; a 401
+  // from /api/auth/renew means hard-expired and lands in the flow above.
+  useEffect(() => {
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") void renewSessionIfDue()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [])
+
   // An unauthenticated console goes to /login — the full page load after
   // sign-in re-runs this gate and re-arms live hydration on its own.
   useEffect(() => {
@@ -225,7 +235,6 @@ export function AppShell() {
           </main>
         </div>
       )}
-      <CommandPalette />
       <Toaster />
     </div>
   )

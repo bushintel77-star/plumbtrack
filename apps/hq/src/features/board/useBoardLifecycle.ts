@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { fetchBoardPayload } from "@/lib/adapter"
-import { FORCE_DEMO, HttpError } from "@/lib/api"
+import { FORCE_DEMO, HttpError, renewSessionIfDue } from "@/lib/api"
 import { cacheJobs } from "@/lib/offline"
 import { useBoardStore } from "@/stores/boardStore"
 
@@ -51,6 +51,11 @@ export function useBoardLifecycle(): void {
     if (boardQuery.data) {
       hydrateFromApi(boardQuery.data)
       void cacheJobs(Object.values(useBoardStore.getState().jobs))
+      // Sliding session renewal rides the console's existing heartbeat — no
+      // new timer. Past half the session's life this POSTs /api/auth/renew,
+      // extending the same session row; a 401 lands in the same
+      // session-expired flow as a failed poll.
+      void renewSessionIfDue()
     } else if (boardQuery.isError && dataMode === "connecting") {
       enterDemo()
     } else if (boardQuery.isError && dataMode === "live") {

@@ -176,6 +176,52 @@ describe("routing proxy — upstream-call audit (stubbed fetch)", () => {
     // A served-from-cache response costs nothing — no second audit row.
     expect(auditCreate).not.toHaveBeenCalled()
   })
+
+  it("forwards the vehicle capacity array to the VROOM request verbatim", async () => {
+    const bodies: string[] = []
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""))
+      return new Response(JSON.stringify({ code: 0, routes: [], unassigned: [] }), { status: 200 })
+    }) as typeof fetch
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/routing/optimize",
+      headers: { "x-organization-id": ORG },
+      payload: {
+        jobs: [{ id: "j-1", location: [145.31, -37.31], service: 1800 }],
+        vehicles: [
+          { id: "t-1", start: [145.31, -37.31], capacity: [6], time_window: [28800, 64800] },
+          { id: "t-2", start: [145.31, -37.31], capacity: [4] },
+        ],
+      },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(bodies).toHaveLength(1)
+    const upstream = JSON.parse(bodies[0]) as { vehicles: Array<{ capacity?: number[] }> }
+    // The per-route task cap the schema used to strip must reach VROOM.
+    expect(upstream.vehicles[0].capacity).toEqual([6])
+    expect(upstream.vehicles[1].capacity).toEqual([4])
+  })
+
+  it("rejects malformed vehicle capacity before any upstream call", async () => {
+    const fetchSpy = vi.fn()
+    globalThis.fetch = fetchSpy as unknown as typeof fetch
+
+    for (const capacity of [[0], [-2], [1.5], Array(5).fill(4)]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/routing/optimize",
+        headers: { "x-organization-id": ORG },
+        payload: {
+          jobs: [{ id: "j-1", location: [145.31, -37.31] }],
+          vehicles: [{ id: "t-1", start: [145.31, -37.31], capacity }],
+        },
+      })
+      expect(response.statusCode).toBe(400)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
 })
 
 describe("routing proxy — live ORS tier (runs only with a real ORS_API_KEY)", () => {

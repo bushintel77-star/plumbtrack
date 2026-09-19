@@ -15,7 +15,7 @@ import type { JobStatus } from "@/types"
  */
 
 function isOffline(): boolean {
-  return useBoardStore.getState().offline || navigator.onLine === false
+  return navigator.onLine === false
 }
 
 export async function performAssignment(
@@ -37,16 +37,6 @@ export async function performAssignment(
   store.snapshotJobs()
   const applied = store.assignJob(jobId, techId, startBlock)
   if (!applied.ok) return false
-
-  if (store.simulateFailure) {
-    store.rollbackJobs()
-    toast({
-      variant: "destructive",
-      title: "Assignment rolled back",
-      description: "Server rejected the change — the board reverted to its previous state."
-    })
-    return false
-  }
 
   if (isOffline()) {
     await enqueueSync({ jobId, op: "assign", payload: { techId, startBlock } })
@@ -112,16 +102,6 @@ export async function performRouteApply(result: OptimizeResult): Promise<boolean
   // board geometry, not fresh FSM assignments.
   const newlyAssigned = stops.filter(s => beforeApply[s.jobId]?.techId == null)
 
-  if (store.simulateFailure) {
-    store.rollbackJobs()
-    toast({
-      variant: "destructive",
-      title: "Route rolled back",
-      description: "Server rejected the batch — the board reverted to its previous state."
-    })
-    return false
-  }
-
   if (isOffline()) {
     for (const stop of stops) {
       await enqueueSync({
@@ -169,16 +149,6 @@ export async function performClockOn(jobId: string): Promise<void> {
   store.snapshotJobs()
   const { demoted } = store.clockOn(jobId)
   const job = useBoardStore.getState().jobs[jobId]
-
-  if (store.simulateFailure) {
-    store.rollbackJobs()
-    toast({
-      variant: "destructive",
-      title: "Clock-on rolled back",
-      description: "Server rejected the timer start — the board reverted."
-    })
-    return
-  }
 
   if (isOffline()) {
     await enqueueSync({ jobId, op: "status", payload: { status: "in_progress" } })
