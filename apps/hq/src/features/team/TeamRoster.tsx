@@ -385,11 +385,18 @@ function MemberRow({
 
       {canEdit && (
         <div className="mt-2.5 flex items-center justify-end gap-3 border-t border-line pt-2.5">
+          {/* On your own row this revokes the session you're using right
+              now — a dead console with no redirect. Point at Your devices,
+              which handles that case honestly. */}
           <button
             type="button"
             className="fl-linkbtn"
-            disabled={saving}
-            title={`Revoke every signed-in session for ${member.name}`}
+            disabled={saving || isSelf}
+            title={
+              isSelf
+                ? "This would sign out the console you're using — use Your devices below."
+                : `Revoke every signed-in session for ${member.name}`
+            }
             onClick={onSignOut}
             data-testid={`signout-${member.userId}`}
           >

@@ -12,6 +12,7 @@ import type { FastifyInstance } from "fastify";
 
 const {
   prismaMock,
+  txQueryRaw,
   userFindUnique,
   userCreate,
   userUpdate,
@@ -58,6 +59,7 @@ const {
     sessionFindMany: vi.fn(),
     sessionUpdateMany: vi.fn(),
     auditCreate: vi.fn(),
+    txQueryRaw: vi.fn(),
   };
   const prismaMock = {
     user: { findUnique: mocks.userFindUnique, create: mocks.userCreate, update: mocks.userUpdate, delete: mocks.userDelete },
@@ -85,6 +87,9 @@ const {
       updateMany: mocks.sessionUpdateMany,
     },
     auditEvent: { create: mocks.auditCreate },
+    // The owner-boundary advisory lock — a no-op in the in-memory fixture;
+    // the in-transaction count re-check it guards IS exercised below.
+    $queryRaw: mocks.txQueryRaw,
     // Transactions run against the same mock surface — the routes' tx
     // writes land on the in-memory stores exactly like direct calls.
     $transaction: (fn: (tx: unknown) => unknown) => fn(prismaMock),
@@ -233,6 +238,7 @@ describe("team access management", () => {
     auditCreate.mockResolvedValue({ id: "audit-1" });
     orgFindUnique.mockResolvedValue({ name: "Mallee Plumbing" });
     userUpdate.mockResolvedValue({});
+    txQueryRaw.mockResolvedValue([]);
     membershipFindFirst.mockResolvedValue(null);
     membershipFindMany.mockResolvedValue([]);
 
@@ -450,6 +456,26 @@ describe("team access management", () => {
       expect(response.json().message).toBe("You can't change your own role — ask another owner.");
     });
 
+    it("the in-transaction owner recount is authoritative — outer read racing to 1 still 409s", async () => {
+      // Simulates the TOCTOU window: the pre-transaction count sees two
+      // owners, but by the time the transaction holds the advisory lock the
+      // other owner's demotion has committed and only one remains.
+      addMember({ userId: "user-owner", role: "owner" });
+      membershipCount.mockResolvedValueOnce(2).mockResolvedValue(1);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/team/members/user-owner",
+        headers: { authorization: bearer(callerSession("owner")) },
+        payload: { role: "dispatcher" },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toBe("Your organisation needs at least one owner.");
+      expect(memberRows.get(memberKey(ORG, "user-owner"))?.role).toBe("owner");
+      // The lock was taken before the re-check.
+      expect(txQueryRaw).toHaveBeenCalled();
+    });
+
     it("refuses to demote the last owner — 409", async () => {
       addMember({ userId: "user-owner", role: "owner" });
       addMember({ userId: "user-caller", role: "owner" });
@@ -510,6 +536,20 @@ describe("team access management", () => {
         headers: { authorization: bearer(callerSession("owner")) },
       });
       expect(response.statusCode).toBe(409);
+    });
+
+    it("DELETE's in-transaction owner recount also holds under the race — 409", async () => {
+      addMember({ userId: "user-owner", role: "owner" });
+      membershipCount.mockResolvedValueOnce(2).mockResolvedValue(1);
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/team/members/user-owner",
+        headers: { authorization: bearer(callerSession("owner")) },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(memberRows.has(memberKey(ORG, "user-owner"))).toBe(true);
+      expect(txQueryRaw).toHaveBeenCalled();
     });
   });
 

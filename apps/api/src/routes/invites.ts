@@ -208,7 +208,27 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    const updated = await prisma.$transaction(async tx => {
+    // The owner count above is only the fast path — it races. With exactly
+    // two owners, two concurrent demotions both observe 2, both pass and
+    // both commit, leaving ZERO owners: nobody left can grant the role,
+    // so the org is bricked until manual DB surgery. The authoritative
+    // re-check runs inside the transaction behind a per-org advisory lock
+    // (namespaced so it can't collide with the technician assignment
+    // locks in jobs.ts), which serializes every owner-boundary write.
+    const outcome = await prisma.$transaction(async tx => {
+      if (nextRole !== undefined && nextRole !== membership.role) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`org-owners:${orgId}`}))`;
+        const current = await tx.organizationMembership.findUnique({
+          where: { organizationId_userId: { organizationId: orgId, userId } },
+        });
+        if (!current) return { kind: "missing" as const };
+        if (current.role === "owner" && nextRole !== "owner") {
+          const owners = await tx.organizationMembership.count({
+            where: { organizationId: orgId, role: "owner" },
+          });
+          if (owners <= 1) return { kind: "last_owner" as const };
+        }
+      }
       const row = await tx.organizationMembership.update({
         where: { organizationId_userId: { organizationId: orgId, userId } },
         data: {
@@ -222,8 +242,15 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
         // hook enforces, so it must move with the membership.
         await setUserSessionsRole(userId, orgId, nextRole, tx);
       }
-      return row;
+      return { kind: "ok" as const, row };
     });
+    if (outcome.kind === "missing") {
+      return reply.code(404).send({ message: "That person isn't on your team." });
+    }
+    if (outcome.kind === "last_owner") {
+      return reply.code(409).send({ message: "Your organisation needs at least one owner." });
+    }
+    const updated = outcome.row;
 
     if (skills !== undefined) {
       recordAuditEvent(request, {
@@ -276,12 +303,27 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    await prisma.$transaction(async tx => {
+    // Same last-owner race as the PATCH above: the count is re-checked
+    // inside the transaction behind the same per-org advisory lock, which
+    // is the authoritative check — the outer read only produces the
+    // friendly error faster.
+    const outcome = await prisma.$transaction(async tx => {
+      if (membership.role === "owner") {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`org-owners:${orgId}`}))`;
+        const owners = await tx.organizationMembership.count({
+          where: { organizationId: orgId, role: "owner" },
+        });
+        if (owners <= 1) return { kind: "last_owner" as const };
+      }
       await tx.organizationMembership.delete({
         where: { organizationId_userId: { organizationId: orgId, userId } },
       });
       await revokeUserSessions(userId, orgId, "member_removed", tx);
+      return { kind: "ok" as const };
     });
+    if (outcome.kind === "last_owner") {
+      return reply.code(409).send({ message: "Your organisation needs at least one owner." });
+    }
     recordAuditEvent(request, {
       action: "team.member_removed",
       entityType: "organization_membership",
@@ -357,7 +399,9 @@ export async function teamRoutes(app: FastifyInstance): Promise<void> {
 
     const { id } = request.params as { id: string };
     const invite = await prisma.teamInvite.findFirst({
-      where: { id, orgId, acceptedAt: null, revokedAt: null },
+      // expiresAt in the WHERE too — an already-expired invite isn't
+      // outstanding either, and the 404 message says exactly that.
+      where: { id, orgId, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
     });
     if (!invite) {
       return reply.code(404).send({ message: "That invite isn't outstanding — it may already be used, revoked or expired." });
