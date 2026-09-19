@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
+import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { createOrganizationSchema } from "../schemas/organization";
 import { parseBody, sendValidationError } from "../lib/validation";
@@ -33,6 +34,12 @@ export async function organizationRoutes(app: FastifyInstance): Promise<void> {
     const parsed = parseBody(createOrganizationSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
     const org = await prisma.organization.create({ data: parsed.data });
+    recordAuditEvent(request, {
+      action: "organization.created",
+      entityType: "organization",
+      entityId: org.id,
+      metadata: { name: org.name },
+    });
     return reply.code(201).send(org);
   });
 }

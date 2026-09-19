@@ -236,6 +236,15 @@ describe("revocable sessions", () => {
     expect(sessionRows.get(sid)!.expiresAt.getTime()).toBeGreaterThan(before);
     expect(sessionCreate).toHaveBeenCalledTimes(1); // login only
     expect(sessionRows.size).toBe(1);
+    // The renewal itself is audited against the existing session row.
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "auth.session_renewed",
+        entityType: "session",
+        entityId: sid,
+        orgId: ORG,
+      }),
+    });
   });
 
   it("an expired session row 401s even though the token itself has not", async () => {
@@ -366,6 +375,23 @@ describe("stream session revocation", () => {
   function closed(socket: WebSocket): Promise<void> {
     return new Promise(resolve => socket.addEventListener("close", () => resolve(), { once: true }));
   }
+
+  it("refuses a pre-cutover sid-less token at connect (production cutover)", async () => {
+    // This suite runs with the legacy fallback off: a 30-day token minted
+    // before sessions existed must not open an org feed it can no longer
+    // use over HTTP.
+    const legacyToken = issueAuthToken({
+      userId: "user-1",
+      organizationId: ORG,
+      role: "dispatcher",
+      expiresInSeconds: 900,
+    });
+    const socket = new WebSocket(`${baseUrl}?token=${legacyToken}`);
+    const closing = closed(socket);
+    const frame = await nextMessage(socket);
+    expect(frame).toEqual({ topic: "topic/stream/error", reason: "unauthorized" });
+    await closing;
+  });
 
   it("refuses a revoked session at connect with the unauthorized frame", async () => {
     const row = addSessionRow({ role: "dispatcher", revokedAt: new Date(), revokedReason: "member_removed" });

@@ -1,14 +1,17 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 
-const { jobUpdateMany } = vi.hoisted(() => ({
+const { jobUpdateMany, jobFindFirst, auditCreate } = vi.hoisted(() => ({
   jobUpdateMany: vi.fn(),
+  jobFindFirst: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
-    job: { updateMany: jobUpdateMany },
+    job: { updateMany: jobUpdateMany, findFirst: jobFindFirst },
+    auditEvent: { create: auditCreate },
   },
 }));
 
@@ -32,6 +35,11 @@ describe("POST /api/webhooks/stripe", () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(() => {
+    auditCreate.mockResolvedValue({ id: "audit-1" });
+    jobFindFirst.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -72,6 +80,35 @@ describe("POST /api/webhooks/stripe", () => {
         data: { paymentStatus: "paid" },
       }),
     );
+  });
+
+  it("audits the paymentStatus mutation in the job's org scope", async () => {
+    // The webhook is tenant-hook exempt — the route resolves the job's org
+    // so the audit row lands in the right tenant.
+    process.env.STRIPE_WEBHOOK_SECRET = SECRET;
+    jobFindFirst.mockResolvedValue({ id: "job-1", orgId: "org-webhook" });
+    jobUpdateMany.mockResolvedValue({ count: 1 });
+    const payload = JSON.stringify({
+      id: "evt_audit",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_audit", payment_status: "paid", metadata: { job_id: "job-1" } } },
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/webhooks/stripe",
+      headers: { "content-type": "application/json", "stripe-signature": stripeHeader(payload) },
+      payload,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: "org-webhook",
+        action: "payment.status_changed",
+        entityType: "job",
+        entityId: "job-1",
+        metadataJson: expect.stringContaining('"paymentStatus":"paid"'),
+      }),
+    });
   });
 
   it("rejects a signature computed over a different body (400)", async () => {

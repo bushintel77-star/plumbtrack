@@ -135,6 +135,36 @@ describe("secure media upload contract", () => {
     });
   });
 
+  it("returns the existing photoId when complete is retried on an already-uploaded asset", async () => {
+    // A retried complete must replay the SAME photo id the first call
+    // minted — omitting it forced the client to generate a fresh random
+    // photo id and broke id stability across retries.
+    findFirstAsset.mockResolvedValue({
+      id: "asset-1",
+      orgId: ORG,
+      jobId: "J-1",
+      objectKey: `${ORG}/jobs/J-1/asset-1`,
+      label: "Before",
+      status: "uploaded",
+      publicUrl: "https://api.example.test/api/media/asset-1/file",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    findFirstPhoto.mockResolvedValue({ id: "photo-1", jobId: "J-1", assetId: "asset-1" });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/media/asset-1/complete",
+      headers: { "x-organization-id": ORG },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ assetId: "asset-1", photoId: "photo-1" });
+    expect(findFirstPhoto).toHaveBeenCalledWith({ where: { assetId: "asset-1", jobId: "J-1" } });
+    expect(updateAsset).not.toHaveBeenCalled();
+    expect(createPhoto).not.toHaveBeenCalled();
+  });
+
   it("completes a document upload without recording it as photo evidence", async () => {
     findFirstAsset.mockResolvedValue({
       id: "asset-2",

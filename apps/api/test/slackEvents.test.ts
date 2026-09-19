@@ -1,16 +1,18 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 
-const { updateMany, workspaceFindUnique } = vi.hoisted(() => ({
+const { updateMany, workspaceFindUnique, auditCreate } = vi.hoisted(() => ({
   updateMany: vi.fn(),
   workspaceFindUnique: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
     job: { updateMany },
     slackWorkspace: { findUnique: workspaceFindUnique },
+    auditEvent: { create: auditCreate },
   },
 }));
 
@@ -29,6 +31,10 @@ describe("slack events endpoint (Events Mode inbound)", () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  beforeEach(() => {
+    auditCreate.mockResolvedValue({ id: "audit-1" });
   });
 
   afterEach(() => {
@@ -162,6 +168,16 @@ describe("slack events endpoint (Events Mode inbound)", () => {
           data: { status: "in_progress" },
         }),
       );
+      // The webhook is tenant-hook exempt — the mutation is audited in the
+      // org resolved from the verified team, with the Slack user recorded.
+      expect(auditCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orgId: ORG,
+          action: "job.status_changed",
+          entityType: "job",
+          entityId: "J-42",
+        }),
+      });
     });
   });
 
@@ -181,6 +197,14 @@ describe("slack events endpoint (Events Mode inbound)", () => {
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "J-42", orgId: ORG }, data: { status: "in_progress" } }),
     );
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        orgId: ORG,
+        action: "job.status_changed",
+        entityType: "job",
+        entityId: "J-42",
+      }),
+    });
   });
 
   it("refuses to mutate when the team cannot be mapped to an org (fail-closed)", async () => {

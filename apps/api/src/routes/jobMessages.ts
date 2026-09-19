@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import type { JobMessagePostedEvent } from "../domain/events";
 import { requireRole } from "../lib/auth";
+import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { publishToOrg } from "../lib/liveBus";
@@ -149,6 +150,12 @@ export async function jobMessageRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const frame = toWire(message);
+    recordAuditEvent(request, {
+      action: "job.message_posted",
+      entityType: "job_message",
+      entityId: message.id,
+      metadata: { jobId: id, direction: message.direction, sender: message.sender },
+    });
     publishToOrg({ topic: "topic/jobs/message", orgId, jobId: id, message: frame });
 
     return reply.code(201).send({ message: frame, slack: bridge });

@@ -214,6 +214,20 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
               : lockExpired ? { lockedUntil: null } : {}),
           },
         }).catch(() => undefined);
+        // The tenant hook exempts /login, so request.auth/organizationId are
+        // unset and recordAuditEvent would early-return. When the attempted
+        // email resolves to a real user, attach that user's org scope
+        // manually (same pattern as reset-password) so the failure is
+        // audited. Unknown-email attempts have no org — correctly unaudited.
+        if (membership) {
+          request.organizationId = membership.organizationId;
+          request.auth = {
+            userId: user.id,
+            organizationId: membership.organizationId,
+            role: membership.role,
+            expiresAt: Number.MAX_SAFE_INTEGER,
+          };
+        }
       }
       recordAuditEvent(request, {
         action: "auth.login_failed",

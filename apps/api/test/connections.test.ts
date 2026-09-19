@@ -206,6 +206,32 @@ describe("integration connections", () => {
     expect(mocks.authUpdate).toHaveBeenCalled();
   });
 
+  it("answers the OAuth callback without a session even when the legacy fallback is off", async () => {
+    // The route's real authorization is the single-use signed state row —
+    // gating it on a session cookie would silently fail a connection whose
+    // cookie expired mid-round-trip. Production mode must still reach it.
+    mocks.authFindUnique.mockResolvedValue(null);
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousLegacy = process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+    delete process.env.NODE_ENV;
+    delete process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/integrations/oauth/callback/xero?state=not-a-real-state",
+    });
+
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousLegacy === undefined) delete process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER;
+    else process.env.PLUMBTRACK_ALLOW_LEGACY_TENANT_HEADER = previousLegacy;
+
+    // An unknown state lands the operator on the "failed" outcome redirect —
+    // never a 401 from the tenant hook.
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toContain("connection=failed");
+  });
+
   it("keeps a '//evil.com' returnTo on the HQ origin — protocol-relative is not a path", async () => {
     mocks.authFindUnique.mockResolvedValue({
       id: "auth-1",

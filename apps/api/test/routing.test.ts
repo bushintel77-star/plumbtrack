@@ -1,9 +1,13 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+
+const { auditCreate } = vi.hoisted(() => ({
+  auditCreate: vi.fn(),
+}));
 
 vi.mock("@plumbtrack/database", () => ({
   prisma: {
-    auditEvent: { create: vi.fn().mockResolvedValue({}) },
+    auditEvent: { create: auditCreate },
   },
 }));
 
@@ -27,6 +31,10 @@ const STOPS = {
 } as const
 
 const hasKey = Boolean(process.env.ORS_API_KEY?.trim())
+
+beforeEach(() => {
+  auditCreate.mockResolvedValue({})
+})
 
 describe("routing proxy (GET /api/routing/*) — no-key behaviour (live)", () => {
   let app: FastifyInstance;
@@ -113,6 +121,60 @@ describe("routing proxy (GET /api/routing/*) — no-key behaviour (live)", () =>
       payload: { jobs: [], vehicles: [{ id: "t-1", start: [144.96, -37.8] }] },
     })
     expect(badOptimize.statusCode).toBe(400)
+  })
+})
+
+describe("routing proxy — upstream-call audit (stubbed fetch)", () => {
+  let app: FastifyInstance;
+  const originalFetch = globalThis.fetch;
+  // Unique coordinates — the in-process response caches are module-level and
+  // shared with the other describes, so these points must not collide.
+  const MATRIX_POINTS = "145.1000,-37.1000;145.2000,-37.2000"
+
+  beforeAll(async () => {
+    process.env.ORS_API_KEY = "test-ors-key"
+    app = await buildApp({ logger: false })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    globalThis.fetch = originalFetch
+    delete process.env.ORS_API_KEY
+    await app.close()
+  })
+
+  it("audits a real upstream call on cache miss, and not the cache-hit replay", async () => {
+    globalThis.fetch = (async () => new Response(
+      JSON.stringify({ durations: [[0, 120], [120, 0]] }),
+      { status: 200 },
+    )) as typeof fetch
+    auditCreate.mockClear()
+
+    const first = await app.inject({
+      method: "GET",
+      url: `/api/routing/matrix?points=${MATRIX_POINTS}`,
+      headers: { "x-organization-id": ORG },
+    })
+    expect(first.statusCode).toBe(200)
+    // The spend record fires once for the actual provider call.
+    expect(auditCreate).toHaveBeenCalledTimes(1)
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "routing.matrix",
+        entityType: "routing",
+      }),
+    })
+
+    auditCreate.mockClear()
+    const second = await app.inject({
+      method: "GET",
+      url: `/api/routing/matrix?points=${MATRIX_POINTS}`,
+      headers: { "x-organization-id": ORG },
+    })
+    expect(second.statusCode).toBe(200)
+    expect(second.json()).toEqual(first.json())
+    // A served-from-cache response costs nothing — no second audit row.
+    expect(auditCreate).not.toHaveBeenCalled()
   })
 })
 

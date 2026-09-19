@@ -44,6 +44,14 @@ describe("health endpoint (production auth mode)", () => {
     expect(response.json()).toMatchObject({ slack: { webhookConfigured: false } });
   });
 
+  it("answers root liveness unauthenticated in production auth mode", async () => {
+    // GET / returns only {service, status} — the same information class as
+    // /api/health, so the tenant hook must not 401 it.
+    const response = await app.inject({ method: "GET", url: "/" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ service: "plumbtrack-api", status: "ok" });
+  });
+
   it("still 401s a protected route without a session in production mode", async () => {
     const response = await app.inject({ method: "GET", url: "/api/jobs" });
     expect(response.statusCode).toBe(401);

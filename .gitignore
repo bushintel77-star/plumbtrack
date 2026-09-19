@@ -37,10 +37,12 @@ Thumbs.db
 dev-server.err
 
 # Playwright
-apps/web/test-results/
-apps/web/playwright-report/
 apps/hq/test-results/
 apps/hq/playwright-report/
+
+# Local-machine helpers (detached dev servers write logs into the repo)
+.local-*.log
+.start-detached.ps1
 
 # HQ local verification screenshots
 apps/hq/shots/

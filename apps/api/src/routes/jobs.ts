@@ -10,7 +10,7 @@ import {
   updateJobSchema,
   updateTimeEntrySchema,
 } from "../schemas/job";
-import { requireRole } from "../lib/auth";
+import { getBearerToken, requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
@@ -401,10 +401,19 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       });
       if (existing) return reply.code(201).send(existing);
     }
+    // The field app never sends staffId — attribute the entry to the
+    // verified session instead of storing null. A client-supplied value is
+    // accepted only when the session can't speak: requests with no bearer
+    // (legacy dev callers), whose request.auth is the synthetic
+    // "legacy-development-user", not a real identity. Corrections
+    // afterwards ride the manager+ PATCH path.
+    const staffId = getBearerToken(request)
+      ? request.auth?.userId ?? null
+      : parsed.data.staffId ?? request.auth?.userId ?? null;
     const entry = await prisma.timeEntry.create({
       data: {
         jobId: id,
-        staffId: parsed.data.staffId,
+        staffId,
         opId: parsed.data.opId,
         lat: parsed.data.lat,
         lng: parsed.data.lng,
@@ -424,7 +433,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
       action: "time_entry.created",
       entityType: "time_entry",
       entityId: entry.id,
-      metadata: { jobId: id, staffId: parsed.data.staffId, start: parsed.data.start },
+      metadata: { jobId: id, staffId, start: parsed.data.start },
     });
     publishToOrg({ topic: "topic/jobs/activity", orgId, jobId: id, activity: "clock-in", entryId: entry.id });
     return reply.code(201).send(entry);
@@ -500,10 +509,24 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     // Scope the mutation to the already-authorized job. The field agent keys
     // its queue by the clock-in opId rather than the server id (the create
     // response is fire-and-forget through the outbox), so :entryId matches
-    // either the row id or its opId.
-    const entry = await prisma.timeEntry.findFirst({
-      where: { jobId: id, OR: [{ id: entryId }, { opId: entryId }] },
-    });
+    // either the row id or its opId — or the literal "open", which resolves
+    // the caller's open entry on this job. The field app enqueues clock-out
+    // with entryId null when it has no local open entry; without this, that
+    // op consumed itself silently and a server-side open entry stayed open
+    // forever. A 404 here tells the client definitively there is none.
+    const callerId = request.auth?.userId;
+    const entry = entryId === "open"
+      ? callerId
+        ? await prisma.timeEntry.findFirst({
+          // Only the caller's own open entry resolves — never another
+          // technician's shift, and never a different job's.
+          where: { jobId: id, staffId: callerId, end: null },
+          orderBy: { start: "desc" },
+        })
+        : null
+      : await prisma.timeEntry.findFirst({
+        where: { jobId: id, OR: [{ id: entryId }, { opId: entryId }] },
+      });
     if (!entry) return reply.code(404).send({ message: "Time entry not found" });
     const result = await prisma.timeEntry.updateMany({
       where: { id: entry.id, jobId: id },
@@ -666,8 +689,9 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Technician site note — a single free-text field note (last-write-wins),
-  // distinct from the threaded job messages. Idempotent via opId so an outbox
-  // retry never duplicates.
+  // distinct from the threaded job messages. No opId dedupe: an outbox retry
+  // of the same write lands the same value again, and concurrent edits
+  // resolve to whichever write finishes last.
   app.post("/:id/notes", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);

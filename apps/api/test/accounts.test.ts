@@ -321,6 +321,45 @@ describe("account auth", () => {
       expect(wrongPassword.json().message).toBe(unknownEmail.json().message);
     });
 
+    it("audits a failed login against the resolved user's org", async () => {
+      // /api/auth/login is tenant-hook exempt, so request.auth/organizationId
+      // are unset — the route attaches the resolved user's org scope manually
+      // or the audit event would early-return on the missing org.
+      userFindUnique.mockResolvedValue({
+        id: "u-1",
+        passwordHash: hash,
+        failedLoginCount: 0,
+        lockedUntil: null,
+        memberships: [{ organizationId: ORG, role: "owner" }],
+      });
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "d@mallee.example", password: "wrong password entirely" },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(auditCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orgId: ORG,
+          actorUserId: "u-1",
+          action: "auth.login_failed",
+          entityType: "user",
+          entityId: "u-1",
+        }),
+      });
+    });
+
+    it("does not audit a failed login for an unknown email — no org exists to scope it to", async () => {
+      userFindUnique.mockResolvedValue(null);
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        payload: { email: "nobody@elsewhere.example", password: "wrong password entirely" },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(auditCreate).not.toHaveBeenCalled();
+    });
+
     it("locks the account after repeated failures and clears on success", async () => {
       let failures = 0;
       userFindUnique.mockImplementation(async () => ({
@@ -496,6 +535,29 @@ describe("account auth", () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.json().name).toBe("Dave Roper");
+    });
+  });
+
+  describe("POST /api/organizations", () => {
+    it("creates the org for an owner/admin session and audits it against the caller's org", async () => {
+      orgCreate.mockResolvedValue({ id: "org-provisioned", name: "Second Crew", slug: "second-crew", trade: "plumbing" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/organizations",
+        headers: { authorization: bearer("owner") },
+        payload: { name: "Second Crew", slug: "second-crew" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(auditCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orgId: ORG, // audited in the CALLER's tenant scope, not the new org's
+          action: "organization.created",
+          entityType: "organization",
+          entityId: "org-provisioned",
+        }),
+      });
     });
   });
 
