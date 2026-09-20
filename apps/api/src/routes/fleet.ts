@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { requireRole } from "../lib/auth";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { publishToOrg } from "../lib/liveBus";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { recordAuditEvent } from "../lib/audit";
 
 /**
@@ -20,7 +20,7 @@ import { recordAuditEvent } from "../lib/audit";
  * receive them.
  */
 
-const telemetrySchema = z.object({
+const telemetrySchema = strictObject({
   // The field device reports which van/tech the fix belongs to. Org is derived
   // server-side from the session; these identify the asset within that org.
   vehicleId: z.string().min(1).max(128),
@@ -32,7 +32,7 @@ const telemetrySchema = z.object({
   presence: z.enum(["on_job", "on_break", "off_shift"]).default("on_job"),
 });
 
-const consentSchema = z.object({
+const consentSchema = strictObject({
   mode: z.enum(["shift", "points"]),
   chosenAt: z.string().datetime(),
   // The outbox op id, doubling as the client's idempotency key.

@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
-export const createOrganizationSchema = z.object({
+export const createOrganizationSchema = strictObject({
   name: z.string().trim().min(1),
   slug: z
     .string()

@@ -9,7 +9,7 @@ import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem } from "../lib/passwords";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { hqAppBase } from "../lib/urls";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 
 /**
  * Team admin (ONBOARDING §6B).
@@ -127,13 +127,13 @@ function memberShape(membership: {
   };
 }
 
-const createInviteSchema = z.object({
+const createInviteSchema = strictObject({
   email: z.string().trim().toLowerCase().email().max(254),
   role: z.enum(INVITABLE_ROLES),
   name: z.string().trim().min(2).max(80).optional(),
 });
 
-const acceptSchema = z.object({
+const acceptSchema = strictObject({
   name: z.string().trim().min(2).max(80).optional(),
   password: z.string().min(1).max(256),
 });

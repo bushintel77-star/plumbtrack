@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
 /** Mirrors the web client's DocumentCategory union. */
 export const documentCategorySchema = z.enum([
@@ -13,7 +14,7 @@ export const documentCategorySchema = z.enum([
 ]);
 
 /** One uploaded revision of a document. */
-export const documentVersionSchema = z.object({
+export const documentVersionSchema = strictObject({
   fileName: z.string().trim().min(1),
   size: z.number().int().nonnegative(),
   mimeType: z.string().trim().min(1),
@@ -23,7 +24,7 @@ export const documentVersionSchema = z.object({
   uploadedBy: z.string().trim().min(1),
 });
 
-export const createDocumentSchema = z.object({
+export const createDocumentSchema = strictObject({
   name: z.string().trim().min(1),
   category: documentCategorySchema,
   /** Job id when the doc belongs to a job; omitted for company documents. */
@@ -40,7 +41,7 @@ export const createDocumentSchema = z.object({
   opId: z.string().trim().min(1).max(120).optional(),
 });
 
-export const updateDocumentSchema = z.object({
+export const updateDocumentSchema = strictObject({
   name: z.string().trim().min(1).optional(),
   category: documentCategorySchema.optional(),
   tags: z.array(z.string().trim().min(1)).max(20).optional(),
@@ -48,17 +49,17 @@ export const updateDocumentSchema = z.object({
   notes: z.string().trim().max(2000).optional(),
 });
 
-export const addDocumentVersionSchema = z.object({
+export const addDocumentVersionSchema = strictObject({
   version: documentVersionSchema,
 });
 
-export const createRfiSchema = z.object({
+export const createRfiSchema = strictObject({
   question: z.string().trim().min(1).max(2000),
   attachmentId: z.string().trim().min(1).nullable().optional(),
   raisedBy: z.string().trim().min(1),
 });
 
-export const updateRfiSchema = z.object({
+export const updateRfiSchema = strictObject({
   /** Answer text — moving the RFI from raised → answered. */
   answer: z.string().trim().min(1).max(4000).optional(),
   answeredBy: z.string().trim().min(1).optional(),

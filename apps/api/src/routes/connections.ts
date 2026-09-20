@@ -4,7 +4,7 @@ import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { encryptionConfigured, encryptSecret, decryptSecret, secretHint } from "../lib/secrets";
 import { buildAuthorizeUrl, codeChallengeFor, createCodeVerifier, createState, exchangeCodeForTokens } from "../lib/pkce";
 import {
@@ -37,11 +37,11 @@ const WRITE_ROLES = ["admin", "owner"] as const;
 const READ_ROLES = ["dispatcher", "manager", "accountant", "admin", "owner"] as const;
 const AUTHORIZATION_TTL_MS = 10 * 60_000;
 
-const credentialsSchema = z.object({
+const credentialsSchema = strictObject({
   fields: z.record(z.string().trim().min(1).max(400)),
 });
 
-const interestSchema = z.object({
+const interestSchema = strictObject({
   note: z.string().trim().max(400).optional(),
 });
 

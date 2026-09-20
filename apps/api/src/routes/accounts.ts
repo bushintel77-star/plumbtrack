@@ -8,7 +8,7 @@ import { recordAuditEvent } from "../lib/audit";
 import { sendEmail } from "../lib/email";
 import { hashPassword, passwordProblem, verifyPassword } from "../lib/passwords";
 import { hqAppBase } from "../lib/urls";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 
 /**
  * Real account auth — sign-up, login, password reset. These routes are
@@ -55,21 +55,21 @@ const GENERIC_LOGIN_ERROR = "Incorrect email or password.";
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254);
 
-const signUpSchema = z.object({
+const signUpSchema = strictObject({
   businessName: z.string().trim().min(2).max(80),
   name: z.string().trim().min(2).max(80),
   email: emailSchema,
   password: z.string().min(1).max(256),
 });
 
-const loginSchema = z.object({
+const loginSchema = strictObject({
   email: emailSchema,
   password: z.string().min(1).max(256),
 });
 
-const forgotSchema = z.object({ email: emailSchema });
+const forgotSchema = strictObject({ email: emailSchema });
 
-const resetSchema = z.object({
+const resetSchema = strictObject({
   token: z.string().trim().min(20).max(128),
   password: z.string().min(1).max(256),
 });

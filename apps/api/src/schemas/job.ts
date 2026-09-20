@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
 export const jobStatusSchema = z.enum(["scheduled", "in_progress", "completed"]);
 
-export const createJobSchema = z.object({
+export const createJobSchema = strictObject({
   client: z.string().trim().min(1),
   address: z.string().trim().min(1),
   scope: z.string().trim().min(1),
@@ -23,7 +24,7 @@ export const createJobSchema = z.object({
   status: jobStatusSchema.optional().default("scheduled"),
 });
 
-export const updateJobSchema = z.object({
+export const updateJobSchema = strictObject({
   client: z.string().trim().min(1).optional(),
   address: z.string().trim().min(1).optional(),
   scope: z.string().trim().min(1).optional(),
@@ -38,7 +39,7 @@ export const updateJobSchema = z.object({
   quoteId: z.string().trim().min(1).nullable().optional(),
 });
 
-export const createTimeEntrySchema = z.object({
+export const createTimeEntrySchema = strictObject({
   staffId: z.string().trim().min(1).optional(),
   /** Idempotency key from the client's offline queue — replays are safe. */
   opId: z.string().trim().min(1).optional(),
@@ -48,7 +49,7 @@ export const createTimeEntrySchema = z.object({
   end: z.string().datetime().nullable().optional(),
 });
 
-export const updateTimeEntrySchema = z.object({
+export const updateTimeEntrySchema = strictObject({
   staffId: z.string().trim().min(1).optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().nullable(),
@@ -57,7 +58,7 @@ export const updateTimeEntrySchema = z.object({
 /** Field write: customer signature capture at sign-off. signatureData is a
  *  base64 stroke payload — bounded so a field session can't blob-bomb the
  *  jobs row. Last-write-wins on Job.signature. */
-export const signoffJobSchema = z.object({
+export const signoffJobSchema = strictObject({
   opId: z.string().trim().min(1).optional(),
   signatureData: z.string().min(1).max(500_000),
   signedAt: z.string().datetime().optional(),
@@ -65,13 +66,13 @@ export const signoffJobSchema = z.object({
 
 /** Field write: site arrival/departure marks — the evidence pair the
  *  auto-generated site note and travel-buffer flags are computed from. */
-export const jobEventSchema = z.object({
+export const jobEventSchema = strictObject({
   opId: z.string().trim().min(1).optional(),
   event: z.enum(["arrived", "departed"]),
   occurredAt: z.string().datetime(),
 });
 
-export const createPhotoSchema = z.object({
+export const createPhotoSchema = strictObject({
   label: z.string().trim().min(1),
   url: z.string().trim().min(1),
   /** Client outbox key used to make upload retries idempotent. */

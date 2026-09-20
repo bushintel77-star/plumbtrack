@@ -1,15 +1,16 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
 export const quoteStatusSchema = z.enum(["draft", "sent", "accepted"]);
 
-export const quoteLineInputSchema = z.object({
+export const quoteLineInputSchema = strictObject({
   desc: z.string().trim().min(1),
   qty: z.number().positive(),
   unit: z.string().trim().min(1),
   rate: z.number().nonnegative(),
 });
 
-export const createQuoteSchema = z.object({
+export const createQuoteSchema = strictObject({
   client: z.string().trim().min(1),
   address: z.string().trim().min(1),
   description: z.string().trim().min(1),
@@ -17,7 +18,7 @@ export const createQuoteSchema = z.object({
   lines: z.array(quoteLineInputSchema).default([]),
 });
 
-export const updateQuoteSchema = z.object({
+export const updateQuoteSchema = strictObject({
   client: z.string().trim().min(1).optional(),
   address: z.string().trim().min(1).optional(),
   description: z.string().trim().min(1).optional(),
@@ -26,7 +27,7 @@ export const updateQuoteSchema = z.object({
   signature: z.string().nullable().optional(),
 });
 
-export const updateQuoteLineSchema = z.object({
+export const updateQuoteLineSchema = strictObject({
   desc: z.string().trim().min(1).optional(),
   qty: z.number().positive().optional(),
   unit: z.string().trim().min(1).optional(),

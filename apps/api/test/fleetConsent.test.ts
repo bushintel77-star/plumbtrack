@@ -58,7 +58,7 @@ describe("POST /api/fleet/location-consent", () => {
     expect(metadata).toEqual({ mode: "points", chosenAt, opId: "location-consent-abc123" });
   });
 
-  it("attributes consent to the authenticated user, never a body-supplied one", async () => {
+  it("rejects a body-supplied identity outright (strict validation + session attribution)", async () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/fleet/location-consent",
@@ -71,10 +71,11 @@ describe("POST /api/fleet/location-consent", () => {
       },
     });
 
-    expect(response.statusCode).toBe(204);
-    expect(auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ actorUserId: TECH, entityId: TECH }),
-    });
+    // P1-9 strict validation: the forged extra field is REJECTED, not
+    // silently dropped — and no consent is recorded for anyone.
+    expect(response.statusCode).toBe(400);
+    expect(JSON.stringify(response.json().issues)).toMatch(/userId/);
+    expect(auditCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a mode outside the contract", async () => {

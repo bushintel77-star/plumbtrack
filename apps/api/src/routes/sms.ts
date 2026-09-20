@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { sendSms } from "../lib/sms";
 
 /**
@@ -14,7 +14,7 @@ import { sendSms } from "../lib/sms";
  * and never blocks dispatch on provider availability.
  */
 
-const etaSchema = z.object({
+const etaSchema = strictObject({
   jobId: z.string().trim().min(1),
   etaMinutes: z.number().int().min(0).max(24 * 60),
   message: z.string().trim().min(1).max(320).optional(),

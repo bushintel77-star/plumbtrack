@@ -4,7 +4,7 @@ import { prisma } from "@plumbtrack/database";
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { hqAppBase } from "../lib/urls";
 import { z } from "zod";
 import {
@@ -40,14 +40,14 @@ import {
 const EVENT_TYPES = ["job.completed", "job.created_unassigned", "job.status_urgent", "job.message_posted"] as const;
 type EventType = (typeof EVENT_TYPES)[number];
 
-const connectSchema = z.object({
+const connectSchema = strictObject({
   teamId: z.string().trim().regex(/^T[A-Za-z0-9]+$/, "teamId must look like T012345ABC"),
   teamName: z.string().trim().max(120).optional(),
   accessToken: z.string().trim().min(10).max(400),
   botUserId: z.string().trim().max(64).optional(),
 });
 
-const routeSchema = z.object({
+const routeSchema = strictObject({
   channelId: z.string().trim().regex(/^[CGD][A-Za-z0-9]+$/, "channelId must be a Slack channel id"),
 });
 
