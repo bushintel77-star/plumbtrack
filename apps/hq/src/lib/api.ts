@@ -23,7 +23,7 @@ if (process.env.NODE_ENV === "production" && API_URL_IS_DEFAULT) {
 /** Dev/test-only tenancy header, matching the API's local fallback contract. */
 const ORG_HEADER = "x-organization-id"
 const REQUEST_ID_HEADER = "x-request-id"
-const DEV_ORG_ID = process.env.NEXT_PUBLIC_HQ_DEV_ORG_ID ?? "seed-org"
+const LEGACY_BOOTSTRAP_ORG_ID = process.env.NEXT_PUBLIC_HQ_DEV_ORG_ID
 
 /**
  * The header exists so unsigned dev/test requests can pick an org. Once a
@@ -34,14 +34,21 @@ const DEV_ORG_ID = process.env.NEXT_PUBLIC_HQ_DEV_ORG_ID ?? "seed-org"
  * 2026-09-16). Production builds never send it — there is no unsigned flow.
  */
 let sessionEstablished = process.env.NODE_ENV === "production"
+let sessionOrganizationId: string | null = null
 
-/** Marks a verified session so the dev org header stops riding requests. */
-export function markSessionEstablished(): void {
+/** Marks a verified session so requests follow its organization claim. */
+export function markSessionEstablished(organizationId?: string): void {
   sessionEstablished = true
+  sessionOrganizationId = organizationId ?? null
 }
 
 function orgHeaders(): Record<string, string> {
-  return sessionEstablished ? {} : { [ORG_HEADER]: DEV_ORG_ID }
+  if (sessionEstablished) {
+    return process.env.NODE_ENV === "production" || !sessionOrganizationId
+      ? {}
+      : { [ORG_HEADER]: sessionOrganizationId }
+  }
+  return LEGACY_BOOTSTRAP_ORG_ID ? { [ORG_HEADER]: LEGACY_BOOTSTRAP_ORG_ID } : {}
 }
 
 const API_TIMEOUT_MS = 4000
@@ -228,7 +235,7 @@ export interface JobMessageBridge {
 export const authApi = {
   session: () =>
     apiGet<HqSession>("/api/auth/session").then(session => {
-      markSessionEstablished()
+      markSessionEstablished(session.organizationId)
       recordSessionExpiry(session.expiresAt)
       return session
     }),
@@ -246,6 +253,7 @@ export const authApi = {
   signOut: () =>
     apiRequest<void>("/api/auth/sign-out", { method: "POST" }).finally(() => {
       sessionEstablished = process.env.NODE_ENV === "production"
+      sessionOrganizationId = null
       sessionExpiresAtSeconds = null
     }),
   /**
@@ -276,7 +284,7 @@ export const authApi = {
       method: "POST",
       headers: { Authorization: `Bearer ${bootstrapToken}` }
     }).then(session => {
-      markSessionEstablished()
+      markSessionEstablished(session.organizationId)
       recordSessionExpiry(session.expiresAt)
       return session
     }),
@@ -288,7 +296,7 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ email, password })
     }).then(session => {
-      markSessionEstablished()
+      markSessionEstablished(session.organizationId)
       recordSessionExpiry(session.expiresAt)
       return session
     }),
@@ -297,7 +305,7 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(input)
     }).then(session => {
-      markSessionEstablished()
+      markSessionEstablished(session.organizationId)
       recordSessionExpiry(session.expiresAt)
       return session
     }),
@@ -324,7 +332,7 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(input)
     }).then(session => {
-      markSessionEstablished()
+      markSessionEstablished(session.organizationId)
       recordSessionExpiry(session.expiresAt)
       return session
     }),

@@ -70,3 +70,71 @@ jobs:
 
       - name: Build all workspaces
         run: pnpm build
+
+  # Live-API e2e tier — the real Fastify API in production posture against a
+  # real Postgres, and HQ built against it with no FORCE_DEMO. Proves the
+  # paths demo data cannot: account sign-in, board hydration, job intake and
+  # an assignment round-trip. Playwright's webServer boots both servers.
+  e2e-live:
+    name: HQ e2e (Playwright, live-API tier)
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: plumbtrack
+          POSTGRES_PASSWORD: plumbtrack
+          POSTGRES_DB: plumbtrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U plumbtrack"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      E2E_SEED_ALLOWED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Run Prisma migrations
+        run: pnpm db:migrate
+
+      # The seed script imports the real @plumbtrack/database package, which
+      # resolves through its built dist/ output — this job never runs the
+      # workspace-wide `pnpm build`, so build the database package here.
+      - name: Build the database package
+        run: pnpm --filter @plumbtrack/database build
+
+      - name: Seed the e2e org and accounts
+        run: pnpm --filter @plumbtrack/api exec tsx scripts/e2e-seed.ts
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/hq/package.json') }}
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @plumbtrack/hq exec playwright install --with-deps chromium
+
+      - name: Run HQ live-API e2e suite
+        run: pnpm --filter @plumbtrack/hq test:e2e-live
