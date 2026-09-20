@@ -71,8 +71,26 @@ model Organization {
   integrationInterests IntegrationInterest[]
   oauthAuthorizations  OAuthAuthorization[]
   teamInvites          TeamInvite[]
+  deletions            Deletion[]
 
   @@map("organizations")
+}
+
+/// Tombstone for rows the field device has synced and must forget (P1-5).
+/// Written in the same transaction as the hard delete; /api/sync emits ids
+/// after the pull cursor so Watermelon destroys the cached row. A marker
+/// table, not soft-delete columns — existing job queries stay untouched.
+model Deletion {
+  id         String   @id @default(cuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  /// Which kind of row died — "job" today; more when the field syncs more.
+  entityType String
+  entityId   String
+  deletedAt  DateTime @default(now())
+
+  @@index([orgId, entityType, deletedAt])
+  @@map("deletions")
 }
 
 enum OrganizationRole {

@@ -375,7 +375,18 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     const roleFailure = requireRole(request, reply, ["admin", "owner"]);
     if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
-    const result = await prisma.job.deleteMany({ where: { id, orgId } });
+    // Tombstone + delete in one transaction (P1-5): the field device's next
+    // pull sees the marker and destroys its cached row. Deleting a row the
+    // customer record still points at? customerId is a plain link the office
+    // manages — the delete is the decision, the tombstone is the receipt.
+    const result = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.job.deleteMany({ where: { id, orgId } });
+      if (deleted.count === 0) return deleted;
+      await tx.deletion.create({
+        data: { orgId, entityType: "job", entityId: id },
+      });
+      return deleted;
+    });
     if (result.count === 0) return reply.code(404).send({ message: "Job not found" });
     recordAuditEvent(request, { action: "job.deleted", entityType: "job", entityId: id });
     return reply.code(204).send();
