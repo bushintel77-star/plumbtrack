@@ -4,6 +4,7 @@ import { SlackAdapter } from "./integrations/slack/SlackAdapter";
 import { SlackDeliveryAdapter } from "./integrations/slack/SlackDeliveryAdapter";
 import { createDomainEventWorker } from "./lib/domainEventWorker";
 import { createIntegrationWorker } from "./lib/integrationWorker";
+import { createSweeperWorker } from "./lib/sweeper";
 import { buildApp } from "./server";
 
 const port = Number(process.env.PORT ?? 8080);
@@ -17,11 +18,14 @@ async function main(): Promise<void> {
   const router = new DefaultIntegrationRouter();
   router.register(new SlackAdapter());
   const domainEventWorker = createDomainEventWorker(router);
+  const sweeperWorker = createSweeperWorker();
   integrationWorker.start();
   domainEventWorker.start();
+  sweeperWorker.start();
   app.addHook("onClose", async () => {
     domainEventWorker.stop();
     integrationWorker.stop();
+    sweeperWorker.stop();
   });
   try {
     await app.listen({ port, host });

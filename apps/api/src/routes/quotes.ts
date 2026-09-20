@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import {
   createQuoteSchema,
@@ -63,6 +63,16 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     return quote;
   });
 
+  // Quote lifecycle (P1-11): the status machine is draft → sent → accepted,
+  // one way. An accepted quote is the agreed price — P1-1's payment links
+  // are priced from it — so it is immutable: no re-opening, no un-sending,
+  // and (below) no line edits after acceptance.
+  const ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+    draft: ["sent"],
+    sent: ["accepted"],
+    accepted: [],
+  };
+
   app.patch("/:id", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
@@ -71,6 +81,17 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const parsed = parseBody(updateQuoteSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
+    if (parsed.data.status !== undefined) {
+      const current = await prisma.quote.findFirst({ where: { id, orgId }, select: { status: true } });
+      if (!current) return reply.code(404).send({ message: "Quote not found" });
+      if (!ALLOWED_TRANSITIONS[current.status].includes(parsed.data.status)) {
+        return reply.code(409).send({
+          statusCode: 409,
+          error: "Conflict",
+          message: `A ${current.status} quote cannot move to ${parsed.data.status} — the lifecycle is draft → sent → accepted, and accepted quotes are the agreed price`,
+        });
+      }
+    }
     const result = await prisma.quote.updateMany({
       where: { id, orgId },
       data: parsed.data,
@@ -96,6 +117,15 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Quote lines
+  const rejectAcceptedQuote = (quote: { status: string }, reply: FastifyReply): FastifyReply | null => {
+    if (quote.status !== "accepted") return null;
+    return reply.code(409).send({
+      statusCode: 409,
+      error: "Conflict",
+      message: "This quote is accepted — it is the agreed price payment links bill from. Create a new quote instead of editing the agreed one.",
+    });
+  };
+
   app.post("/:id/lines", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
@@ -104,6 +134,8 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const quote = await prisma.quote.findFirst({ where: { id, orgId } });
     if (!quote) return reply.code(404).send({ message: "Quote not found" });
+    const rejected = rejectAcceptedQuote(quote, reply);
+    if (rejected) return rejected;
     const parsed = parseBody(quoteLineInputSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
     const last = await prisma.quoteLine.findFirst({
@@ -129,6 +161,8 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     const { id, lineId } = request.params as { id: string; lineId: string };
     const quote = await prisma.quote.findFirst({ where: { id, orgId } });
     if (!quote) return reply.code(404).send({ message: "Quote not found" });
+    const rejectedLine = rejectAcceptedQuote(quote, reply);
+    if (rejectedLine) return rejectedLine;
     const parsed = parseBody(updateQuoteLineSchema, request.body);
     if (!parsed.ok) return sendValidationError(reply, parsed.error);
     // Scope the line to the org-verified quote — updating by line id alone
@@ -153,6 +187,8 @@ export async function quoteRoutes(app: FastifyInstance): Promise<void> {
     // would let a guessed quoteId+lineId pair from another org be destroyed.
     const quote = await prisma.quote.findFirst({ where: { id, orgId } });
     if (!quote) return reply.code(404).send({ message: "Quote not found" });
+    const rejectedDelete = rejectAcceptedQuote(quote, reply);
+    if (rejectedDelete) return rejectedDelete;
     const result = await prisma.quoteLine.deleteMany({
       where: { id: lineId, quoteId: id },
     });
