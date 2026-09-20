@@ -84,6 +84,14 @@ export const tenantPlugin = fp(
         return;
       }
 
+      // Local-storage signed PUT (mode 2): the HMAC signature in the query
+      // IS the authorization (the route verifies it timing-safe before
+      // writing a byte) — a bearer session is meaningless for a binary
+      // device upload, exactly like the pre-signed S3 URL it mirrors.
+      if (request.method === "PUT" && /^\/api\/media\/local\/.+/.test(url)) {
+        return;
+      }
+
       // Healthchecks (Railway and load balancers) hit /api/health with no
       // session — a 401 there fails the deployment's health probe. The route
       // exposes only service liveness, never tenant data.

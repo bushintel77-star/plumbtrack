@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
@@ -6,7 +7,7 @@ import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { createUploadIntentSchema, completeUploadSchema } from "../schemas/media";
 import { parseBody, sendValidationError } from "../lib/validation";
-import { createUploadUrl, readObject, storageConfigured } from "../lib/storage";
+import { createUploadUrl, readObject, storageConfigured, storageReadMode, putLocalObject, verifyLocalUploadSignature } from "../lib/storage";
 
 const INTENT_TTL_SECONDS = 15 * 60;
 
@@ -123,6 +124,31 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     if (asset.status !== "pending") return reply.code(409).send({ message: "Media asset cannot be completed" });
     if (asset.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });
 
+    // Zero-mock completion (P1-8): in every mode the API can read, "complete"
+    // may only report success when the bytes ACTUALLY reached storage and
+    // match what the intent declared — read the object back and verify size
+    // (+ sha256 when the intent declared one) before flipping the row to
+    // uploaded. Gateway mode keeps the bytes on the separate self-hosted
+    // gateway, so verification is contractually impossible there and the
+    // legacy trust-the-gateway behaviour applies (documented limitation).
+    if (storageReadMode() === "s3" || storageReadMode() === "local") {
+      const stored = await readObject(asset.objectKey);
+      if (!stored) {
+        return reply.code(409).send({ message: "Upload never reached storage — PUT the file before completing" });
+      }
+      if (stored.body.byteLength !== asset.byteSize) {
+        return reply.code(422).send({
+          message: `Stored upload is ${stored.body.byteLength} bytes but the intent declared ${asset.byteSize} — upload rejected`,
+        });
+      }
+      if (asset.sha256) {
+        const digest = createHash("sha256").update(stored.body).digest("hex");
+        if (digest !== asset.sha256) {
+          return reply.code(422).send({ message: "Stored upload does not match the declared content hash — upload rejected" });
+        }
+      }
+    }
+
     // Reads are served by the API itself — no public bucket URL needed.
     const publicUrl = readUrlFor(request, asset.id);
     if (!publicUrl) return reply.code(503).send({ message: "Media public URL is not configured (set PUBLIC_API_BASE_URL)" });
@@ -153,6 +179,24 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
       metadata: { jobId: asset.jobId, photoId: photo.id },
     });
     return { assetId: asset.id, photoId: photo.id, photoUrl: publicUrl };
+  });
+
+  // Local-storage signed PUT (mode 2 in lib/storage.ts): the bytes land on
+  // this API's own disk behind the same HMAC signature scheme the legacy
+  // gateway uses. The tenant hook exempts this path — like the public file
+  // read, the signature IS the authorization (bearer-less binary PUTs from
+  // the field client).
+  app.put("/local/*", async (request, reply) => {
+    const url = request.url.split("?")[0];
+    const objectKey = decodeURIComponent(url.replace("/api/media/local/", ""));
+    const query = request.query as { expires?: string; signature?: string };
+    if (!verifyLocalUploadSignature(objectKey, query.expires, query.signature)) {
+      return reply.code(403).send({ message: "Invalid or expired upload signature" });
+    }
+    const body = request.body as Buffer | undefined;
+    if (!body || body.length === 0) return reply.code(400).send({ message: "Empty upload body" });
+    await putLocalObject(objectKey, body);
+    return reply.code(200).send({});
   });
 
   // Public read route — the browser <img>/<Image> tags load this without auth

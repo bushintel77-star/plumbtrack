@@ -73,6 +73,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     },
   });
 
+  // Binary bodies for the signed media PUT (local storage mode) — Fastify
+  // otherwise 415s non-JSON content types. Bounded: uploads larger than the
+  // limit are rejected before buffering.
+  app.addContentTypeParser(
+    ["image/jpeg", "image/png", "image/webp", "image/heic", "application/octet-stream"],
+    { parseAs: "buffer", bodyLimit: 26_214_400 },
+    (_request, body, done) => done(null, body),
+  );
+
   await app.register(helmet);
   await app.register(cookie);
   // CORS_ORIGINS (comma-separated) restricts browser callers to a configured
