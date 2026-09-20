@@ -6,7 +6,10 @@ const toastSpy = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/api", () => ({
   apiRequest: apiRequestSpy,
   authApi: {},
-  persistJobStatus: vi.fn()
+  persistJobStatus: vi.fn(),
+  // boardStore reads this at module init to decide whether the demo seed
+  // ships — a unit test environment is never a demo build.
+  FORCE_DEMO: false
 }))
 vi.mock("@/hooks/use-toast", () => ({ toast: toastSpy }))
 vi.mock("@/lib/offline", () => ({ enqueueSync: vi.fn() }))

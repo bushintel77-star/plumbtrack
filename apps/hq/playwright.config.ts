@@ -21,11 +21,10 @@ export default defineConfig({
     timeout: 240_000,
     reuseExistingServer: !process.env.CI,
     // Inlined at build time — forces the deterministic demo data path so the
-    // suite never depends on the Fastify API or a seeded database, and runs
-    // the telemetry simulator so the live-fleet path is exercisable.
+    // suite never depends on the Fastify API or a seeded database. The test
+    // bridge exposes window.__hqStore for state-level assertions.
     env: {
       NEXT_PUBLIC_HQ_FORCE_DEMO: "1",
-      NEXT_PUBLIC_HQ_TELEMETRY_SIM: "1",
       NEXT_PUBLIC_HQ_TEST_BRIDGE: "1"
     }
   }

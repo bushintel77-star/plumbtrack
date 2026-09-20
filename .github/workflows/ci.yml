@@ -70,3 +70,40 @@ jobs:
 
       - name: Build all workspaces
         run: pnpm build
+
+  # Deterministic HQ e2e tier — the playwright webServer builds HQ with
+  # NEXT_PUBLIC_HQ_FORCE_DEMO=1 + TEST_BRIDGE (see apps/hq/playwright.config.ts),
+  # so this job needs no database and no API. The live-API tier lands as its
+  # own job.
+  e2e:
+    name: HQ e2e (Playwright, deterministic tier)
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/hq/package.json') }}
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @plumbtrack/hq exec playwright install --with-deps chromium
+
+      - name: Run HQ e2e suite
+        run: pnpm --filter @plumbtrack/hq test:e2e
