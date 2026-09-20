@@ -3,6 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const prismaMock = vi.hoisted(() => ({
   job: {
     findMany: vi.fn()
+  },
+  // P1-5: tombstones for hard-deleted jobs — empty by default, asserted in
+  // syncTombstones.test.ts.
+  deletion: {
+    findMany: vi.fn(async () => [])
   }
 }))
 

@@ -13,13 +13,17 @@ import { agreementSnapshot, type AgreementSnapshot } from "../lib/agreements";
  * Contract notes:
  *   • First pull (no cursor): every org job ships as `created`.
  *   • Incremental: jobs with updatedAt after the cursor ship as `updated`.
- *   • `deleted` is always empty — the schema has no tombstones yet, so
- *     deletions do not propagate (documented limitation; full two-way sync
- *     adds soft-delete columns first).
+ *   • `deleted` carries job ids tombstoned after the cursor (P1-5): the
+ *     DELETE route writes a Deletion marker in the same transaction as the
+ *     hard delete, and Watermelon destroys the cached row on the device.
+ *     Re-emitting a tombstone is a no-op; missing one is a ghost job.
  *   • Rows carry created_at/updated_at in epoch ms (Watermelon's
  *     last-write-wins conflict resolution keys on them).
  *   • The cursor parameter is SECONDS (API-friendly); the response
- *     timestamp is MS (Watermelon's unit) — the client converts.
+ *     timestamp is MS (Watermelon's unit) — the client converts. The
+ *     timestamp covers every change in the response (max of last row,
+ *     newest tombstone, now) — except under the row cap, where it stays at
+ *     the last row so truncated rows are never skipped.
  */
 
 interface SyncJobRow {
@@ -186,19 +190,42 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
       take: SYNC_JOB_CAP
     });
 
+    // Tombstones (P1-5): hard-deleted jobs ship their ids so Watermelon
+    // destroys the cached row. Emitted on every pull after the cursor —
+    // re-emitting a tombstone is a no-op client-side, missing one is a
+    // ghost job forever, so the query is deliberately unbounded above.
+    const tombstones = isFirstPull
+      ? []
+      : await prisma.deletion.findMany({
+          where: { orgId, entityType: "job", deletedAt: { gt: new Date(cursorMs) } },
+          orderBy: { deletedAt: "asc" },
+          select: { entityId: true, deletedAt: true },
+        });
+
     const rows = jobs.map(toRow);
+    // The next cursor must cover every change this response carries, or a
+    // change gets skipped permanently: it is the max of the last returned
+    // row's updatedAt, the newest tombstone, and now. One exception — when
+    // the job query hit SYNC_JOB_CAP the cursor must stay at the last row,
+    // otherwise the truncated older rows would never be sent at all
+    // (re-sent tombstones and duplicate updates are harmless; skipped
+    // changes are not).
+    const lastRowMs = jobs.length > 0 ? jobs[jobs.length - 1].updatedAt.getTime() : 0;
+    const lastTombstoneMs = tombstones.length > 0 ? tombstones[tombstones.length - 1].deletedAt.getTime() : 0;
+    const timestamp =
+      jobs.length === SYNC_JOB_CAP
+        ? lastRowMs
+        : Math.max(Date.now(), lastRowMs, lastTombstoneMs);
+
     return {
       changes: {
         jobs: {
           created: isFirstPull ? rows : [],
           updated: isFirstPull ? [] : rows,
-          deleted: []
+          deleted: tombstones.map(tombstone => tombstone.entityId)
         }
       },
-      // The next cursor must be the last returned row's updatedAt — using
-      // Date.now() here would permanently skip changes beyond the
-      // SYNC_JOB_CAP cap on busy pulls.
-      timestamp: jobs.length > 0 ? jobs[jobs.length - 1].updatedAt.getTime() : Date.now()
+      timestamp
     };
   });
 }
