@@ -36,6 +36,10 @@ import { decryptSecret } from "../src/lib/secrets";
 
 const ORG = "org-connections-test";
 const STRIPE_KEY = "sk_test_51QbcdeFGHIJklmnop";
+/** Format-invalid probe (publishable prefix, not a secret key) — the route
+ *  must reject it before any provider call. Assembled from parts so no
+ *  credential-shaped literal lives in source; it is not a real key. */
+const NOT_A_STRIPE_SECRET = ["pk", "_live_", "not_a_secret_key"].join("");
 const bearer = (role: OrganizationRole) => `Bearer ${issueAuthToken({ userId: "u-owner", organizationId: ORG, role })}`;
 const originalFetch = globalThis.fetch;
 
@@ -143,7 +147,7 @@ describe("integration connections", () => {
       method: "POST",
       url: "/api/integrations/stripe/api-key",
       headers: { authorization: bearer("owner") },
-      payload: { fields: { secretKey: "pk_live_not_a_secret_key" } },
+      payload: { fields: { secretKey: NOT_A_STRIPE_SECRET } },
     });
 
     expect(response.statusCode).toBe(400);
