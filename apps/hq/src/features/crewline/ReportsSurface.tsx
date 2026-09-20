@@ -13,10 +13,13 @@ import { useJobsList } from "@/stores/boardStore"
 import { HonestAction } from "./common"
 
 /** Jobs the office can actually collect on: completed, revenue recorded,
- *  and Stripe not already paid. */
+ *  and Stripe not already paid. The server prices the link from the accepted
+ *  quote (P1-1) — the client never sends an amount. */
 interface PaymentLinkResponse {
   url: string
   mode: "live" | "test"
+  amount: number
+  currency: string
 }
 
 export function ReportsSurface() {
@@ -30,14 +33,10 @@ export function ReportsSurface() {
   )
 
   const createLink = useMutation({
-    mutationFn: async (jobId: string) => {
-      const job = jobs.find(candidate => candidate.id === jobId)
-      const amount = job ? jobRevenue(job) : 0
-      return apiRequest<PaymentLinkResponse>(`/api/jobs/${jobId}/payment-link`, {
-        method: "POST",
-        body: JSON.stringify({ amount })
-      })
-    },
+    mutationFn: async (jobId: string) =>
+      apiRequest<PaymentLinkResponse>(`/api/jobs/${jobId}/payment-link`, {
+        method: "POST"
+      }),
     onSuccess: (response, jobId) => {
       setLinks(current => ({ ...current, [jobId]: response }))
     }
@@ -125,7 +124,7 @@ export function ReportsSurface() {
                 </span>
                 {link ? (
                   <a className="fl-download" href={link.url} target="_blank" rel="noreferrer">
-                    Open {link.mode} checkout link
+                    Open {link.mode} checkout link — {formatMoney(link.amount)} {link.currency}
                   </a>
                 ) : (
                   <button
@@ -135,7 +134,7 @@ export function ReportsSurface() {
                     disabled={createLink.isPending}
                   >
                     <CreditCard size={13} />
-                    {createLink.isPending ? "Creating…" : `Create payment link (${formatMoney(amount)})`}
+                    {createLink.isPending ? "Creating…" : `Create payment link (quoted ${formatMoney(amount)})`}
                   </button>
                 )}
               </div>

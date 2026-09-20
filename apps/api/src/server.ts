@@ -6,6 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import cookie from "@fastify/cookie";
 import { assertAuthConfiguration } from "./lib/auth";
 import { assertEncryptionConfiguration } from "./lib/secrets";
+import { assertPaymentsConfiguration } from "./lib/payments";
 import { setupRoutes } from "./routes/setup";
 import { connectionRoutes } from "./routes/connections";
 import { tenantPlugin } from "./lib/tenant";
@@ -42,6 +43,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // Integration credentials are encrypted at rest — refuse to start a
   // production deployment that could accept a key it cannot protect.
   assertEncryptionConfiguration();
+  // Real payments require real return URLs (P1-1): only asserted when a
+  // Stripe key is present, so unconfigured-payment deployments still boot.
+  assertPaymentsConfiguration();
   // The legacy tenant-header flag no longer has any effect in production
   // (lib/auth.ts hard-requires signed sessions there). Refuse to boot a
   // production deployment that still carries it so operators don't believe a
