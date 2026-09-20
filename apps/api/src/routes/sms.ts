@@ -7,11 +7,12 @@ import { parseBody, sendValidationError } from "../lib/validation";
 import { sendSms } from "../lib/sms";
 
 /**
- * Customer ETA notification — HQ sends "we're on our way, ETA ~X min" to the
- * job's customer. ETA is computed on the HQ client (which owns travel time);
- * the server is the only place with the customer's phone and the SMS
- * credentials, so it templates and sends. Best-effort: returns a clear result
- * and never blocks dispatch on provider availability.
+ * Customer ETA notification — "we're on our way, ETA ~X min" to the job's
+ * customer. Dispatch sends from HQ; since P1-3 a technician may also send
+ * for a job assigned to them (owner decision). ETA is computed on the client
+ * (which owns travel time); the server is the only place with the customer's
+ * phone and the SMS credentials, so it templates and sends. Best-effort:
+ * returns a clear result and never blocks dispatch on provider availability.
  */
 
 const etaSchema = z.object({
@@ -36,7 +37,7 @@ export async function smsRoutes(app: FastifyInstance): Promise<void> {
   app.post("/eta", { config: { rateLimit: { max: smsMax, timeWindow: smsWindowMs } } }, async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
-    const roleFailure = requireRole(request, reply, ["dispatcher", "manager", "admin", "owner"]);
+    const roleFailure = requireRole(request, reply, ["technician", "dispatcher", "manager", "admin", "owner"]);
     if (roleFailure) return roleFailure;
 
     const parsed = parseBody(etaSchema, request.body);
@@ -45,6 +46,18 @@ export async function smsRoutes(app: FastifyInstance): Promise<void> {
 
     const job = await prisma.job.findFirst({ where: { id: jobId, orgId } });
     if (!job) return reply.code(404).send({ message: "Job not found" });
+    // Owner decision (P1-3): technicians may send the ETA themselves —
+    // scoped to jobs assigned to THEM, so a field session can never text
+    // the customer of someone else's work. Office roles stay org-scoped.
+    if (request.auth?.role === "technician" && request.auth.userId) {
+      const assigned = await prisma.appointment.findFirst({
+        where: { orgId, jobId: job.id, assignedStaffId: request.auth.userId },
+        select: { id: true },
+      });
+      if (!assigned) {
+        return reply.code(403).send({ statusCode: 403, error: "Forbidden", message: "You can only send an ETA for a job assigned to you" });
+      }
+    }
     if (!job.phone) return reply.code(409).send({ message: "Job has no customer phone" });
 
     // Idempotent replay: a prior attempt with this opId already resolved —
