@@ -23,12 +23,12 @@ import { cn } from "@/lib/utils"
  * is proxied by the API.
  */
 
-/** Canonical automation events; `job.status_urgent` is stored ahead of the
- *  server-side urgency signal existing (the job model has none yet). */
+/** Canonical automation events. `job.status_urgent` is live since P1-4:
+ *  marking a job urgent on the board emits the event to this route. */
 const EVENT_LABELS: Record<string, { label: string; note?: string }> = {
   "job.completed": { label: "job.completed" },
   "job.created_unassigned": { label: "job.created (unassigned)" },
-  "job.status_urgent": { label: "job.status → urgent", note: "stored — urgency has no server-side signal yet" },
+  "job.status_urgent": { label: "job.status → urgent", note: "live — fires when dispatch marks a job urgent on the board" },
   "job.message_posted": { label: "job messages → thread per job", note: "each job gets one thread; replies typed in it go back to the job and the technician" }
 }
 

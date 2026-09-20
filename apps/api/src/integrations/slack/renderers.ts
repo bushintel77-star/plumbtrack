@@ -1,4 +1,4 @@
-import type { JobCompletedEvent, JobCreatedUnassignedEvent, JobMessagePostedEvent, NotificationCreatedEvent } from "../../domain/events";
+import type { JobCompletedEvent, JobCreatedUnassignedEvent, JobMessagePostedEvent, JobUrgentEvent, NotificationCreatedEvent } from "../../domain/events";
 
 export interface SlackTextObject {
   type: "mrkdwn";
@@ -131,6 +131,35 @@ export function renderJobCreatedUnassignedMessage(event: JobCreatedUnassignedEve
       {
         type: "context",
         elements: [{ type: "mrkdwn", text: "Assign from the HQ dispatch board — this job has no technician yet." }],
+      },
+    ],
+  };
+}
+
+/** 🔴 Urgent job card — dispatch marked this job urgent (P1-4). Mirrors the
+ *  board's red treatment; posts to the org's routed job.status_urgent
+ *  channel. */
+export function renderJobUrgentMessage(event: JobUrgentEvent): SlackRenderedMessage {
+  return {
+    text: `🔴 Urgent job — ${event.scope || event.client} · ${event.client}, ${event.address}`,
+    blocks: [
+      {
+        type: "header",
+        text: { type: "plain_text", text: `Urgent job · ${event.jobId}`, emoji: true },
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Customer*\n${event.client}` },
+          { type: "mrkdwn", text: `*Address*\n${event.address}` },
+          { type: "mrkdwn", text: `*Scope*\n${event.scope || "—"}` },
+          { type: "mrkdwn", text: `*Marked urgent by*\n${event.markedBy}` },
+        ],
+      },
+      { type: "divider" },
+      {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: "Marked from the HQ dispatch board — treat as priority dispatch." }],
       },
     ],
   };

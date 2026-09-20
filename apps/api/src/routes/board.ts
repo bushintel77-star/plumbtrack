@@ -92,6 +92,9 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           address: job.address,
           scope: job.scope,
           status: job.status,
+          // P1-4: the office-marked urgency signal — HQ surfaces it on the
+          // job, and the attention pane raises a red flag while it's open.
+          urgent: job.urgent,
           phone: job.phone,
           customerId: job.customerId,
           createdAt: job.createdAt,
@@ -154,6 +157,7 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
             address: job.address,
             scope: job.scope,
             status: job.status,
+            urgent: job.urgent,
             lat: job.lat,
             lng: job.lng,
             appointment: appointment

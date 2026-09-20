@@ -124,6 +124,9 @@ export interface Job {
   /** Multi-day linked schedules: fragments share a group id + color token. */
   linkedGroupId?: string
   status: JobStatus
+  /** Office-marked urgency (P1-4) — the server-side red signal behind the
+   *  attention pane and the job.status_urgent Slack route. */
+  urgent?: boolean
   /** Stripe payment lifecycle for this job ("unpaid" | "processing" | "paid" | "failed"). */
   paymentStatus?: string
   elapsedSeconds: number

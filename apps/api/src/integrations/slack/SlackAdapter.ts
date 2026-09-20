@@ -6,6 +6,7 @@ import {
   renderJobCreatedUnassignedMessage,
   renderJobMessageReply,
   renderJobThreadParent,
+  renderJobUrgentMessage,
   renderNotificationMessage,
 } from "./renderers";
 
@@ -15,15 +16,15 @@ export class SlackAdapter implements IntegrationAdapter {
   readonly provider = "slack";
 
   supports(eventType: string): boolean {
-    // job.created_unassigned: the §4.6 automation route. job.status_urgent is
-    // routed in the table but has no emitter yet — the job model carries no
-    // urgency signal server-side, and the route surface says so honestly.
+    // job.created_unassigned: the §4.6 automation route. job.status_urgent:
+    // live since P1-4 — dispatch marking a job urgent emits it (P1-4).
     // job.message_posted: the job-thread bridge (lib/slackJobThreads).
     return (
       eventType === "job.completed" ||
       eventType === "notification.created" ||
       eventType === "job.created_unassigned" ||
-      eventType === "job.message_posted"
+      eventType === "job.message_posted" ||
+      eventType === "job.status_urgent"
     );
   }
 
@@ -42,7 +43,9 @@ export class SlackAdapter implements IntegrationAdapter {
       ? renderJobCompletedMessage(event)
       : event.type === "job.created_unassigned"
         ? renderJobCreatedUnassignedMessage(event)
-        : renderNotificationMessage(event);
+        : event.type === "job.status_urgent"
+          ? renderJobUrgentMessage(event)
+          : renderNotificationMessage(event);
     const channel = event.type === "job.completed"
       ? process.env.SLACK_COMPLETIONS_CHANNEL?.trim() || COMPLETIONS_CHANNEL
       : event.type === "notification.created"

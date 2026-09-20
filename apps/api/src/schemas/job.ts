@@ -35,6 +35,9 @@ export const updateJobSchema = z.object({
   propertyId: z.string().trim().min(1).nullable().optional(),
   status: jobStatusSchema.optional(),
   signature: z.string().nullable().optional(),
+  // Office-marked urgency (P1-4) — deliberately NOT a field write: toggling
+  // it rides the manager+ authority, same as every other dispatch decision.
+  urgent: z.boolean().optional(),
   quoteId: z.string().trim().min(1).nullable().optional(),
 });
 

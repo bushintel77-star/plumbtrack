@@ -86,6 +86,8 @@ interface BoardState {
   clearLiveLocation: (vehicleId: string) => void
   /** Apply a remote status transition from topic/jobs/status. */
   applyRemoteStatus: (jobId: string, status: JobStatus) => void
+  /** Optimistic urgency toggle (P1-4) — callers persist and roll back. */
+  setUrgent: (jobId: string, urgent: boolean) => void
 
   hydrateFromApi: (payload: ApiBoardPayload) => void
   enterDemo: () => void
@@ -216,6 +218,11 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         status,
         timerRunning: status === "active"
       })
+    })),
+
+  setUrgent: (jobId, urgent) =>
+    set(s => ({
+      jobs: patchJob(s.jobs, jobId, { urgent })
     })),
 
   hydrateFromApi: payload =>

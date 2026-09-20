@@ -6,7 +6,7 @@ import { AlertTriangle, ChevronLeft, Clock3, MapPin, MessageSquare, PanelRightCl
 import { performAssignment } from "@/features/board/actions"
 import { JobMessageThread } from "@/features/right/JobMessageThread"
 import { TOTAL_BLOCKS, blockLabel } from "@/lib/format"
-import { authApi } from "@/lib/api"
+import { authApi, HttpError, persistJobUrgent } from "@/lib/api"
 import { travelMinutes } from "@/lib/travel"
 import { dispatchStatus } from "@/lib/crewline"
 import type { AttentionFlag } from "@/types"
@@ -83,6 +83,7 @@ export function Inspector({
         )}
       </div>
       <StatusChip status={dispatchStatus(job)} />
+      <UrgentToggle job={job} />
       <h2>{job.title}</h2>
       <p>
         <MapPin size={14} />
@@ -177,6 +178,55 @@ function NotifyEtaControl({ job }: { job: Job }) {
  * path, not the only path: a dispatcher on a keyboard or screen reader has to
  * be able to place a job too.
  */
+/**
+ * Urgency toggle (P1-4) — optimistic local patch, then the real PATCH; a
+ * server rejection (403 = non-office role, network) rolls the chip back and
+ * says so. The flag itself lives server-side: the attention pane and the
+ * job.status_urgent Slack route key on THIS signal.
+ */
+function UrgentToggle({ job }: { job: Job }) {
+  const setUrgent = useBoardStore(s => s.setUrgent)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const urgent = job.urgent ?? false
+
+  const toggle = async () => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    setUrgent(job.id, !urgent)
+    try {
+      await persistJobUrgent(job.id, !urgent)
+    } catch (cause) {
+      setUrgent(job.id, urgent)
+      setError(
+        cause instanceof HttpError && cause.status === 403
+          ? "Office roles can mark urgency."
+          : "Couldn't save — reverted."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fl-urgent-row">
+      <button
+        type="button"
+        className={cn("fl-urgent-toggle", urgent && "on")}
+        aria-pressed={urgent}
+        disabled={busy}
+        aria-label={urgent ? `Marked urgent. Click to clear urgency on ${job.title}` : `Mark ${job.title} urgent`}
+        onClick={() => void toggle()}
+      >
+        <AlertTriangle size={12} />
+        {urgent ? "URGENT" : "Mark urgent"}
+      </button>
+      {error && <span className="fl-urgent-error">{error}</span>}
+    </div>
+  )
+}
+
 function AssignControl({
   job,
   onAssign

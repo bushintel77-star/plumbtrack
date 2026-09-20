@@ -417,6 +417,10 @@ model Job {
   requiredSkill   String?
   phone           String?
   accessCode      String?
+  /// Office-marked urgency (P1-4) — the server-side signal behind the
+  /// job.status_urgent automation route and the board's attention pane.
+  /// Never set by field writes; a false→true transition emits the event.
+  urgent          Boolean  @default(false)
   /// Technician's free-text site note (single last-write-wins note, distinct
   /// from the threaded JobMessage conversation).
   fieldNote       String?

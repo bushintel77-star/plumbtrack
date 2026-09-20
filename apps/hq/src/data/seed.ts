@@ -39,6 +39,9 @@ export const jobs: Job[] = [
     spanBlocks: 3,
     scheduledDate: isoDay(0),
     status: "unassigned",
+    // The emergency demo job carries the urgent flag so the toggle and the
+    // attention pane's red rule are visible without a live API.
+    urgent: true,
     elapsedSeconds: 0,
     timerRunning: false,
     clockOnCount: 0,
