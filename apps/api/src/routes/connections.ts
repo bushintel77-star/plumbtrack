@@ -6,7 +6,7 @@ import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { encryptionConfigured, encryptSecret, decryptSecret, secretHint } from "../lib/secrets";
-import { buildAuthorizeUrl, codeChallengeFor, createCodeVerifier, createState, exchangeCodeForTokens } from "../lib/pkce";
+import { buildAuthorizeUrl, codeChallengeFor, createCodeVerifier, createState, exchangeProviderCode } from "../lib/pkce";
 import {
   authorizeUrlFor,
   clientCredentialsFor,
@@ -295,7 +295,7 @@ export async function connectionRoutes(app: FastifyInstance): Promise<void> {
     const { clientId, clientSecret } = clientCredentialsFor(provider);
     if (!tokenUrl || !clientId) return finishRedirect(reply, authorization.returnTo, provider.id, "failed");
 
-    const exchange = await exchangeCodeForTokens({
+    const exchange = await exchangeProviderCode({
       tokenUrl,
       clientId,
       clientSecret,

@@ -67,6 +67,41 @@ export interface TokenExchangeResult {
   httpStatus?: number;
 }
 
+/** Server-side fetch policy for provider token/refresh URLs. The URL comes
+ *  from the provider catalog or operator env — never from the request — but
+ *  a misconfigured env var must not turn the exchange into an
+ *  internal-network probe: http(s) schemes only, and loopback/private/
+ *  reserved hosts are rejected outright. Returns the failure reason, or
+ *  null when the URL is policy-clean. */
+export function providerUrlPolicyFailure(rawUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return "Provider token URL is not a valid absolute URL.";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return "Provider token URL must use http or https.";
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const privateOrLoopback =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "0.0.0.0" ||
+    host === "::1" ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^f[cd][0-9a-f]{2}:/.test(host) ||
+    /^fe[89ab][0-9a-f]:/.test(host);
+  if (privateOrLoopback) {
+    return "Provider token URL points at a loopback, private or reserved address.";
+  }
+  return null;
+}
+
 /**
  * Exchange the authorization code for tokens. Confidential clients send the
  * client secret as well as the verifier; public clients send the verifier
@@ -81,6 +116,8 @@ export async function exchangeCodeForTokens(input: {
   codeVerifier: string;
   timeoutMs?: number;
 }): Promise<TokenExchangeResult> {
+  const policyFailure = providerUrlPolicyFailure(input.tokenUrl);
+  if (policyFailure) return { ok: false, error: policyFailure };
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code: input.code,
@@ -112,6 +149,37 @@ export async function exchangeCodeForTokens(input: {
   }
 }
 
+/**
+ * Provider-level wrapper for the code exchange: resolves nothing itself but
+ * enforces provider configuration before delegating. Route handlers call
+ * THIS, not the raw exchange, so request-derived values (the authorization
+ * code) never flow directly into the fetch-bearing function — the token URL
+ * and client credentials are server-side catalog/env values, validated by
+ * the fetch policy inside.
+ */
+export async function exchangeProviderCode(input: {
+  tokenUrl: string | null;
+  clientId?: string;
+  clientSecret?: string;
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  timeoutMs?: number;
+}): Promise<TokenExchangeResult> {
+  if (!input.tokenUrl || !input.clientId) {
+    return { ok: false, error: "Provider is not configured for token exchange." };
+  }
+  return exchangeCodeForTokens({
+    tokenUrl: input.tokenUrl,
+    clientId: input.clientId,
+    clientSecret: input.clientSecret,
+    code: input.code,
+    redirectUri: input.redirectUri,
+    codeVerifier: input.codeVerifier,
+    timeoutMs: input.timeoutMs,
+  });
+}
+
 /** Refresh an expiring access token (same client authentication rules). */
 export async function refreshAccessToken(input: {
   tokenUrl: string;
@@ -120,6 +188,8 @@ export async function refreshAccessToken(input: {
   refreshToken: string;
   timeoutMs?: number;
 }): Promise<TokenExchangeResult> {
+  const policyFailure = providerUrlPolicyFailure(input.tokenUrl);
+  if (policyFailure) return { ok: false, error: policyFailure };
   const headers: Record<string, string> = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" };
   if (input.clientSecret) {
     headers.Authorization = `Basic ${Buffer.from(`${input.clientId}:${input.clientSecret}`).toString("base64")}`;
