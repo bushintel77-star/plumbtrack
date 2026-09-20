@@ -16,6 +16,7 @@ import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
+import { quoteTotalsCents } from "../lib/pricing";
 import { geocodeAddress, reverseGeocode } from "./routing";
 import { assignmentSchema } from "../schemas/assignment";
 import { publishToOrg } from "../lib/liveBus";
@@ -656,36 +657,54 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
 
   // Payment link — Stripe Checkout (test mode by default; live with a secret
   // key configured). Free to use: Stripe charges nothing until a client pays.
-  // Service items live local-first on the device, so the client sends the
-  // invoice amount; the server validates and caps it defensively.
+  // The amount is SERVER-AUTHORITATIVE (P1-1): it is computed from the job's
+  // accepted quote with the one documented pricing rule (lib/pricing.ts), and
+  // a client-sent amount is rejected rather than ignored — an invoice the
+  // customer receives must be the agreed price, never a client-asserted one.
   app.post("/:id/payment-link", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
     const roleFailure = requireRole(request, reply, FIELD_ROLES);
     if (roleFailure) return roleFailure;
     const { id } = request.params as { id: string };
-    const job = await prisma.job.findFirst({ where: { id, orgId } });
-    if (!job) return reply.code(404).send({ message: "Job not found" });
-    const body = (request.body ?? {}) as { amount?: unknown };
-    const rawAmount = Number(body.amount);
-    if (!Number.isFinite(rawAmount) || rawAmount < 0 || rawAmount > 1_000_000) {
+    if (request.body !== undefined && Object.keys(request.body as object).length > 0) {
       return reply.code(400).send({
         statusCode: 400,
         error: "Bad Request",
-        message: "Amount must be a number between 0 and 1,000,000",
+        message: "This endpoint takes no body — the amount is computed server-side from the accepted quote",
       });
     }
-    const amountCents = Math.round(rawAmount * 100);
+    const job = await prisma.job.findFirst({
+      where: { id, orgId },
+      include: { quote: { include: { lines: { orderBy: { sortOrder: "asc" } } } } },
+    });
+    if (!job) return reply.code(404).send({ message: "Job not found" });
+    // No agreed price, no payment link: a draft/sent quote has not been
+    // accepted by the customer, and inventing a total would bill work the
+    // customer never agreed to.
+    if (!job.quote || job.quote.status !== "accepted" || job.quote.lines.length === 0) {
+      return reply.code(409).send({
+        statusCode: 409,
+        error: "Conflict",
+        message: "No accepted quote on this job — attach the customer-approved quote before taking payment",
+      });
+    }
+    const { subtotalCents, gstCents, totalCents } = quoteTotalsCents(job.quote.lines);
     const result = await createCheckoutSession({
       jobId: job.id,
       client: job.client,
-      amountCents,
+      amountCents: totalCents,
       description: job.scope || `Invoice — ${job.id}`,
     });
     if (!result.configured || !result.url || !result.sessionId) return reply.code(503).send({ message: "Stripe payments are not configured" });
     await prisma.job.update({ where: { id: job.id }, data: { stripeSessionId: result.sessionId, paymentStatus: "unpaid" } });
-    recordAuditEvent(request, { action: "payment_link.created", entityType: "job", entityId: job.id, metadata: { mode: result.mode, sessionId: result.sessionId } });
-    return reply.send({ url: result.url, mode: result.mode, configured: result.configured, sessionId: result.sessionId, amount: amountCents / 100, currency: "AUD" });
+    recordAuditEvent(request, {
+      action: "payment_link.created",
+      entityType: "job",
+      entityId: job.id,
+      metadata: { mode: result.mode, sessionId: result.sessionId, quoteId: job.quote.id, subtotalCents, gstCents, totalCents },
+    });
+    return reply.send({ url: result.url, mode: result.mode, configured: result.configured, sessionId: result.sessionId, subtotalCents, gstCents, totalCents, amount: totalCents / 100, currency: "AUD" });
   });
 
   // Technician site note — a single free-text field note (last-write-wins),
