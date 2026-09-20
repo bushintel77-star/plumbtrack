@@ -18,10 +18,39 @@ import {
 const operationalRoles = ["technician", "dispatcher", "manager", "admin", "owner"] as const;
 const officeRoles = ["dispatcher", "manager", "admin", "owner"] as const;
 
+/** True when the caller (a technician) has an assigned job for this customer
+ *  — the linkage that grants field access to one customer's record. The
+ *  session's userId is the membership id appointments carry. */
+async function technicianHasAssignedCustomerJob(
+  orgId: string,
+  customerId: string,
+  userId: string
+): Promise<boolean> {
+  const appointment = await prisma.appointment.findFirst({
+    where: { orgId, assignedStaffId: userId, job: { is: { customerId, orgId } } },
+    select: { id: true },
+  });
+  return appointment !== null;
+}
+
 export async function customerRoutes(app: FastifyInstance): Promise<void> {
+  // Directory list (P1-2): office/accountant keep the full directory.
+  // Technicians get a field-safe projection — only the customers of their
+  // own assigned jobs, and only id/name/phone. No emails, notes, properties
+  // or access codes: the directory was reachable by any session before.
   app.get("/", async (request, reply) => {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
+    if (request.auth?.role === "technician") {
+      return prisma.customer.findMany({
+        where: {
+          orgId,
+          jobs: { some: { appointments: { some: { assignedStaffId: request.auth.userId } } } },
+        },
+        select: { id: true, name: true, phone: true },
+        orderBy: { name: "asc" },
+      });
+    }
     return prisma.customer.findMany({
       where: { orgId },
       include: { properties: true },
@@ -48,6 +77,14 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const customer = await prisma.customer.findFirst({ where: { id, orgId } });
     if (!customer) return reply.code(404).send({ message: "Customer not found" });
+    // Same field grant as the detail view (P1-2): technicians must have an
+    // assigned job for this customer to read its agreements.
+    if (request.auth?.role === "technician" && request.auth.userId) {
+      const assigned = await technicianHasAssignedCustomerJob(orgId, id, request.auth.userId);
+      if (!assigned) {
+        return reply.code(403).send({ statusCode: 403, error: "Forbidden", message: "This customer record is not on one of your assigned jobs" });
+      }
+    }
     return prisma.serviceAgreement.findMany({ where: { customerId: id, orgId }, orderBy: { nextDueDate: "asc" } });
   });
 
@@ -87,6 +124,14 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const customer = await prisma.customer.findFirst({ where: { id, orgId } });
     if (!customer) return reply.code(404).send({ message: "Customer not found" });
+    // Same field grant as the detail view (P1-2): access codes ride an
+    // assigned job, never the directory.
+    if (request.auth?.role === "technician" && request.auth.userId) {
+      const assigned = await technicianHasAssignedCustomerJob(orgId, id, request.auth.userId);
+      if (!assigned) {
+        return reply.code(403).send({ statusCode: 403, error: "Forbidden", message: "This customer record is not on one of your assigned jobs" });
+      }
+    }
     return prisma.property.findMany({ where: { customerId: id, orgId }, orderBy: { address: "asc" } });
   });
 
@@ -109,6 +154,29 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     const orgId = getOrgId(request);
     if (!orgId) return sendMissingOrg(reply);
     const { id } = request.params as { id: string };
+    // Field grant (P1-2): a technician opens a customer record only when an
+    // assigned job links them to it — otherwise 403, which the field app
+    // renders as an honest denied state. Office/accountant unchanged.
+    if (request.auth?.role === "technician" && request.auth.userId) {
+      const assigned = await technicianHasAssignedCustomerJob(orgId, id, request.auth.userId);
+      if (!assigned) {
+        return reply.code(403).send({ statusCode: 403, error: "Forbidden", message: "This customer record is not on one of your assigned jobs" });
+      }
+      return prisma.customer.findFirst({
+        where: { id, orgId },
+        include: {
+          properties: true,
+          serviceAgreements: { where: { active: true }, orderBy: { nextDueDate: "asc" } },
+          // Service history is scoped to the technician's own jobs for this
+          // customer — not the office's whole account history.
+          jobs: {
+            where: { appointments: { some: { assignedStaffId: request.auth.userId } } },
+            orderBy: { createdAt: "desc" },
+            include: { appointments: { orderBy: { scheduledStart: "desc" }, take: 1 } },
+          },
+        },
+      });
+    }
     const customer = await prisma.customer.findFirst({ where: { id, orgId }, include: { properties: true, jobs: { orderBy: { createdAt: "desc" }, include: { appointments: { orderBy: { scheduledStart: "desc" }, take: 1 } } }, serviceAgreements: { where: { active: true }, orderBy: { nextDueDate: "asc" } } } });
     if (!customer) return reply.code(404).send({ message: "Customer not found" });
     return customer;
