@@ -14,6 +14,7 @@ import type {
 import { jobs as seedJobs, technicians as seedTechs } from "@/data/seed"
 import type { ApiAttentionFlag, ApiBoardPayload } from "@/lib/adapter"
 import { adaptApiBoard, adaptStaffRoster } from "@/lib/adapter"
+import { FORCE_DEMO } from "@/lib/api"
 import { TOTAL_BLOCKS } from "@/lib/format"
 import { jobDay } from "@/lib/schedule"
 
@@ -42,10 +43,16 @@ function keyBy<T extends { id: string }>(items: T[]): Record<string, T> {
   return Object.fromEntries(items.map(item => [item.id, item]))
 }
 
-// The demo seed ships only in non-production bundles: a production console
-// must never render fabricated jobs, technicians, or channels — it boots
-// empty and hydrates from the live API (2026-09-07 zero-mock audit).
-const DEMO_SEED = process.env.NODE_ENV !== "production"
+// The demo seed ships only in non-production bundles — or in a bundle
+// explicitly built for demo (NEXT_PUBLIC_HQ_FORCE_DEMO=1 inlined at build
+// time): a production console must never render fabricated jobs,
+// technicians, or channels, and in the plain production build both terms are
+// statically false so the seed modules are dead-code eliminated. The
+// FORCE_DEMO term is what makes the deterministic e2e tier (and any
+// deliberately demo-built console) actually serve seed data — before it, a
+// FORCE_DEMO production build showed an empty board under a "Demo data"
+// badge, which was a broken demo rather than an honest one.
+const DEMO_SEED = FORCE_DEMO || process.env.NODE_ENV !== "production"
 
 const seedVehicles: Vehicle[] = DEMO_SEED
   ? seedTechs.map(tech => ({
