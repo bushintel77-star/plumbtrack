@@ -5,16 +5,20 @@
  */
 
 function buildApiUrl(raw?: string): string {
-  if (!raw) return "http://localhost:8080"
+  // No fabricated default: an unset NEXT_PUBLIC_HQ_API_URL resolves to
+  // same-origin relative paths, which fail honestly (and loudly — below)
+  // instead of pointing a production console at a made-up localhost URL.
+  if (!raw) return ""
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
   return `https://${raw}`
 }
 
 export const API_URL = buildApiUrl(process.env.NEXT_PUBLIC_HQ_API_URL)
 
-// A production build without an explicit API URL would poll localhost:8080,
-// fail, and strand the console on an empty fallback board. Fail loudly in the
-// logs instead of silently degrading (2026-09-07 zero-mock audit).
+// A production build without an explicit API URL cannot reach the API —
+// requests go same-origin and fail. Fail loudly in the logs instead of
+// silently degrading (2026-09-07 zero-mock audit; the localhost:8080
+// fallback was removed 2026-09-20 so the bundle gate can forbid it).
 export const API_URL_IS_DEFAULT = !process.env.NEXT_PUBLIC_HQ_API_URL
 if (process.env.NODE_ENV === "production" && API_URL_IS_DEFAULT) {
   console.error("[hq] NEXT_PUBLIC_HQ_API_URL is not set — the console cannot reach the API. Set it at build time.")

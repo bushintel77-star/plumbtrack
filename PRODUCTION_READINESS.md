@@ -1,6 +1,48 @@
 # Production readiness — WIP and gap register
 
-Updated: 2026-09-16 (field comms, CRM and documents on the field agent)
+Updated: 2026-09-20 (Phase 0 proof spine: e2e on both tiers, role matrix, bundle gates)
+
+## 2026-09-20 — Phase 0 proof spine (PRs #35–#37 + the bundle-gate PR)
+
+**Role matrix** (PR #35): `docs/audit/ROLE_MATRIX.md` documents all 121 route
+registrations; `apps/api/test/roleMatrix.test.ts` (123 tests) probes every
+injectable route × anonymous + six roles. Baseline finding: **21 ungated
+reads** (no `requireRole`) — the customer directory *including property
+access codes* is readable by any authenticated role. That is the Phase 1
+least-privilege priority list, recorded as evidence, not fixed here.
+
+**HQ e2e, deterministic tier** (PR #36): 32 specs against the Crewline
+workspace (FORCE_DEMO build, no backend). `DEMO_SEED` now also honours the
+build-time demo flag — previously a FORCE_DEMO production build showed an
+empty board under a "Demo data" badge. The plain production build keeps both
+terms statically false (seed dead-code eliminated; see the bundle gate
+below). axe-core scans every surface as a **report-only baseline**; the
+enforcement ratchet belongs to the Phase 5 accessibility pass.
+
+**HQ e2e, live-API tier** (PR #37): 3 specs through the real API in
+production posture against a real Postgres — sign-in (argon2 + sessions),
+board hydration from `GET /api/board`, and intake → `PATCH assignment`
+round-trip. `apps/api/scripts/e2e-seed.ts` refuses to run unless
+`DATABASE_URL` is loopback AND `E2E_SEED_ALLOWED=1`. CI: `e2e` +
+`e2e-live` jobs (`needs: ci`; the api boots on :8091 — Expo dev servers
+squat 8081, don't reuse that port for e2e).
+
+**Bundle gate (this PR)**: `scripts/check-bundle.mjs` fails the build when
+the plain production `.next` output contains seed ids (`t-mike`, `j-100…`),
+seed persons, or `localhost:8080`. The `localhost:8080` API-URL default was
+removed from `apps/hq/src/lib/api.ts` — an unset `NEXT_PUBLIC_HQ_API_URL`
+now resolves to same-origin paths plus the existing loud console error and
+AppShell banner, never a fabricated target. Note: local builds inline
+`apps/hq/.env` dev values (localhost URL, dev org) — that is dev-only and
+expected; CI builds clean (no .env). The field agent's own export gate
+(against `dist/`) lands with the mobile Phase 0 slice in
+`../plumbtrack-mobile`, which runs its CI in that repository.
+
+**Owner action (carried from the 09-20 mobile hardening):** the Railway
+`web` service needs `EXPO_PUBLIC_STAFF_HOURLY_RATE` and
+`EXPO_PUBLIC_CENTS_PER_KM` set before the next field-agent deploy — the
+mobile app's fail-loud contract refuses to boot a production bundle without
+them (by design).
 
 ## 2026-09-16 — field comms, CRM and documents (branch `feat/field-comms-crm-docs`, NOT deployed)
 
