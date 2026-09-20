@@ -3,6 +3,7 @@ import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { BOARD_JOB_CAP, BOARD_QUOTE_CAP } from "../lib/limits";
 import { computeNeedsAttention, type AttentionFlag } from "../lib/needsAttention";
+import { signedMediaReadUrl } from "../lib/mediaUrls";
 
 /**
  * Board view payload (gap G-1). Returns the jobs + quotes the HQ dispatch
@@ -115,7 +116,10 @@ export async function boardRoutes(app: FastifyInstance): Promise<void> {
           photos: job.photos.map((photo) => ({
             id: photo.id,
             label: photo.label,
-            url: photo.url,
+            // Signed + expiring (P1-6) — a photo URL that works forever is a
+            // leaked-credential risk. Legacy rows without an asset keep
+            // their stored URL (pre-pipeline history).
+            url: photo.assetId ? signedMediaReadUrl(request, photo.assetId) ?? photo.url : photo.url,
             takenAt: photo.takenAt,
           })),
           appointment: appointment

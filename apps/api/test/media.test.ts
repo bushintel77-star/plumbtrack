@@ -20,6 +20,15 @@ vi.mock("@plumbtrack/database", () => ({
 
 import { buildApp } from "../src/server";
 
+// This suite's subject is the URL/signature layer, not storage I/O (the
+// real-bytes round trip lives in mediaRoundTrip.test.ts). Gateway mode has
+// no API-side read path, so double readObject at the module boundary —
+// everything else in lib/storage stays real.
+vi.mock("../src/lib/storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/storage")>()),
+  readObject: vi.fn(async () => ({ body: new Uint8Array([1, 2, 3]), contentType: "image/jpeg" })),
+}));
+
 const ORG = "org-caulfield";
 const JOB = { id: "J-1", orgId: ORG };
 
@@ -70,6 +79,81 @@ describe("secure media upload contract", () => {
     updateAsset.mockResolvedValue({ count: 1 });
     findFirstPhoto.mockResolvedValue(null);
     createPhoto.mockResolvedValue({ id: "photo-1", jobId: "J-1", assetId: "asset-1" });
+  });
+
+  describe("signed read URLs (P1-6)", () => {
+    /** The stored-object plumbing under /file — before complete it is
+     *  "pending" (minting); after complete it is "uploaded" (reading). */
+    function uploadedAsset(status: "pending" | "uploaded" = "pending") {
+      findFirstAsset.mockResolvedValue({
+        id: "asset-1",
+        orgId: ORG,
+        jobId: "J-1",
+        objectKey: `${ORG}/jobs/J-1/asset-1`,
+        contentType: "image/jpeg",
+        byteSize: 1024,
+        status,
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+    }
+
+    it("mint URLs carry an expiry + signature", async () => {
+      uploadedAsset();
+      const mint = await app.inject({
+        method: "POST",
+        url: "/api/media/asset-1/complete",
+        headers: { "x-organization-id": ORG },
+        payload: {},
+      });
+      expect(mint.statusCode, mint.body).toBe(200);
+      expect(mint.json().photoUrl).toMatch(/\?expires=\d+&signature=[A-Za-z0-9_-]+$/);
+    });
+
+    it("/file serves a validly-signed request", async () => {
+      uploadedAsset();
+      const mint = await app.inject({
+        method: "POST",
+        url: "/api/media/asset-1/complete",
+        headers: { "x-organization-id": ORG },
+        payload: {},
+      });
+      expect(mint.statusCode, mint.body).toBe(200);
+      const signed = new URL(mint.json().photoUrl as string);
+      uploadedAsset("uploaded");
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/media/asset-1/file${signed.search}`,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.headers["cache-control"]).toMatch(/private/);
+    });
+
+    it("/file 403s an unsigned request, a tampered signature and an expired link", async () => {
+      uploadedAsset();
+      const mint = await app.inject({
+        method: "POST",
+        url: "/api/media/asset-1/complete",
+        headers: { "x-organization-id": ORG },
+        payload: {},
+      });
+      const signed = new URL(mint.json().photoUrl as string);
+      const expires = signed.searchParams.get("expires")!;
+
+      const unsigned = await app.inject({ method: "GET", url: "/api/media/asset-1/file" });
+      expect(unsigned.statusCode).toBe(403);
+
+      const tampered = await app.inject({
+        method: "GET",
+        url: `/api/media/asset-1/file?expires=${expires}&signature=${"A".repeat(43)}b`,
+      });
+      expect(tampered.statusCode).toBe(403);
+
+      const expired = await app.inject({
+        method: "GET",
+        url: `/api/media/asset-1/file?expires=${Math.floor(Date.now() / 1000) - 10}&signature=nope`,
+      });
+      expect(expired.statusCode).toBe(403);
+    });
   });
 
   it("creates an expiring signed upload intent for a job in the caller organization", async () => {
@@ -126,9 +210,10 @@ describe("secure media upload contract", () => {
     expect(response.json()).toMatchObject({
       assetId: "asset-1",
       photoId: "photo-1",
-      // Reads are served by the API itself — the stored URL points at the
-      // media file-read route on the request host, no public bucket needed.
-      photoUrl: expect.stringMatching(/\/api\/media\/asset-1\/file$/),
+      // Reads are served by the API itself, and the URL is SIGNED (P1-6):
+      // the stored URL points at the media file-read route with an expiry
+      // + signature, no public bucket needed.
+      photoUrl: expect.stringMatching(/\/api\/media\/asset-1\/file\?expires=\d+&signature=/),
     });
     expect(createPhoto).toHaveBeenCalledWith({
       data: expect.objectContaining({ jobId: "J-1", assetId: "asset-1", label: "Before" }),
@@ -184,7 +269,7 @@ describe("secure media upload contract", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ assetId: "asset-2", fileUrl: expect.stringMatching(/\/api\/media\/asset-2\/file$/) });
+    expect(response.json()).toEqual({ assetId: "asset-2", fileUrl: expect.stringMatching(/\/api\/media\/asset-2\/file\?expires=\d+&signature=/) });
     expect(updateAsset).toHaveBeenCalled();
     expect(createPhoto).not.toHaveBeenCalled();
   });

@@ -6,27 +6,10 @@ import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { createUploadIntentSchema, completeUploadSchema } from "../schemas/media";
 import { parseBody, sendValidationError } from "../lib/validation";
-import { createUploadUrl, readObject, storageConfigured } from "../lib/storage";
+import { createUploadUrl, readObject, storageConfigured, MEDIA_URL_TTL_SECONDS, verifyMediaReadSignature } from "../lib/storage";
+import { signedMediaReadUrl } from "../lib/mediaUrls";
 
 const INTENT_TTL_SECONDS = 15 * 60;
-
-/** Absolute photo read URL for the API-served read route. The asset cuid is
- *  the unguessable capability token; the URL must be buildable for HQ <img>
- *  and mobile <Image> cross-origin loads. In production the base comes from
- *  PUBLIC_API_BASE_URL — deriving it from the request's Host/X-Forwarded-Host
- *  would let a poisoned Host header persist attacker-chosen URLs into the
- *  database (rendered back to every client). When the env is missing in
- *  production the media flow degrades (503) rather than storing an
- *  untrusted URL; dev/test keep the request-host derivation for local runs.
- */
-function readUrlFor(request: FastifyRequest, assetId: string): string | null {
-  const configured = process.env.PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "");
-  if (configured) return `${configured}/api/media/${assetId}/file`;
-  if (process.env.NODE_ENV === "production") return null;
-  const proto = request.protocol === "https" || request.headers["x-forwarded-proto"] === "https" ? "https" : "http";
-  const host = (request.headers["x-forwarded-host"] as string | undefined)?.split(",")[0]?.trim() ?? request.headers.host ?? "localhost:8080";
-  return `${proto}://${host}/api/media/${assetId}/file`;
-}
 
 async function intentResponse(asset: {
   id: string;
@@ -124,7 +107,9 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     if (asset.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ message: "Media upload intent expired" });
 
     // Reads are served by the API itself — no public bucket URL needed.
-    const publicUrl = readUrlFor(request, asset.id);
+    // Reads are served by the API itself — no public bucket URL needed, and
+    // the URL is SIGNED (P1-6): it expires, so a leaked link dies.
+    const publicUrl = signedMediaReadUrl(request, asset.id);
     if (!publicUrl) return reply.code(503).send({ message: "Media public URL is not configured (set PUBLIC_API_BASE_URL)" });
     const updated = await prisma.mediaAsset.updateMany({
       where: { id: asset.id, orgId, status: "pending" },
@@ -156,10 +141,16 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Public read route — the browser <img>/<Image> tags load this without auth
-  // headers. The asset cuid is an unguessable capability token; the tenant
-  // hook exempts this path like /api/stream. Streams the object from storage.
+  // headers. The URL is SIGNED (P1-6): the query carries expires + HMAC over
+  // the asset id, verified timing-safe below; an unsigned, tampered or
+  // expired request gets 403, so a leaked link dies with its TTL. The
+  // tenant hook exempts this path — the signature IS the authorization.
   app.get("/:assetId/file", async (request, reply) => {
     const { assetId } = request.params as { assetId: string };
+    const query = request.query as { expires?: string; signature?: string };
+    if (!verifyMediaReadSignature(assetId, query.expires, query.signature)) {
+      return reply.code(403).send({ message: "Invalid or expired media link — reload to get a fresh one" });
+    }
     const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, status: "uploaded" } });
     if (!asset) return reply.code(404).send({ message: "Media asset not found" });
     const object = await readObject(asset.objectKey);
@@ -168,7 +159,9 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     return reply
       .code(200)
       .header("Content-Type", contentType)
-      .header("Cache-Control", "public, max-age=31536000, immutable")
+      // Cacheable only for a fraction of the URL's life — the signed URL
+      // dies, so a year-immutable header would lie.
+      .header("Cache-Control", `private, max-age=${Math.min(3600, MEDIA_URL_TTL_SECONDS)}`)
       .send(Buffer.from(object.body));
   });
 }
