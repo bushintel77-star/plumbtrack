@@ -1,10 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-const { quoteFindFirst, lineUpdateMany, lineFindFirst } = vi.hoisted(() => ({
+const { quoteFindFirst, quoteUpdateMany, quoteFindUnique, lineUpdateMany, lineFindFirst, auditCreate } = vi.hoisted(() => ({
   quoteFindFirst: vi.fn(),
+  quoteUpdateMany: vi.fn(),
+  quoteFindUnique: vi.fn(),
   lineUpdateMany: vi.fn(),
   lineFindFirst: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("@plumbtrack/database", () => ({
@@ -13,9 +16,9 @@ vi.mock("@plumbtrack/database", () => ({
       findFirst: quoteFindFirst,
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
-      updateMany: vi.fn(),
+      updateMany: quoteUpdateMany,
       deleteMany: vi.fn(),
-      findUnique: vi.fn(),
+      findUnique: quoteFindUnique,
     },
     quoteLine: {
       create: vi.fn(),
@@ -23,6 +26,7 @@ vi.mock("@plumbtrack/database", () => ({
       findFirst: lineFindFirst,
       deleteMany: vi.fn(),
     },
+    auditEvent: { create: auditCreate },
   },
 }));
 
@@ -46,6 +50,9 @@ describe("quote line scoping", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     quoteFindFirst.mockResolvedValue(QUOTE);
+    quoteUpdateMany.mockResolvedValue({ count: 1 });
+    quoteFindUnique.mockResolvedValue({ ...QUOTE, lines: [] });
+    auditCreate.mockResolvedValue({});
   });
 
   it("updates a line scoped to the org-verified quote", async () => {
@@ -83,5 +90,72 @@ describe("quote line scoping", () => {
       expect.objectContaining({ where: { id: "L-foreign", quoteId: "Q-1" } }),
     );
     expect(lineFindFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("quote lifecycle (P1-11) — draft → sent → accepted, accepted is immutable", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => app.close());
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    quoteUpdateMany.mockResolvedValue({ count: 1 });
+    quoteFindUnique.mockResolvedValue({ ...QUOTE, lines: [] });
+    auditCreate.mockResolvedValue({});
+  });
+
+  const patch = (status: string) =>
+    app.inject({
+      method: "PATCH",
+      url: "/api/quotes/Q-1",
+      headers: { "x-organization-id": ORG },
+      payload: { status },
+    });
+
+  it.each([
+    ["draft", "sent"],
+    ["sent", "accepted"],
+  ])("allows the legal %s → %s transition", async (from, to) => {
+    quoteFindFirst.mockResolvedValue({ ...QUOTE, status: from });
+    const res = await patch(to);
+    expect(res.statusCode).toBe(200);
+    expect(quoteUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: to } }),
+    );
+  });
+
+  it.each([
+    ["draft", "accepted"],
+    ["sent", "draft"],
+    ["accepted", "draft"],
+    ["accepted", "sent"],
+  ])("409s the illegal %s → %s jump", async (from, to) => {
+    quoteFindFirst.mockResolvedValue({ ...QUOTE, status: from });
+    const res = await patch(to);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().message).toMatch(/lifecycle|agreed price/i);
+    expect(quoteUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["lines/L-1", "POST", "/api/quotes/Q-1/lines"],
+    ["lines/L-1", "PATCH", "/api/quotes/Q-1/lines/L-1"],
+    ["lines/L-1", "DELETE", "/api/quotes/Q-1/lines/L-1"],
+  ])("locks quote %s edits once the quote is accepted (%s)", async (_label, method, url) => {
+    quoteFindFirst.mockResolvedValue({ ...QUOTE, status: "accepted" });
+    const res = await app.inject({
+      method: method as "POST" | "PATCH" | "DELETE",
+      url,
+      headers: { "x-organization-id": ORG },
+      payload: method === "DELETE" ? undefined : { qty: 3 },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().message).toMatch(/agreed price/i);
   });
 });
