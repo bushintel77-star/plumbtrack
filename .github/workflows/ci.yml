@@ -118,6 +118,12 @@ jobs:
       - name: Run Prisma migrations
         run: pnpm db:migrate
 
+      # The seed script imports the real @plumbtrack/database package, which
+      # resolves through its built dist/ output — this job never runs the
+      # workspace-wide `pnpm build`, so build the database package here.
+      - name: Build the database package
+        run: pnpm --filter @plumbtrack/database build
+
       - name: Seed the e2e org and accounts
         run: pnpm --filter @plumbtrack/api exec tsx scripts/e2e-seed.ts
 
