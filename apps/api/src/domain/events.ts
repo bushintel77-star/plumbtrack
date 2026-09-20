@@ -55,7 +55,22 @@ export interface JobMessagePostedEvent {
   scope: string;
 }
 
-export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent | JobCreatedUnassignedEvent | JobMessagePostedEvent;
+/** Emitted when dispatch marks a job urgent (P1-4) — the server-side signal
+ *  behind the `job.status_urgent` automation route. Never emitted for a
+ *  false transition or a no-op write. */
+export interface JobUrgentEvent {
+  type: "job.status_urgent";
+  eventId: string;
+  occurredAt: string;
+  organizationId: string;
+  jobId: string;
+  client: string;
+  address: string;
+  scope: string;
+  markedBy: string;
+}
+
+export type DomainEvent = JobCompletedEvent | NotificationCreatedEvent | JobCreatedUnassignedEvent | JobMessagePostedEvent | JobUrgentEvent;
 
 export function isDomainEvent(value: unknown): value is DomainEvent {
   if (!value || typeof value !== "object") return false;
@@ -64,7 +79,8 @@ export function isDomainEvent(value: unknown): value is DomainEvent {
     (event.type === "job.completed" ||
       event.type === "notification.created" ||
       event.type === "job.created_unassigned" ||
-      event.type === "job.message_posted") &&
+      event.type === "job.message_posted" ||
+      event.type === "job.status_urgent") &&
     typeof event.eventId === "string" &&
     typeof event.organizationId === "string" &&
     typeof event.occurredAt === "string"

@@ -30,6 +30,8 @@ export interface ApiJob {
   /** Linked CRM customer — absent on older servers / unlinked jobs. */
   customerId?: string | null
   paymentStatus?: string
+  /** Office-marked urgency (P1-4); absent on older servers. */
+  urgent?: boolean
   timeEntries: ApiTimeEntry[]
   photos?: ApiJobPhoto[]
   createdAt: string
@@ -233,6 +235,9 @@ export function adaptApiBoard(
       // status is secondary to that fact (completed stays completed so a
       // deleted staff record can't resurrect finished work into the queue).
       status: tech ? mappedStatus : mappedStatus === "complete" ? "complete" : "unassigned",
+      // P1-4: pass the server's urgency flag through so the inspector can
+      // show and toggle it against the real signal.
+      urgent: apiJob.urgent ?? false,
       elapsedSeconds: Math.floor(elapsedFromEntries(timeEntries)),
       timerRunning: running,
       clockOnCount: timeEntries.length,

@@ -12,7 +12,7 @@ import {
 } from "../schemas/job";
 import { getBearerToken, requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
-import { type JobCompletedEvent } from "../domain/events";
+import { type JobCompletedEvent, type JobUrgentEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
@@ -295,10 +295,12 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     }
     const updatedJob = await prisma.$transaction(async (tx) => {
       let shouldEmitCompleted = false;
-      if (parsed.data.status === "completed") {
+      let wasUrgent = false;
+      if (parsed.data.status === "completed" || parsed.data.urgent !== undefined) {
         const currentJob = await tx.job.findFirst({ where: { id, orgId } });
         if (!currentJob) return null;
-        shouldEmitCompleted = currentJob.status !== "completed";
+        shouldEmitCompleted = currentJob.status !== "completed" && parsed.data.status === "completed";
+        wasUrgent = currentJob.urgent;
       }
       const { quoteId: _unvalidatedQuote, ...updateData } = parsed.data;
       const result = await tx.job.updateMany({
@@ -342,6 +344,31 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
           durationSeconds,
           photoCount: photos.length,
           customerSigned: Boolean(updated.signature),
+        };
+        await tx.domainEventOutbox.create({
+          data: {
+            eventId: event.eventId,
+            organizationId: event.organizationId,
+            type: event.type,
+            payload: JSON.parse(JSON.stringify(event)),
+          },
+        });
+      }
+      // P1-4: a false→true urgency transition is the job.status_urgent
+      // automation signal. No event for a no-op or for un-marking, and the
+      // eventId carries the instant because a job can go urgent more than
+      // once in its life.
+      if (parsed.data.urgent === true && !wasUrgent && updated) {
+        const event: JobUrgentEvent = {
+          type: "job.status_urgent",
+          eventId: `job.status_urgent:${orgId}:${updated.id}:${Date.now()}`,
+          occurredAt: new Date().toISOString(),
+          organizationId: orgId,
+          jobId: updated.id,
+          client: updated.client,
+          address: updated.address,
+          scope: updated.scope,
+          markedBy: request.auth?.userId ?? "unknown",
         };
         await tx.domainEventOutbox.create({
           data: {

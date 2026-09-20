@@ -577,3 +577,31 @@ export async function persistJobStatus(
     clearTimeout(timeout)
   }
 }
+
+/** Toggle the office urgency flag (P1-4). A manager+ write on the server —
+ *  a 403 here means the signed-in role may not mark urgency. */
+export async function persistJobUrgent(jobId: string, urgent: boolean): Promise<void> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+  try {
+    const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      method: "PATCH",
+      signal: controller.signal,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...orgHeaders(),
+        [REQUEST_ID_HEADER]: newRequestId()
+      },
+      body: JSON.stringify({ urgent })
+    })
+    if (!response.ok) {
+      if (response.status >= 500 || response.status === 429) {
+        throw new NetworkError(`Persist failed (${response.status}) for ${jobId}`)
+      }
+      throw new HttpError(response.status, `Persist failed (${response.status}) for ${jobId}`)
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}

@@ -20,6 +20,8 @@ export interface AttentionInputJob {
   address: string;
   scope: string;
   status: string;
+  /** Office-marked urgency (P1-4) — undefined on payloads that predate it. */
+  urgent?: boolean;
   lat?: number | null;
   lng?: number | null;
   appointment: {
@@ -31,7 +33,7 @@ export interface AttentionInputJob {
   timeEntries: Array<{ start: string; end: string | null }>;
 }
 
-export type AttentionReason = "overdue" | "travel_buffer" | "unassigned";
+export type AttentionReason = "overdue" | "travel_buffer" | "unassigned" | "urgent";
 
 export interface AttentionFlag {
   /** Deterministic id: reason + primary job id (+ partner for travel). */
@@ -116,6 +118,19 @@ export function computeNeedsAttention(
         jobIds: [job.id],
         title: "Running over",
         detail: `${job.scope || job.client} (${job.appointment?.assignedStaffName ?? "unassigned"}) was due to finish ${scheduledEnd.slice(11, 16)} — still open ${minutesOver} min later.`,
+        computedAt,
+      });
+    }
+
+    // 4. Urgent: dispatch marked it (P1-4) — red until the job completes.
+    if (job.urgent === true && isStillOpen(job)) {
+      flags.push({
+        id: `urgent:${job.id}`,
+        reason: "urgent",
+        severity: "red",
+        jobIds: [job.id],
+        title: "Marked urgent",
+        detail: `${job.client} — ${job.scope || job.address} was marked urgent from the board.`,
         computedAt,
       });
     }
