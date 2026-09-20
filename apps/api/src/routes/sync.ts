@@ -1,8 +1,9 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "@plumbtrack/database";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
 import { SYNC_JOB_CAP } from "../lib/limits";
 import { agreementSnapshot, type AgreementSnapshot } from "../lib/agreements";
+import { signedMediaReadUrl } from "../lib/mediaUrls";
 
 /**
  * WatermelonDB sync endpoint — pull protocol.
@@ -56,7 +57,7 @@ interface SyncJobRow {
   updated_at: number;
 }
 
-function toRow(job: {
+function toRow(request: FastifyRequest, job: {
   id: string;
   client: string;
   address: string;
@@ -70,7 +71,7 @@ function toRow(job: {
   lng?: number | null;
   arrivedAt?: Date | null;
   departedAt?: Date | null;
-  photos?: Array<{ id: string; label: string; url: string; takenAt: Date }>;
+  photos?: Array<{ id: string; label: string; url: string; assetId?: string | null; takenAt: Date }>;
   appointments?: Array<{ assignedStaffId: string | null; scheduledStart?: Date; scheduledEnd?: Date | null }>;
   timeEntries: Array<{ id: string; staffId: string | null; start: Date; end: Date | null; lat: number | null; lng: number | null }>;
   checklistItems?: Array<{ id: string; label: string; sortOrder: number; completedAt: Date | null; completedBy: string | null }>;
@@ -115,7 +116,10 @@ function toRow(job: {
     photos: (job.photos ?? []).map(photo => ({
       id: photo.id,
       label: photo.label,
-      url: photo.url,
+      // Signed + expiring (P1-6): the device re-mints on every sync, so the
+      // week-old cached URL may be dead offline — the honest cost of links
+      // that expire. Legacy rows without an asset keep their stored URL.
+      url: photo.assetId ? signedMediaReadUrl(request, photo.assetId) ?? photo.url : photo.url,
       taken_at: photo.takenAt.toISOString(),
     })),
     checklist_items: (job.checklistItems ?? []).map(item => ({
@@ -186,7 +190,7 @@ export async function syncRoutes(app: FastifyInstance): Promise<void> {
       take: SYNC_JOB_CAP
     });
 
-    const rows = jobs.map(toRow);
+    const rows = jobs.map(job => toRow(request, job));
     return {
       changes: {
         jobs: {

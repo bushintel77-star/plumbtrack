@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -78,6 +78,33 @@ export async function createUploadUrl(objectKey: string, contentType: string): P
 /** Stream an object's bytes from storage (the API serves reads itself, so no
  *  public bucket URL is needed). Returns null when storage is unconfigured or
  *  the object is missing. */
+
+/** Short-TTL read URLs (P1-6): the asset cuid alone used to be a FOREVER
+ *  capability — anyone who ever saw a URL could read the image indefinitely.
+ *  Read URLs now carry an expiry + HMAC, so leaked links die. Default 7
+ *  days: short enough that leaks expire, long enough that a field device's
+ *  week of evidence still renders. Env-tunable. */
+export const MEDIA_URL_TTL_SECONDS = Number(process.env.MEDIA_URL_TTL_SECONDS ?? 7 * 24 * 60 * 60);
+
+/** Query string (expires + HMAC) that authorizes reading an asset until the
+ *  expiry. Scheme: "read:<assetId>:<expires>". */
+export function signMediaReadQuery(assetId: string, expiresAtSeconds: number): string | null {
+  const secret = signingSecret();
+  if (!secret) return null;
+  const signature = createHmac("sha256", secret).update(`read:${assetId}:${expiresAtSeconds}`).digest("base64url");
+  return `expires=${expiresAtSeconds}&signature=${signature}`;
+}
+
+/** Verify a media read request's signature — timing-safe, expiry enforced. */
+export function verifyMediaReadSignature(assetId: string, expires: string | undefined, signature: string | undefined): boolean {
+  const secret = signingSecret();
+  const expiresAtSeconds = Number(expires);
+  if (!secret || !signature || !Number.isFinite(expiresAtSeconds) || expiresAtSeconds * 1000 <= Date.now()) return false;
+  const expected = createHmac("sha256", secret).update(`read:${assetId}:${expiresAtSeconds}`).digest("base64url");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 export async function readObject(objectKey: string): Promise<{ body: Uint8Array; contentType: string | null } | null> {
   const client = s3Client();
   if (!client) return null;
