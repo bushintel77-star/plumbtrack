@@ -5,7 +5,7 @@ import type { JobMessagePostedEvent } from "../domain/events";
 import { requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { publishToOrg } from "../lib/liveBus";
 import { JOB_MESSAGE_EVENT, jobThreadBridgeStatus } from "../lib/slackJobThreads";
 
@@ -21,7 +21,7 @@ import { JOB_MESSAGE_EVENT, jobThreadBridgeStatus } from "../lib/slackJobThreads
  * come back as `source: "slack"` rows (routes/slackEvents.ts).
  */
 
-const messageSchema = z.object({
+const messageSchema = strictObject({
   direction: z.enum(["dispatch", "field"]),
   sender: z.string().trim().min(1).max(80),
   body: z.string().trim().min(1).max(2_000),

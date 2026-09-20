@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
-export const createNotificationSchema = z.object({
+export const createNotificationSchema = strictObject({
   channel: z.string().trim().min(1),
   author: z.string().trim().min(1),
   text: z.string().trim().min(1),

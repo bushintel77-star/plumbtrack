@@ -1,5 +1,13 @@
 import type { FastifyReply } from "fastify";
-import type { ZodError, ZodType, ZodTypeDef } from "zod";
+import { z, type ZodError, type ZodType, type ZodTypeDef } from "zod";
+
+/** Every request schema uses this instead of z.object (P1-9): unknown fields
+ *  are rejected with a 400 naming the offending key, instead of being
+ *  silently dropped — a typo'd or malicious extra field must never vanish
+ *  into a 2xx. */
+export function strictObject<T extends z.ZodRawShape>(shape: T) {
+  return z.object(shape).strict();
+}
 
 export function formatZodError(error: ZodError): { path: string; message: string }[] {
   return error.issues.map((issue) => ({

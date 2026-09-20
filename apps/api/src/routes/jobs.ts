@@ -14,7 +14,7 @@ import { getBearerToken, requireRole } from "../lib/auth";
 import { recordAuditEvent } from "../lib/audit";
 import { type JobCompletedEvent } from "../domain/events";
 import { getOrgId, sendMissingOrg } from "../lib/tenant";
-import { parseBody, sendValidationError } from "../lib/validation";
+import { strictObject,parseBody, sendValidationError } from "../lib/validation";
 import { createCheckoutSession } from "../lib/payments";
 import { geocodeAddress, reverseGeocode } from "./routing";
 import { assignmentSchema } from "../schemas/assignment";
@@ -449,7 +449,7 @@ export async function jobRoutes(app: FastifyInstance): Promise<void> {
     if (roleFailure) return roleFailure;
     const { id, itemId } = request.params as { id: string; itemId: string };
     const parsed = parseBody(
-      z.object({ completed: z.boolean(), completedAt: z.string().datetime().optional() }),
+      strictObject({ completed: z.boolean(), completedAt: z.string().datetime().optional() }),
       request.body
     );
     if (!parsed.ok) return sendValidationError(reply, parsed.error);

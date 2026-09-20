@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
-export const createUploadIntentSchema = z.object({
+export const createUploadIntentSchema = strictObject({
   jobId: z.string().trim().min(1),
   opId: z.string().trim().min(1),
   label: z.string().trim().min(1).max(40),
@@ -9,7 +10,7 @@ export const createUploadIntentSchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
 });
 
-export const completeUploadSchema = z.object({
+export const completeUploadSchema = strictObject({
   assetId: z.string().trim().min(1),
   /** "photo" (default) also records a JobPhoto evidence row; "document" only
    *  finalises the file — the caller attaches it to a JobDocument. */

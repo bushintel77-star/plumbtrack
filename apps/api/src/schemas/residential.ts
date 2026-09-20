@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
 
-export const createCustomerSchema = z.object({
+export const createCustomerSchema = strictObject({
   name: z.string().trim().min(1).max(160),
   phone: z.string().trim().min(1).max(40).optional(),
   email: z.string().trim().email().optional(),
@@ -9,7 +10,7 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = createCustomerSchema.partial();
 
-export const serviceAgreementSchema = z.object({
+export const serviceAgreementSchema = strictObject({
   serviceType: z.string().trim().min(1).max(160),
   frequency: z.string().trim().min(1).max(80),
   lastServiceDate: z.string().date().nullable().optional(),
@@ -19,7 +20,7 @@ export const serviceAgreementSchema = z.object({
 
 export const updateServiceAgreementSchema = serviceAgreementSchema.partial();
 
-export const createPropertySchema = z.object({
+export const createPropertySchema = strictObject({
   address: z.string().trim().min(1).max(240),
   accessCode: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(2_000).optional(),
@@ -38,7 +39,7 @@ export const appointmentStatusSchema = z.enum([
   "cancelled",
 ]);
 
-export const createAppointmentSchema = z.object({
+export const createAppointmentSchema = strictObject({
   jobId: z.string().trim().min(1),
   assignedStaffId: z.string().trim().min(1).optional(),
   scheduledStart: z.string().datetime(),
@@ -46,7 +47,7 @@ export const createAppointmentSchema = z.object({
   status: appointmentStatusSchema.optional().default("assigned"),
 });
 
-export const updateAppointmentSchema = z.object({
+export const updateAppointmentSchema = strictObject({
   assignedStaffId: z.string().trim().min(1).nullable().optional(),
   scheduledStart: z.string().datetime().optional(),
   scheduledEnd: z.string().datetime().nullable().optional(),

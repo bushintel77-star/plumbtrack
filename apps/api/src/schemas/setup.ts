@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { strictObject } from "../lib/validation";
+import { isValidAbn } from "../lib/validators";
 
 /**
  * Guided setup contracts. One schema per wizard step, so a step saves on its
@@ -26,14 +28,17 @@ export const setupStepSchema = z.enum(SETUP_STEPS);
 
 const chip = (values: readonly [string, ...string[]]) => z.enum(values);
 
-/** ABNs are 11 digits; spaces are stripped before validation. */
+/** ABNs are 11 digits AND must pass the ATO checksum (P1-9): a typo'd ABN
+ *  would poison invoices and regulator lodgements downstream. Spaces are
+ *  stripped before validation. */
 const abnSchema = z
   .string()
   .trim()
   .transform(value => value.replace(/\s+/g, ""))
-  .refine(value => /^\d{11}$/.test(value), "An ABN is 11 digits");
+  .refine(value => /^\d{11}$/.test(value), "An ABN is 11 digits")
+  .refine(isValidAbn, "That ABN doesn't check out — verify it against your ABR registration");
 
-export const businessStepSchema = z.object({
+export const businessStepSchema = strictObject({
   abn: abnSchema.optional(),
   legalName: z.string().trim().min(1).max(160),
   tradingName: z.string().trim().max(160).optional(),
@@ -42,26 +47,26 @@ export const businessStepSchema = z.object({
   baseAddress: z.string().trim().min(1).max(240).optional(),
 });
 
-export const teamStepSchema = z.object({
+export const teamStepSchema = strictObject({
   teamSize: chip(["just_me", "2_5", "6_10", "11_20", "21_50", "50_plus"]),
   roles: z.array(chip(["plumbers", "gasfitters", "apprentices", "office", "estimators", "managers", "subcontractors"])).max(7).default([]),
   vans: z.number().int().min(0).max(100).default(1),
 });
 
-export const servicesStepSchema = z.object({
+export const servicesStepSchema = strictObject({
   trades: z
     .array(chip(["general", "gas", "drainage", "hot_water", "roofing", "backflow", "fire", "renovations", "commercial", "irrigation"]))
     .min(1, "Choose at least one type of work"),
   emergency: chip(["none", "business_hours", "evenings", "24_7"]).default("business_hours"),
 });
 
-export const areaStepSchema = z.object({
+export const areaStepSchema = strictObject({
   radiusKm: chip(["5", "10", "20", "40", "metro"]).default("20"),
   hours: chip(["mon_fri_7_4", "mon_fri_7_5", "mon_sat_7_4", "custom"]).default("mon_fri_7_4"),
   customHours: z.string().trim().max(120).optional(),
 });
 
-export const pricingStepSchema = z.object({
+export const pricingStepSchema = strictObject({
   model: chip(["hourly", "fixed", "callout_hourly", "mixed"]).default("callout_hourly"),
   calloutFee: z.number().int().min(0).max(1000).default(90),
   hourlyRate: z.number().int().min(0).max(500).default(130),
@@ -69,14 +74,14 @@ export const pricingStepSchema = z.object({
   paymentMethods: z.array(chip(["card_on_site", "pay_by_link", "bank_transfer", "cash"])).default(["pay_by_link"]),
 });
 
-export const commsStepSchema = z.object({
+export const commsStepSchema = strictObject({
   customerMessages: z
     .array(chip(["booking_confirmation", "on_my_way", "running_late", "job_summary", "invoice", "review_request"]))
     .default(["on_my_way", "invoice"]),
   quietHours: chip(["none", "after_6pm", "after_8pm"]).default("after_8pm"),
 });
 
-export const complianceStepSchema = z.object({
+export const complianceStepSchema = strictObject({
   certificates: z.array(chip(["plumbing_coc", "gas_coc", "backflow", "hot_water", "swms"])).default([]),
   photoEvidence: chip(["before_after", "before_during_after", "optional"]).default("before_after"),
   signatures: chip(["customer", "plumber", "both", "none"]).default("customer"),
@@ -85,17 +90,17 @@ export const complianceStepSchema = z.object({
     .default(["checklist", "signature"]),
 });
 
-export const fieldAppStepSchema = z.object({
+export const fieldAppStepSchema = strictObject({
   trackingDefault: chip(["shift", "clock_points"]).default("shift"),
   photoQuality: chip(["standard", "high"]).default("standard"),
 });
 
-export const integrationsStepSchema = z.object({
+export const integrationsStepSchema = strictObject({
   /** Providers the operator said they use — drives card ordering, not access. */
   interested: z.array(z.string().trim().min(1).max(60)).max(30).default([]),
 });
 
-export const inviteStepSchema = z.object({
+export const inviteStepSchema = strictObject({
   invited: z.number().int().min(0).max(200).default(0),
 });
 
@@ -113,7 +118,7 @@ export const STEP_SCHEMAS: Record<SetupStep, z.ZodTypeAny> = {
 };
 
 /** A step save: the answers for one step, and what to do with it. */
-export const saveStepSchema = z.object({
+export const saveStepSchema = strictObject({
   step: setupStepSchema,
   answers: z.record(z.unknown()).default({}),
   /** "complete" validates fully; "draft" stores partial answers on exit. */
@@ -122,7 +127,7 @@ export const saveStepSchema = z.object({
   nextStep: setupStepSchema.optional(),
 });
 
-export const launchSchema = z.object({
+export const launchSchema = strictObject({
   confirm: z.literal(true),
 });
 
