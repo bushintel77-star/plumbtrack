@@ -5,6 +5,7 @@ import {
   FileText,
   LayoutDashboard,
   MessageSquare,
+  Plug,
   Radio,
   Settings,
   Table2,
@@ -32,6 +33,7 @@ export const NAV: NavItem[] = [
   { id: "reports", label: "Reports", icon: BarChart3, enabled: true, milestone: "" },
   { id: "accounting", label: "Accounting", icon: FileText, enabled: true, milestone: "" },
   { id: "slack", label: "Slack", icon: MessageSquare, enabled: true, milestone: "" },
+  { id: "integrations", label: "Integrations", icon: Plug, enabled: true, milestone: "" },
   { id: "setup", label: "Setup", icon: Settings, enabled: true, milestone: "" }
 ]
 
@@ -42,8 +44,16 @@ export const NAV: NavItem[] = [
  * company's pricing and compliance answers in a form whose saves all 403.
  * A null/unknown role gets the non-setup list; the session gate holds the
  * console until the role resolves, so this only deprives demo renders.
+ *
+ * `integrations` is hidden from technician/accountant: they can neither
+ * connect providers (admin+ writes) nor retry deliveries (office writes),
+ * so for them the surface is a wall of 403s.
  */
 export function visibleNav(role: string | null): NavItem[] {
   if (role === "owner" || role === "admin") return NAV
-  return NAV.filter(item => item.id !== "setup")
+  const office = NAV.filter(item => item.id !== "setup")
+  if (role === "technician" || role === "accountant") {
+    return office.filter(item => item.id !== "integrations")
+  }
+  return office
 }

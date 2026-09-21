@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { Check, ChevronRight, ExternalLink, Loader2, ShieldCheck } from "lucide-react"
 
-import { TextField } from "./primitives"
-import { integrationsApi, readableError, type IntegrationCard } from "./api"
+import { TextField } from "@/features/setup/primitives"
+import { integrationsApi, readableError, type IntegrationCard } from "@/features/setup/api"
 import { cn } from "@/lib/utils"
 
 /**
- * The step-by-step connect experience for one provider — chosen over a
- * modal so the numbered instructions and the input sit side by side, the
+ * The step-by-step connect experience for one provider — shared by the setup
+ * wizard's integrations step and the Integrations hub (Phase 2). Chosen over
+ * a modal so the numbered instructions and the input sit side by side, the
  * same "never leave the screen" rule as the rest of the wizard.
  *
  * OAuth 2.0 + PKCE: clicking Connect asks the API for a ready-made authorize
