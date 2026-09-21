@@ -11,6 +11,7 @@ import { useTelemetrySocket } from "@/lib/telemetry"
 
 import { Toaster } from "@/components/ui/toaster"
 import { OperationsHub } from "@/features/office/OperationsHub"
+import { IntegrationsSurface } from "@/features/integrations/IntegrationsSurface"
 import { CrewlineWorkspace, type Surface } from "@/features/crewline/CrewlineWorkspace"
 import { SetupWizard } from "@/features/setup/SetupWizard"
 import { setupApi } from "@/features/setup/api"
@@ -226,6 +227,7 @@ export function AppShell() {
             {crewlineSurface && <CrewlineWorkspace moduleSurface={crewlineSurface} />}
             {activeModule === "crews" && <TeamRoster role={sessionRole} />}
             {activeModule === "operations" && <OperationsHub />}
+            {activeModule === "integrations" && <IntegrationsSurface />}
             {activeModule !== "setup" && !enabledModules.has(activeModule) && (
               <PlaceholderModule
                 id={activeModule}

@@ -220,6 +220,7 @@ export type AppModule =
   | "reports"
   | "accounting"
   | "slack"
+  | "integrations"
   | "setup"
 
 export const SKILLS = ["drainage", "gas", "hot-water", "leak-detection", "general"] as const

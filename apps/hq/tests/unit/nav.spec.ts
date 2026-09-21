@@ -33,7 +33,19 @@ describe("visibleNav", () => {
   it("never drops any other module", () => {
     const withoutSetup = NAV.filter(item => item.id !== "setup").map(item => item.id)
     expect(visibleNav("owner").map(item => item.id)).toEqual(NAV.map(item => item.id))
-    expect(visibleNav("technician").map(item => item.id)).toEqual(withoutSetup)
     expect(visibleNav(null).map(item => item.id)).toEqual(withoutSetup)
+  })
+
+  it("hides integrations from roles that can neither connect nor retry", () => {
+    // Connect writes are admin+ and delivery retries are office — a
+    // technician or accountant would only see a wall of 403s.
+    const expected = NAV
+      .filter(item => item.id !== "setup" && item.id !== "integrations")
+      .map(item => item.id)
+    expect(visibleNav("technician").map(item => item.id)).toEqual(expected)
+    expect(visibleNav("accountant").map(item => item.id)).toEqual(expected)
+    // Office roles keep it.
+    expect(visibleNav("dispatcher").map(item => item.id)).toContain("integrations")
+    expect(visibleNav("manager").map(item => item.id)).toContain("integrations")
   })
 })
